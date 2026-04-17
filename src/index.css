@@ -1,0 +1,184 @@
+/* FILE: src/index.css */
+/* PURPOSE: CSS custom properties (design tokens) + Tailwind v4 theme configuration */
+/* DESIGN REF: Wireframe colour system + vaqct_slide.svg palette */
+
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────
+   DESIGN TOKENS — CSS Custom Properties
+   Source: Impact_Dashboard_Wireframes_15_Apr.pdf
+          + vaqct_slide.svg (pending verification)
+   ──────────────────────────────────────────────── */
+
+:root {
+  /* ── Dashboard Blues (wireframe primary palette) ── */
+  --color-navy:             #1A2B4A;
+  --color-navy-mid:         #1E3A5F;
+  --color-blue-panel:       #3B5BA5;
+  --color-blue-header:      #2E4B8F;
+  --color-blue-link:        #4A90D9;
+  --color-blue-light:       #5DADE2;
+  --color-blue-pale:        #EAF3FB;
+
+  /* ── A-PAG Brand (extracted from logo) ── */
+  --color-ink:              #111111;
+  --color-accent:           #EEE815;
+  --color-accent-hover:     #D4D013;
+  --color-accent-soft:      #FFFDE0;
+
+  /* ── Page & Surface ── */
+  --color-page:             #FFFFFF;
+  --color-surface:          #F5F3EC;
+  --color-surface-grey:     #F0F0F0;
+  --color-surface-warm:     #FFF8E7;
+  --color-surface-light:    #F7F7F7;
+
+  /* ── Borders & Dividers ── */
+  --color-border:           #D3D1C7;
+  --color-border-blue:      #7EB3E0;
+  --color-border-table:     #D0D5DD;
+  --color-divider-dashed:   #E5E7EB;
+
+  /* ── Text ── */
+  --color-text-primary:     #111827;
+  --color-text-secondary:   #4B5563;
+  --color-text-muted:       #9CA3AF;
+  --color-text-white:       #FFFFFF;
+  --color-text-blue-link:   #4A90D9;
+  --color-text-orange:      #E07B2A;
+
+  /* ── Completion Bar Thresholds ── */
+  --color-bar-high:         #1B5E20;
+  --color-bar-high-rem:     #4CAF50;
+  --color-bar-mid:          #8BC34A;
+  --color-bar-mid-rem:      #CDDC39;
+  --color-bar-low:          #6D0D1A;
+  --color-bar-low-rem:      #E91E63;
+
+  /* ── Semantic ── */
+  --color-success:          #2D6A4F;
+  --color-success-light:    #EAF3DE;
+  --color-warning:          #D97706;
+  --color-danger:           #A32D2D;
+  --color-danger-light:     #FDECEA;
+
+  /* ── Map City Indicators ── */
+  --color-map-on-track:     #4CAF50;
+  --color-map-off-track:    #E53935;
+  --color-map-haryana:      #A8D5A2;
+  --color-map-up:           #F9E4A0;
+  --color-map-delhi:        #7EB3E0;
+  --color-map-rajasthan:    #FFFACD;
+
+  /* ── Excel Template ── */
+  --color-cell-locked:      #D3D3D3;
+  --color-cell-editable:    #FFFFFF;
+  --color-cell-highlight:   #FFF9C4;
+}
+
+/* ────────────────────────────────────────────────
+   TAILWIND v4 THEME — maps CSS vars to utilities
+   Usage: bg-navy, text-blue-link, border-border-table, etc.
+   ──────────────────────────────────────────────── */
+
+@theme inline {
+  --font-sans: var(--font-inter);
+
+  /* Dashboard Blues */
+  --color-navy:           var(--color-navy);
+  --color-navy-mid:       var(--color-navy-mid);
+  --color-blue-panel:     var(--color-blue-panel);
+  --color-blue-header:    var(--color-blue-header);
+  --color-blue-link:      var(--color-blue-link);
+  --color-blue-light:     var(--color-blue-light);
+  --color-blue-pale:      var(--color-blue-pale);
+
+  /* A-PAG Brand */
+  --color-ink:            var(--color-ink);
+  --color-accent:         var(--color-accent);
+  --color-accent-hover:   var(--color-accent-hover);
+  --color-accent-soft:    var(--color-accent-soft);
+
+  /* Page & Surface */
+  --color-page:           var(--color-page);
+  --color-surface:        var(--color-surface);
+  --color-surface-grey:   var(--color-surface-grey);
+  --color-surface-warm:   var(--color-surface-warm);
+  --color-surface-light:  var(--color-surface-light);
+
+  /* Borders & Dividers */
+  --color-border:         var(--color-border);
+  --color-border-blue:    var(--color-border-blue);
+  --color-border-table:   var(--color-border-table);
+  --color-divider-dashed: var(--color-divider-dashed);
+
+  /* Text */
+  --color-text-primary:   var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted:     var(--color-text-muted);
+  --color-text-white:     var(--color-text-white);
+  --color-text-blue-link: var(--color-text-blue-link);
+  --color-text-orange:    var(--color-text-orange);
+
+  /* Completion Bar */
+  --color-bar-high:       var(--color-bar-high);
+  --color-bar-high-rem:   var(--color-bar-high-rem);
+  --color-bar-mid:        var(--color-bar-mid);
+  --color-bar-mid-rem:    var(--color-bar-mid-rem);
+  --color-bar-low:        var(--color-bar-low);
+  --color-bar-low-rem:    var(--color-bar-low-rem);
+
+  /* Semantic */
+  --color-success:        var(--color-success);
+  --color-success-light:  var(--color-success-light);
+  --color-warning:        var(--color-warning);
+  --color-danger:         var(--color-danger);
+  --color-danger-light:   var(--color-danger-light);
+
+  /* Map */
+  --color-map-on-track:   var(--color-map-on-track);
+  --color-map-off-track:  var(--color-map-off-track);
+  --color-map-haryana:    var(--color-map-haryana);
+  --color-map-up:         var(--color-map-up);
+  --color-map-delhi:      var(--color-map-delhi);
+  --color-map-rajasthan:  var(--color-map-rajasthan);
+
+  /* Excel */
+  --color-cell-locked:    var(--color-cell-locked);
+  --color-cell-editable:  var(--color-cell-editable);
+  --color-cell-highlight: var(--color-cell-highlight);
+
+  /* Typography scale */
+  --text-2xs:          10px;
+  --text-2xs--line-height: 14px;
+  --text-xs:           11px;
+  --text-xs--line-height:  16px;
+  --text-sm:           12px;
+  --text-sm--line-height:  18px;
+  --text-base:         14px;
+  --text-base--line-height: 20px;
+  --text-lg:           16px;
+  --text-lg--line-height:   24px;
+  --text-xl:           18px;
+  --text-xl--line-height:   28px;
+  --text-2xl:          24px;
+  --text-2xl--line-height:  32px;
+  --text-3xl:          32px;
+  --text-3xl--line-height:  40px;
+}
+
+/* ────────────────────────────────────────────────
+   BASE RESETS
+   ──────────────────────────────────────────────── */
+
+body {
+  background: var(--color-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
