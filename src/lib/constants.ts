@@ -396,6 +396,7 @@ export const MOCK_DETAIL_TABLE = MOCK_DETAIL_TABLE_ALL;
 // Keyed by initiative slug. Each has rows for cities with realistic metrics.
 
 function makeUploadRows(
+  initiativeName: string,
   cities: string[],
   metrics: { name: string; type: 'outcome' | 'progress' | 'readiness'; unit: string; hasDates?: boolean }[],
   filledCities: string[],
@@ -403,8 +404,12 @@ function makeUploadRows(
   const rows: UploadRow[] = [];
   for (const city of cities) {
     const hasFill = filledCities.includes(city);
+    const state = CITY_STATE_MAP[city] ?? city;
     for (const m of metrics) {
       rows.push({
+        state,
+        city,
+        initiative: initiativeName,
         geography: city,
         metric: m.name,
         metricType: m.type,
@@ -426,58 +431,63 @@ function makeUploadRows(
 const ALL_CITIES_ORDERED = ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad', 'Gurugram', 'Rohtak', 'Panipat', 'Neemrana', 'Alwar'];
 
 export const MOCK_UPLOAD_BY_INITIATIVE: Record<string, UploadRow[]> = {
-  'naya-safar-yojana': makeUploadRows(ALL_CITIES_ORDERED, [
+  'naya-safar-yojana': makeUploadRows('Naya Safar Yojana', ALL_CITIES_ORDERED, [
     { name: 'Pre-BS VI trucks / buses converted', type: 'outcome', unit: 'vehicles' },
     { name: 'No. of Events Conducted', type: 'outcome', unit: '-' },
     { name: 'No. of Events Planned', type: 'progress', unit: '-' },
     { name: 'No. of Outlets Activated', type: 'progress', unit: '-' },
   ], ['Delhi', 'Noida', 'Gurugram']),
 
-  'cd-iccc': makeUploadRows(ALL_CITIES_ORDERED, [
+  'cd-iccc': makeUploadRows('C&D - ICCC', ALL_CITIES_ORDERED, [
     { name: '# sites integrated in ICCC', type: 'outcome', unit: 'sites' },
     { name: '# cameras installed', type: 'progress', unit: '-' },
     { name: '# sites identified for ICCC', type: 'readiness', unit: '-' },
   ], ['Delhi', 'Gurugram', 'Noida']),
 
-  'cems-apcd': makeUploadRows(ALL_CITIES_ORDERED, [
+  'cems-apcd': makeUploadRows('CEMS/APCD installation', ALL_CITIES_ORDERED, [
     { name: '# industries with CEMS installed', type: 'outcome', unit: 'industries' },
     { name: '# industries with APCDs installed', type: 'outcome', unit: 'industries' },
     { name: '# industries identified for CEMS/APCD', type: 'progress', unit: '-' },
     { name: '# show-cause notices issued', type: 'progress', unit: '-' },
   ], ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad']),
 
-  'road-repair': makeUploadRows(ALL_CITIES_ORDERED, [
+  'road-repair': makeUploadRows('Road Repair', ALL_CITIES_ORDERED, [
     { name: 'Km road-length repaired', type: 'outcome', unit: 'km' },
     { name: 'No. of roads identified for repair', type: 'progress', unit: '-' },
     { name: 'No. of roads surveyed', type: 'readiness', unit: '-' },
   ], ['Delhi', 'Gurugram', 'Rohtak', 'Panipat']),
 
-  'green-bsvi': makeUploadRows(ALL_CITIES_ORDERED, [
+  'green-bsvi': makeUploadRows('Green BSVI', ALL_CITIES_ORDERED, [
     { name: '# tolls with Green BSVI collection initiated', type: 'outcome', unit: 'tolls' },
     { name: 'Green BSVI amount collected', type: 'outcome', unit: 'INR Cr' },
     { name: '# tolls identified for Green BSVI', type: 'progress', unit: '-' },
   ], ['Delhi', 'Gurugram', 'Panipat', 'Alwar']),
 
-  'cd-scc': makeUploadRows(ALL_CITIES_ORDERED, [
+  'cd-scc': makeUploadRows('C&D - SCC', ALL_CITIES_ORDERED, [
     { name: 'No. of SCC setup achieved', type: 'outcome', unit: '-' },
     { name: 'Total quantum of malba received at SCC', type: 'outcome', unit: 'MMT', hasDates: true },
     { name: 'No. of SCC identified (land parcels earmarked)', type: 'progress', unit: '-' },
     { name: 'No. of SCC required', type: 'readiness', unit: '-' },
-  ], ['Delhi', 'Noida', 'Gurugram']),
+  ], ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad']),
 
-  'greening': makeUploadRows(ALL_CITIES_ORDERED, [
+  'greening': makeUploadRows('Greening', ALL_CITIES_ORDERED, [
     { name: 'Phase 1 greening action plan zones completed', type: 'outcome', unit: 'zones' },
     { name: 'No. of saplings planted', type: 'outcome', unit: '-' },
     { name: 'No. of zones identified', type: 'progress', unit: '-' },
   ], ['Delhi', 'Noida', 'Gurugram', 'Rohtak', 'Neemrana']),
 
-  'mrs': makeUploadRows(ALL_CITIES_ORDERED, [
+  'mrs': makeUploadRows('MRS', ALL_CITIES_ORDERED, [
     { name: 'Route coverage achieved', type: 'outcome', unit: 'routes' },
     { name: 'MRS: Road coverage', type: 'outcome', unit: 'km', hasDates: true },
     { name: 'No. of vehicles deployed', type: 'progress', unit: '-' },
     { name: 'No. of routes planned', type: 'readiness', unit: '-' },
   ], ['Delhi', 'Noida', 'Gurugram', 'Greater Noida', 'Rohtak']),
 };
+
+// Flat list across every initiative — used as the primary data source by
+// the Manual Data Upload page (wireframe page 11), where rows are filtered
+// in-place via column-header dropdowns rather than a separate filter bar.
+export const MOCK_UPLOAD_ROWS_ALL: UploadRow[] = Object.values(MOCK_UPLOAD_BY_INITIATIVE).flat();
 
 // Legacy flat export
 export const MOCK_UPLOAD_ROWS: UploadRow[] = MOCK_UPLOAD_BY_INITIATIVE['cd-scc'];

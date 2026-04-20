@@ -1,88 +1,80 @@
 // FILE: src/pages/UploadPage.tsx
-// PURPOSE: Interactive upload page — per-initiative data, cascading filters, download/upload
-// DESIGN REF: Wireframe pages 11–12 (Manual Data Upload + Excel Template)
+// PURPOSE: Manual Data Upload screen — single flat editable table with in-header
+//          filter menus; Download / Upload template actions in the top-right.
+// DESIGN REF: Wireframe page 11 of Impact_Dashboard_Structure_16_Apr.pdf
 
-import { useMemo, useRef, useState } from 'react';
-import { Download, Upload, CheckCircle, AlertCircle } from 'lucide-react';
-import TopBar from '@/components/layout/TopBar';
-import FilterPill from '@/components/ui/FilterPill';
-import EditableDataTable from '@/components/ui/EditableDataTable';
-import ExcelTemplatePreview from '@/components/ui/ExcelTemplatePreview';
+import { useRef, useState } from 'react';
 import {
-  UPLOAD_STATE_OPTIONS,
-  UPLOAD_CITY_OPTIONS_BY_STATE,
-  UPLOAD_INITIATIVE_SLUG_MAP,
-  MOCK_UPLOAD_BY_INITIATIVE,
-} from '@/lib/constants';
+  CheckCircle,
+  AlertCircle,
+  Download,
+  Upload,
+  ChevronDown,
+} from 'lucide-react';
+import TopBar from '@/components/layout/TopBar';
+import EditableDataTable from '@/components/ui/EditableDataTable';
+import { MOCK_UPLOAD_ROWS_ALL } from '@/lib/constants';
 import type { UploadRow } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 type UploadStatusType = 'idle' | 'success' | 'error' | 'warning';
-
 interface UploadStatus {
   type: UploadStatusType;
   message: string;
 }
 
-const INITIATIVE_NAMES = Object.keys(UPLOAD_INITIATIVE_SLUG_MAP);
 const CSV_HEADERS = [
-  'Geography',
+  'State',
+  'City',
+  'Initiative',
   'Metric',
   'Metric Type',
   'Target Val',
   'Current Val',
   'Unit',
   'New Val',
-  'Last Updated',
-  'Last Updated By',
   'Start Date',
   'End Date',
   'Remarks',
+  'Last Updated',
+  'Last Updated By',
 ] as const;
 
-const EMPTY_UPLOAD_STATUS: UploadStatus = {
-  type: 'idle',
-  message: '',
-};
+const EMPTY_UPLOAD_STATUS: UploadStatus = { type: 'idle', message: '' };
 
-function toAccessKey(geography: string, metric: string): string {
-  return `${geography}::${metric}`;
+function rowKey(r: { state: string; city: string; initiative: string; metric: string }) {
+  return `${r.state}::${r.city}::${r.initiative}::${r.metric}`;
 }
 
-function normalizeHeader(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+function normalizeHeader(v: string) {
+  return v.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
-
   for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const nextChar = line[i + 1];
-
-    if (char === '"' && inQuotes && nextChar === '"') {
+    const ch = line[i];
+    const next = line[i + 1];
+    if (ch === '"' && inQuotes && next === '"') {
       current += '"';
       i += 1;
       continue;
     }
-
-    if (char === '"') {
+    if (ch === '"') {
       inQuotes = !inQuotes;
       continue;
     }
-
-    if (char === ',' && !inQuotes) {
+    if (ch === ',' && !inQuotes) {
       result.push(current);
       current = '';
       continue;
     }
-
-    current += char;
+    current += ch;
   }
-
   result.push(current);
-  return result.map((cell) => cell.trim());
+  return result.map((c) => c.trim());
 }
 
 function parseCsv(text: string): string[][] {
@@ -90,110 +82,74 @@ function parseCsv(text: string): string[][] {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .split('\n')
-    .filter((line) => line.trim().length > 0)
+    .filter((l) => l.trim().length > 0)
     .map(parseCsvLine);
 }
 
-function escapeCsvCell(value: unknown): string {
-  const str = String(value ?? '');
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return `"${str.replace(/"/g, '""')}"`;
+function escapeCsvCell(v: unknown): string {
+  const s = String(v ?? '');
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`;
   }
-  return str;
+  return s;
 }
 
 export default function UploadPage() {
-  const [initiative, setInitiative] = useState(INITIATIVE_NAMES[0]);
-  const [state, setState] = useState<string>('All');
-  const [city, setCity] = useState<string>('All');
-  const [uploadStatus, setUploadStatus] = useState<UploadStatus>(EMPTY_UPLOAD_STATUS);
+  const [rows, setRows] = useState<UploadRow[]>(() =>
+    MOCK_UPLOAD_ROWS_ALL.map((r) => ({ ...r })),
+  );
+  const [status, setStatus] = useState<UploadStatus>(EMPTY_UPLOAD_STATUS);
   const fileRef = useRef<HTMLInputElement>(null);
-  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const slug = UPLOAD_INITIATIVE_SLUG_MAP[initiative] ?? 'naya-safar-yojana';
-
-  const [rowsByInitiative, setRowsByInitiative] = useState<Record<string, UploadRow[]>>(() => {
-    const copy: Record<string, UploadRow[]> = {};
-    for (const [key, rows] of Object.entries(MOCK_UPLOAD_BY_INITIATIVE)) {
-      copy[key] = rows.map((r) => ({ ...r }));
-    }
-    return copy;
-  });
-
-  const stateOptions = ['All', ...UPLOAD_STATE_OPTIONS];
-
-  const cityOptions = useMemo(() => {
-    if (state === 'All') {
-      return ['All', ...Object.values(UPLOAD_CITY_OPTIONS_BY_STATE).flat()];
-    }
-    const cities = UPLOAD_CITY_OPTIONS_BY_STATE[state] ?? [];
-    return ['All', ...cities];
-  }, [state]);
-
-  const filteredRows = useMemo(() => {
-    const allRows = rowsByInitiative[slug] ?? [];
-    let filtered = allRows;
-    if (city !== 'All') {
-      filtered = filtered.filter((r) => r.geography === city);
-    } else if (state !== 'All') {
-      const stateCities = UPLOAD_CITY_OPTIONS_BY_STATE[state] ?? [];
-      filtered = filtered.filter((r) => stateCities.includes(r.geography));
-    }
-    return filtered;
-  }, [rowsByInitiative, slug, state, city]);
-
-  function handleStateChange(v: string) {
-    setState(v);
-    setCity('All');
+  function showStatus(type: UploadStatusType, message: string) {
+    setStatus({ type, message });
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    statusTimerRef.current = setTimeout(
+      () => setStatus(EMPTY_UPLOAD_STATUS),
+      5000,
+    );
   }
 
-  function handleNewValChange(filteredIndex: number, value: string) {
-    const targetRow = filteredRows[filteredIndex];
-    if (!targetRow) return;
-    setRowsByInitiative((prev) => ({
-      ...prev,
-      [slug]: prev[slug].map((r) =>
-        r.geography === targetRow.geography && r.metric === targetRow.metric
-          ? { ...r, newVal: value }
-          : r,
-      ),
-    }));
+  function onNewValChange(row: UploadRow, value: string) {
+    const key = rowKey(row);
+    setRows((prev) =>
+      prev.map((r) => (rowKey(r) === key ? { ...r, newVal: value } : r)),
+    );
   }
 
-  function showUploadStatus(type: UploadStatusType, message: string): void {
-    setUploadStatus({ type, message });
-    if (statusTimeoutRef.current) {
-      clearTimeout(statusTimeoutRef.current);
-    }
-    statusTimeoutRef.current = setTimeout(() => {
-      setUploadStatus(EMPTY_UPLOAD_STATUS);
-      statusTimeoutRef.current = null;
-    }, 5000);
+  function onRemarksChange(row: UploadRow, value: string) {
+    const key = rowKey(row);
+    setRows((prev) =>
+      prev.map((r) => (rowKey(r) === key ? { ...r, remarks: value } : r)),
+    );
   }
 
   function handleDownload() {
-    const csvRows = filteredRows.map((r) => [
-      r.geography,
+    const body = rows.map((r) => [
+      r.state,
+      r.city,
+      r.initiative,
       r.metric,
       r.metricType,
       r.targetVal ?? '',
       r.currentVal ?? '',
       r.unit,
       r.newVal,
-      r.lastUpdated,
-      r.lastUpdatedBy,
       r.startDate,
       r.endDate,
       r.remarks,
+      r.lastUpdated,
+      r.lastUpdatedBy,
     ]);
-    const csv = [CSV_HEADERS, ...csvRows]
-      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
+    const csv = [CSV_HEADERS, ...body]
+      .map((row) => row.map(escapeCsvCell).join(','))
       .join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `upload-template-${slug}.csv`;
+    a.download = `manual-data-upload-template.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -205,166 +161,116 @@ export default function UploadPage() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const fileName = file.name.toLowerCase();
+    const name = file.name.toLowerCase();
 
-    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx')) {
-      showUploadStatus('error', 'Invalid file type. Please upload CSV or XLSX.');
+    if (!name.endsWith('.csv') && !name.endsWith('.xlsx')) {
+      showStatus('error', 'Invalid file type. Please upload CSV or XLSX.');
       e.target.value = '';
       return;
     }
-
-    if (fileName.endsWith('.xlsx')) {
-      // TODO: replace with real XLSX parsing + validation
-      showUploadStatus('warning', 'For this demo, please upload the downloaded CSV template.');
+    if (name.endsWith('.xlsx')) {
+      showStatus('warning', 'For this demo, please upload the downloaded CSV template.');
       e.target.value = '';
       return;
     }
 
     try {
       const raw = await file.text();
-      const rows = parseCsv(raw);
-      if (rows.length < 2) {
-        showUploadStatus('error', 'Uploaded file is empty. Download a fresh template and try again.');
+      const parsed = parseCsv(raw);
+      if (parsed.length < 2) {
+        showStatus('error', 'Uploaded file is empty. Download a fresh template and try again.');
         e.target.value = '';
         return;
       }
 
-      const header = rows[0];
+      const header = parsed[0].map(normalizeHeader);
       const expected = CSV_HEADERS.map(normalizeHeader);
-      const actual = header.map(normalizeHeader);
-      const headerMatches =
-        expected.length === actual.length &&
-        expected.every((h, idx) => h === actual[idx]);
-      if (!headerMatches) {
-        showUploadStatus('error', 'Template mismatch. Please use the latest downloaded template.');
+      const match =
+        header.length === expected.length &&
+        expected.every((h, idx) => h === header[idx]);
+      if (!match) {
+        showStatus('error', 'Template mismatch. Please use the latest downloaded template.');
         e.target.value = '';
         return;
       }
 
-      const geographyIdx = header.findIndex((h) => normalizeHeader(h) === normalizeHeader('Geography'));
-      const metricIdx = header.findIndex((h) => normalizeHeader(h) === normalizeHeader('Metric'));
-      const newValIdx = header.findIndex((h) => normalizeHeader(h) === normalizeHeader('New Val'));
-      if (geographyIdx === -1 || metricIdx === -1 || newValIdx === -1) {
-        showUploadStatus('error', 'Template is missing required columns: Geography, Metric, New Val.');
-        e.target.value = '';
-        return;
-      }
+      const idx = (name: string) => expected.indexOf(normalizeHeader(name));
+      const iState = idx('State');
+      const iCity = idx('City');
+      const iInit = idx('Initiative');
+      const iMetric = idx('Metric');
+      const iNewVal = idx('New Val');
+      const iRemarks = idx('Remarks');
 
-      const accessibleKeys = new Set(filteredRows.map((r) => toAccessKey(r.geography, r.metric)));
-      let updatedRows = 0;
-      let ignoredRows = 0;
-      let unmatchedRows = 0;
+      let updated = 0;
+      let skipped = 0;
 
-      setRowsByInitiative((prev) => {
-        const next = [...(prev[slug] ?? [])];
-        const indexByKey = new Map(
-          next.map((row, idx) => [toAccessKey(row.geography, row.metric), idx]),
-        );
-
-        for (const row of rows.slice(1)) {
-          const geography = (row[geographyIdx] ?? '').trim();
-          const metric = (row[metricIdx] ?? '').trim();
-          const newVal = (row[newValIdx] ?? '').trim();
-          if (!geography || !metric) {
-            unmatchedRows += 1;
+      setRows((prev) => {
+        const map = new Map(prev.map((r, i) => [rowKey(r), i]));
+        const next = [...prev];
+        for (const r of parsed.slice(1)) {
+          const key = rowKey({
+            state: r[iState],
+            city: r[iCity],
+            initiative: r[iInit],
+            metric: r[iMetric],
+          });
+          const target = map.get(key);
+          if (target === undefined) {
+            skipped += 1;
             continue;
           }
-
-          const key = toAccessKey(geography, metric);
-          if (!accessibleKeys.has(key)) {
-            ignoredRows += 1;
-            continue;
-          }
-
-          const rowIndex = indexByKey.get(key);
-          if (rowIndex === undefined) {
-            unmatchedRows += 1;
-            continue;
-          }
-
-          next[rowIndex] = {
-            ...next[rowIndex],
-            newVal,
+          next[target] = {
+            ...next[target],
+            newVal: (r[iNewVal] ?? '').trim(),
+            remarks: (r[iRemarks] ?? '').trim(),
           };
-          updatedRows += 1;
+          updated += 1;
         }
-
-        return {
-          ...prev,
-          [slug]: next,
-        };
+        return next;
       });
 
-      if (updatedRows > 0 && ignoredRows === 0 && unmatchedRows === 0) {
-        showUploadStatus('success', `Upload successful. ${updatedRows} rows updated.`);
-      } else if (updatedRows > 0) {
-        showUploadStatus(
+      if (updated > 0 && skipped === 0) {
+        showStatus('success', `Upload successful. ${updated} rows updated.`);
+      } else if (updated > 0) {
+        showStatus(
           'warning',
-          `Upload partially applied: ${updatedRows} updated, ${ignoredRows} not in your access, ${unmatchedRows} unmatched.`,
+          `Upload partially applied: ${updated} updated, ${skipped} row(s) outside your access were ignored.`,
         );
       } else {
-        showUploadStatus(
-          'warning',
-          'No rows were updated. Please upload rows from your assigned template.',
-        );
+        showStatus('warning', 'No rows were updated. Please upload rows from your assigned template.');
       }
     } catch {
-      showUploadStatus('error', 'Could not read uploaded file. Please download a fresh template and retry.');
+      showStatus('error', 'Could not read uploaded file. Please download a fresh template and retry.');
     }
-
     e.target.value = '';
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <TopBar
-        activePage="upload"
-        pageTitle="MANUAL DATA UPLOAD SCREEN"
-        showBackToSummary
-      />
+    <div className="flex h-screen flex-col overflow-hidden bg-white">
+      <TopBar activePage="upload" pageTitle="MANUAL DATA UPLOAD SCREEN" showBackToSummary />
 
-      <div className="flex flex-1 flex-col">
-        {/* ── FILTER BAR + ACTIONS ── */}
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-[var(--color-navy-mid)] px-4 py-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterPill
-              label="Initiative"
-              options={INITIATIVE_NAMES}
-              value={initiative}
-              onChange={setInitiative}
-            />
-            <div className="mx-1 h-6 w-px bg-white/20" />
-            <FilterPill
-              label="State"
-              options={stateOptions as unknown as string[]}
-              value={state}
-              onChange={handleStateChange}
-            />
-            <FilterPill
-              label="City"
-              options={cityOptions}
-              value={city}
-              onChange={setCity}
-            />
+      <main className="flex min-h-0 flex-1 flex-col bg-[var(--color-surface-light)]">
+        {/* ── Header strip with Download / Upload actions ── */}
+        <div className="flex shrink-0 items-start justify-between gap-4 px-4 pt-3">
+          {/* Left: wireframe orange callout pointing at the Download button */}
+          <div className="relative hidden max-w-[320px] pt-2 md:block">
+            <Callout>
+              User can alternatively upload excel to update data
+            </Callout>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+          <div className="flex flex-wrap items-center gap-2">
+            <ActionButton
+              icon={Download}
+              label="Download template"
               onClick={handleDownload}
-              className="flex min-h-[40px] items-center gap-2 rounded-md bg-[var(--color-success)] px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Download template</span>
-            </button>
-            <button
-              type="button"
+            />
+            <ActionButton
+              icon={Upload}
+              label="Upload updated data"
               onClick={handleUploadClick}
-              className="flex min-h-[40px] items-center gap-2 rounded-md bg-[var(--color-success)] px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-            >
-              <Upload className="h-4 w-4" />
-              <span>Upload updated data</span>
-            </button>
+            />
             <input
               ref={fileRef}
               type="file"
@@ -376,52 +282,103 @@ export default function UploadPage() {
           </div>
         </div>
 
-        {/* Upload status */}
-        {uploadStatus.type !== 'idle' && (
+        {/* Upload status toast */}
+        {status.type !== 'idle' ? (
           <div
-            className={
-              uploadStatus.type === 'success'
-                ? 'flex items-center gap-2 bg-[var(--color-success-light)] px-4 py-2 text-xs font-medium text-[var(--color-success)]'
-                : uploadStatus.type === 'warning'
-                  ? 'flex items-center gap-2 bg-[var(--color-surface-warm)] px-4 py-2 text-xs font-medium text-[var(--color-warning)]'
-                  : 'flex items-center gap-2 bg-[var(--color-danger-light)] px-4 py-2 text-xs font-medium text-[var(--color-danger)]'
-            }
-          >
-            {uploadStatus.type === 'success' ? (
-              <>
-                <CheckCircle className="h-4 w-4" /> {uploadStatus.message}
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-4 w-4" /> {uploadStatus.message}
-              </>
+            className={cn(
+              'mx-4 mt-2 flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium',
+              status.type === 'success'
+                ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
+                : status.type === 'warning'
+                ? 'bg-[var(--color-surface-warm)] text-[var(--color-warning)]'
+                : 'bg-[var(--color-danger-light)] text-[var(--color-danger)]',
             )}
+          >
+            {status.type === 'success' ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            {status.message}
           </div>
-        )}
+        ) : null}
 
-        {/* ── EDITABLE DATA TABLE ── */}
-        <div className="flex-1 overflow-auto p-4">
-          {filteredRows.length > 0 ? (
-            <EditableDataTable rows={filteredRows} onNewValChange={handleNewValChange} />
-          ) : (
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-[var(--color-border-table)]">
-              <p className="text-sm text-[var(--color-text-muted)]">
-                No data available for this filter combination
-              </p>
+        {/* ── Table ── */}
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+          <EditableDataTable
+            rows={rows}
+            onNewValChange={onNewValChange}
+            onRemarksChange={onRemarksChange}
+            minVisibleRows={0}
+          />
+
+          {/* Access-control callout (wireframe) */}
+          <div className="mt-3 flex items-start justify-between gap-4">
+            <p className="text-[10px] italic text-[var(--color-text-muted)]">
+              Table continues till all rows relevant to the user are displayed
+            </p>
+            <div className="max-w-sm">
+              <Callout>
+                Access control: The portal will only allow update of the data
+                that the user has been shared access
+              </Callout>
             </div>
-          )}
+          </div>
 
-          <p className="mt-3 text-[var(--color-text-muted)]" style={{ fontSize: 10 }}>
-            Data will only be input for the lowest level, and then aggregated to the
-            nearest upper level; the UI will only show the rows relevant to the user.
+          {/* Footnote copy verbatim from wireframe */}
+          <p
+            className="mt-3 leading-snug text-[var(--color-text-secondary)]"
+            style={{ fontSize: 10 }}
+          >
+            Note: Data will only be input for the lowest level, and then
+            aggregated to the nearest upper level; the UI will only show the
+            rows relevant to the user (e.g. ULB of Noida will not be shown rows
+            for Delhi); "Start date" and "End date" columns will be blanked out
+            except for metrics "Total quantum of malba received at SCC" and
+            "MRS: Road coverage" due to their repetitive nature; "Download
+            template" will download an excel (having locked columns) of the
+            latest data, which the user can edit and upload to the portal to
+            update the data.
           </p>
         </div>
+      </main>
+    </div>
+  );
+}
 
-        {/* ── EXCEL TEMPLATE PREVIEW ── */}
-        <div className="shrink-0 border-t border-[var(--color-divider-dashed)] p-4">
-          <ExcelTemplatePreview />
-        </div>
-      </div>
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof Download;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex min-h-[36px] items-center gap-2 rounded-md border border-[var(--color-border-table)] bg-white px-4 py-1.5',
+        'text-xs font-medium text-[var(--color-text-primary)] shadow-sm',
+        'hover:bg-[var(--color-blue-pale)]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
+      )}
+    >
+      <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-[var(--color-success-light)]">
+        <Icon className="h-3 w-3 text-[var(--color-success)]" />
+      </span>
+      {label}
+      <ChevronDown className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
+    </button>
+  );
+}
+
+function Callout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative rounded-md bg-[var(--color-text-orange)] px-3 py-2 text-xs font-semibold leading-snug text-white shadow">
+      {children}
     </div>
   );
 }
