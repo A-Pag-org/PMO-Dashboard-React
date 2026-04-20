@@ -32,12 +32,12 @@ export const INITIATIVES: Initiative[] = [
       ],
     },
     metrics: [
-      { name: 'Pre-BS VI trucks / buses converted', type: 'outcome', target: 76496, achieved: 15300, unit: 'vehicles' },
-      { name: 'No. of Events Conducted', type: 'outcome', target: 300, achieved: 120 },
-      { name: 'No. of Events Planned', type: 'progress', target: 300, achieved: 180 },
-      { name: 'No. of Outlets Activated', type: 'progress', target: 1500, achieved: 950 },
-      { name: 'EOIs and Scrapping Requests', type: 'progress', target: 200000, achieved: 50000 },
-      { name: 'PSBs / NBFCs Onboarded', type: 'progress', target: 7, achieved: 5, geographyLevel: 'central' },
+      { name: 'No. of pre-BSVI trucks converted', type: 'outcome', target: 76496, achieved: 38248, unit: 'vehicles' },
+      { name: 'No. of pre-BSVI buses converted', type: 'outcome', target: 10000, achieved: 6500, unit: 'vehicles' },
+      { name: 'No. of events conducted', type: 'outcome', target: 300, achieved: 81 },
+      { name: 'No. of events planned', type: 'progress', target: null, achieved: null },
+      { name: 'No. of outlets activated for fuel voucher acceptance', type: 'progress', target: 1500, achieved: 285 },
+      { name: 'No. of PSBs / NBFCs onboarded', type: 'progress', target: 100, achieved: 78, geographyLevel: 'central' },
     ],
   },
   {
