@@ -110,14 +110,7 @@ export default function TopBar({
           <div className="h-[36px] w-[170px]" aria-hidden />
         )}
 
-        <span
-          className={cn(
-            'rounded-full px-4 py-1 text-xs font-semibold tracking-wide text-[var(--color-text-white)]',
-            activePage === 'summary'
-              ? 'bg-[var(--color-text-orange)]'
-              : 'bg-[var(--color-navy)]',
-          )}
-        >
+        <span className="rounded-full bg-[var(--color-text-orange)] px-4 py-1 text-xs font-semibold tracking-wide text-[var(--color-text-white)]">
           {pageTitle}
         </span>
 
