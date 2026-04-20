@@ -86,6 +86,13 @@ export interface DetailTableRow {
 }
 
 export interface UploadRow {
+  /** State the row belongs to (derived from `CITY_STATE_MAP`). */
+  state: string;
+  /** City / ULB — the "lowest level" at which data is captured. */
+  city: string;
+  /** Initiative name, e.g. "C&D - SCC". */
+  initiative: string;
+  /** @deprecated use `city`; kept for backwards compatibility. */
   geography: string;
   metric: string;
   metricType: MetricType;
