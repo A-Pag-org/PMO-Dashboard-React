@@ -15,11 +15,22 @@ import type {
 
 // ─── 8 Initiatives (grid order from wireframe pages 7–8) ───────────────
 
+// Order (left→right, top→bottom) matches wireframe page 7:
+//   Row 1:  Naya Safar Yojana | CEMS/APCD installation | Road Repair | MRS
+//   Row 2:  C&D - SCC         | C&D - ICCC             | Green BSVI  | Greening
 export const INITIATIVES: Initiative[] = [
   {
     name: 'Naya Safar Yojana',
     slug: 'naya-safar-yojana',
-    primaryMetric: 'Pre-BSIV buses/trucks converted',
+    primaryMetric: 'No. of pre-BS VI buses / trucks converted',
+    summaryCard: {
+      description: 'No. of pre-BS VI buses / trucks converted',
+      variant: 'dual-bar',
+      bars: [
+        { label: 'Trucks', target: 100, achieved: 50 },
+        { label: 'Buses',  target: 100, achieved: 70 },
+      ],
+    },
     metrics: [
       { name: 'Pre-BS VI trucks / buses converted', type: 'outcome', target: 76496, achieved: 15300, unit: 'vehicles' },
       { name: 'No. of Events Conducted', type: 'outcome', target: 300, achieved: 120 },
@@ -30,17 +41,17 @@ export const INITIATIVES: Initiative[] = [
     ],
   },
   {
-    name: 'C&D - ICCC',
-    slug: 'cd-iccc',
-    primaryMetric: '# sites integrated in ICCC',
-    metrics: [
-      { name: '# sites integrated in ICCC', type: 'outcome', target: 100, achieved: 45 },
-    ],
-  },
-  {
-    name: 'CEMS/APCD Installation',
+    name: 'CEMS/APCD installation',
     slug: 'cems-apcd',
-    primaryMetric: '# industries with CEMS / APCDs installed',
+    primaryMetric: 'No. of industrial units where CEMS / APCDs installation completed',
+    summaryCard: {
+      description: 'No. of industrial units where CEMS / APCDs installation completed',
+      variant: 'dual-bar',
+      bars: [
+        { label: 'CEMS',  target: 100, achieved: 28 },
+        { label: 'APCDs', target: 100, achieved: 44 },
+      ],
+    },
     metrics: [
       { name: '# industries with CEMS / APCDs installed', type: 'outcome', target: 500, achieved: 210 },
     ],
@@ -48,23 +59,41 @@ export const INITIATIVES: Initiative[] = [
   {
     name: 'Road Repair',
     slug: 'road-repair',
-    primaryMetric: 'Km road-length repaired',
+    primaryMetric: 'Road length for which repairs completed (km)',
+    summaryCard: {
+      description: 'Road length for which repairs completed (km)',
+      variant: 'donut',
+      donut: { target: 100, achieved: 73 },
+    },
     metrics: [
       { name: 'Km road-length repaired', type: 'outcome', target: 1200, achieved: 780 },
     ],
   },
   {
-    name: 'Green Cess',
-    slug: 'green-cess',
-    primaryMetric: '# tolls with cess collection initiated',
+    name: 'MRS',
+    slug: 'mrs',
+    primaryMetric: 'No. of MRS operational',
+    summaryCard: {
+      description: 'No. of MRS operational',
+      variant: 'dual-bar',
+      bars: [
+        { label: '>15 mt',   target: 100, achieved: 50 },
+        { label: '10-15 mt', target: 100, achieved: 70 },
+      ],
+    },
     metrics: [
-      { name: '# tolls with cess collection initiated', type: 'outcome', target: 50, achieved: 32 },
+      { name: 'Route coverage achieved', type: 'outcome', target: 200, achieved: 140 },
     ],
   },
   {
     name: 'C&D - SCC',
     slug: 'cd-scc',
-    primaryMetric: '# SCC setup achieved',
+    primaryMetric: 'No. of SCCs operationalized',
+    summaryCard: {
+      description: 'No. of SCCs operationalized',
+      variant: 'donut',
+      donut: { target: 100, achieved: 60 },
+    },
     metrics: [
       { name: 'No. of SCC setup achieved', type: 'outcome', target: 500, achieved: 200 },
       { name: 'Total quantum of malba received at SCC', type: 'outcome', target: 400, achieved: 50, unit: 'MMT' },
@@ -73,19 +102,42 @@ export const INITIATIVES: Initiative[] = [
     ],
   },
   {
-    name: 'Greening',
-    slug: 'greening',
-    primaryMetric: 'Phase 1 implementation of greening action plan initiated',
+    name: 'C&D - ICCC',
+    slug: 'cd-iccc',
+    primaryMetric: 'No. of sites registered and connected with ICCC',
+    summaryCard: {
+      description: 'No. of sites registered and connected with ICCC',
+      variant: 'donut',
+      donut: { target: 100, achieved: 90 },
+    },
     metrics: [
-      { name: 'Phase 1 implementation of greening action plan initiated', type: 'outcome', target: 100, achieved: 60 },
+      { name: '# sites integrated in ICCC', type: 'outcome', target: 100, achieved: 45 },
     ],
   },
   {
-    name: 'MRS',
-    slug: 'mrs',
-    primaryMetric: 'Route coverage achieved',
+    name: 'Green BSVI',
+    slug: 'green-bsvi',
+    primaryMetric: 'No. of tolls where Green BSVI collection initiated',
+    summaryCard: {
+      description: 'No. of tolls where Green BSVI collection initiated',
+      variant: 'donut',
+      donut: { target: 100, achieved: 20 },
+    },
     metrics: [
-      { name: 'Route coverage achieved', type: 'outcome', target: 200, achieved: 140 },
+      { name: '# tolls with Green BSVI collection initiated', type: 'outcome', target: 50, achieved: 32 },
+    ],
+  },
+  {
+    name: 'Greening',
+    slug: 'greening',
+    primaryMetric: 'Area of land greened (hectares)',
+    summaryCard: {
+      description: 'Area of land greened (hectares)',
+      variant: 'donut',
+      donut: { target: 100, achieved: 90 },
+    },
+    metrics: [
+      { name: 'Phase 1 implementation of greening action plan initiated', type: 'outcome', target: 100, achieved: 60 },
     ],
   },
 ];
@@ -205,7 +257,7 @@ export const MOCK_SUMMARY_BY_INITIATIVE: Record<string, InitiativeSummaryData> =
     ],
     center: { value: 780, label: 'Km Road-Length Repaired', subtitle: '780 / 1,200 km' },
   },
-  'green-cess': {
+  'green-bsvi': {
     table: [
       { state: 'Delhi',         target: 15, achieved: 14, completion: 93 },
       { state: 'Uttar Pradesh', target: 12, achieved: 8,  completion: 67 },
@@ -218,7 +270,7 @@ export const MOCK_SUMMARY_BY_INITIATIVE: Record<string, InitiativeSummaryData> =
       { name: 'Haryana',        value: 6,  onTrack: true,  label: '6 tolls' },
       { name: 'Rajasthan',      value: 4,  onTrack: false, label: '4 tolls' },
     ],
-    center: { value: 32, label: 'Tolls with Cess Collection', subtitle: '32 / 50 tolls' },
+    center: { value: 32, label: 'Tolls with Green BSVI Collection', subtitle: '32 / 50 tolls' },
   },
   'cd-scc': {
     table: [
@@ -400,10 +452,10 @@ export const MOCK_UPLOAD_BY_INITIATIVE: Record<string, UploadRow[]> = {
     { name: 'No. of roads surveyed', type: 'readiness', unit: '-' },
   ], ['Delhi', 'Gurugram', 'Rohtak', 'Panipat']),
 
-  'green-cess': makeUploadRows(ALL_CITIES_ORDERED, [
-    { name: '# tolls with cess collection initiated', type: 'outcome', unit: 'tolls' },
-    { name: 'Cess amount collected', type: 'outcome', unit: 'INR Cr' },
-    { name: '# tolls identified for cess', type: 'progress', unit: '-' },
+  'green-bsvi': makeUploadRows(ALL_CITIES_ORDERED, [
+    { name: '# tolls with Green BSVI collection initiated', type: 'outcome', unit: 'tolls' },
+    { name: 'Green BSVI amount collected', type: 'outcome', unit: 'INR Cr' },
+    { name: '# tolls identified for Green BSVI', type: 'progress', unit: '-' },
   ], ['Delhi', 'Gurugram', 'Panipat', 'Alwar']),
 
   'cd-scc': makeUploadRows(ALL_CITIES_ORDERED, [
@@ -435,9 +487,9 @@ export const MOCK_UPLOAD_ROWS: UploadRow[] = MOCK_UPLOAD_BY_INITIATIVE['cd-scc']
 export const UPLOAD_INITIATIVE_SLUG_MAP: Record<string, string> = {
   'Naya Safar Yojana': 'naya-safar-yojana',
   'C&D - ICCC': 'cd-iccc',
-  'CEMS/APCD Installation': 'cems-apcd',
+  'CEMS/APCD installation': 'cems-apcd',
   'Road Repair': 'road-repair',
-  'Green Cess': 'green-cess',
+  'Green BSVI': 'green-bsvi',
   'C&D - SCC': 'cd-scc',
   'Greening': 'greening',
   'MRS': 'mrs',
