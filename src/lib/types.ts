@@ -15,11 +15,34 @@ export interface Metric {
   geographyLevel?: 'state' | 'city' | 'rto' | 'central';
 }
 
+export interface SummaryCardBar {
+  label: string;
+  target: number;
+  achieved: number;
+}
+
+export interface SummaryCardConfig {
+  /** Short description shown directly under the card title. */
+  description: string;
+  /**
+   * 'donut' shows a single ring with the % in the centre and X/Y below.
+   * 'dual-bar' shows two horizontal bars with sub-metric labels on the left
+   * and X/Y values on the right (wireframe page 7).
+   */
+  variant: 'donut' | 'dual-bar';
+  /** Required when variant === 'donut'. */
+  donut?: { label?: string; target: number; achieved: number };
+  /** Required when variant === 'dual-bar'. */
+  bars?: [SummaryCardBar, SummaryCardBar];
+}
+
 export interface Initiative {
   name: string;
   slug: string;
   primaryMetric: string;
   metrics: Metric[];
+  /** Presentation config for the Summary page initiative card (wireframe page 7). */
+  summaryCard?: SummaryCardConfig;
 }
 
 export interface Geography {
