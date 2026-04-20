@@ -3,7 +3,7 @@
 // DESIGN REF: Wireframe pages 7–11 — redesigned for clarity + ease of use
 
 import { Link } from 'react-router-dom';
-import { Home, BarChart3, Search, Upload, ArrowRight } from 'lucide-react';
+import { Home, BarChart3, Search, Upload } from 'lucide-react';
 import DashboardSwitcher from './DashboardSwitcher';
 import { signOut } from '@/lib/auth';
 import { cn } from '@/lib/utils';
@@ -23,13 +23,6 @@ const NAV_TABS: { key: Exclude<ActivePage, 'all-data'>; label: string; href: str
   { key: 'detail',   label: 'Detailed Report', href: '/dashboard/detail',  icon: Search },
   { key: 'upload',   label: 'Enter Data',      href: '/dashboard/upload',  icon: Upload },
 ];
-
-const BREADCRUMB_LABELS: Record<ActivePage, string> = {
-  summary: 'Summary',
-  detail: 'Detailed Report',
-  'all-data': 'Full Data Table',
-  upload: 'Data Entry',
-};
 
 export default function TopBar({
   activePage,
@@ -115,56 +108,6 @@ export default function TopBar({
         </span>
 
         <div className="h-[36px] w-[170px]" aria-hidden />
-      </div>
-
-      <nav
-        aria-label="Breadcrumb"
-        className="flex items-center gap-2 border-b border-[var(--color-border-table)] bg-[var(--color-surface-light)] px-4 py-1.5 text-xs"
-      >
-        <span className="font-medium text-[var(--color-text-secondary)]">You are here:</span>
-        <Link
-          to="/home"
-          className="text-[var(--color-blue-link)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1"
-        >
-          Home
-        </Link>
-        <span className="text-[var(--color-text-muted)]">/</span>
-        <Link
-          to="/dashboard/summary"
-          className="text-[var(--color-blue-link)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1"
-        >
-          Impact Dashboard
-        </Link>
-        <span className="text-[var(--color-text-muted)]">/</span>
-        <span
-          className="font-medium text-[var(--color-text-secondary)]"
-          aria-current="page"
-        >
-          {BREADCRUMB_LABELS[activePage]}
-        </span>
-      </nav>
-
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-table)] bg-white px-4 py-2">
-        <span className="text-xs font-semibold text-[var(--color-text-secondary)]">Quick actions:</span>
-        <Link
-          to="/dashboard/summary"
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-md bg-[var(--color-navy)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-        >
-          Summary
-        </Link>
-        <Link
-          to="/dashboard/detail"
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-md bg-[var(--color-navy)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-        >
-          Detailed Report
-          <ArrowRight className="h-3 w-3" />
-        </Link>
-        <Link
-          to="/dashboard/upload"
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-md bg-[var(--color-navy)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-        >
-          Enter Data
-        </Link>
       </div>
     </header>
   );
