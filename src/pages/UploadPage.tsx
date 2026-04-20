@@ -312,34 +312,6 @@ export default function UploadPage() {
             minVisibleRows={0}
           />
 
-          {/* Access-control callout (wireframe) */}
-          <div className="mt-3 flex items-start justify-between gap-4">
-            <p className="text-[10px] italic text-[var(--color-text-muted)]">
-              Table continues till all rows relevant to the user are displayed
-            </p>
-            <div className="max-w-sm">
-              <Callout>
-                Access control: The portal will only allow update of the data
-                that the user has been shared access
-              </Callout>
-            </div>
-          </div>
-
-          {/* Footnote copy verbatim from wireframe */}
-          <p
-            className="mt-3 leading-snug text-[var(--color-text-secondary)]"
-            style={{ fontSize: 10 }}
-          >
-            Note: Data will only be input for the lowest level, and then
-            aggregated to the nearest upper level; the UI will only show the
-            rows relevant to the user (e.g. ULB of Noida will not be shown rows
-            for Delhi); "Start date" and "End date" columns will be blanked out
-            except for metrics "Total quantum of malba received at SCC" and
-            "MRS: Road coverage" due to their repetitive nature; "Download
-            template" will download an excel (having locked columns) of the
-            latest data, which the user can edit and upload to the portal to
-            update the data.
-          </p>
         </div>
       </main>
     </div>

@@ -333,14 +333,6 @@ export default function DetailPage() {
         </section>
       </main>
 
-      {/* Footnote verbatim from wireframe page 8 */}
-      <p className="shrink-0 border-t border-[var(--color-border-table)] bg-white px-4 py-1.5 text-[10px] leading-snug text-[var(--color-text-secondary)]">
-        Note: Page will also contain readiness metrics for the applicable initiatives; the first outcome metric of the
-        filtered initiative will be selected by default; for metrics that are at the central level (like "PSBs / NBFCs
-        onboarded"), the map will only show a value in the center bubble; view toggle adapts to selected geography.
-        E.g., selecting Uttar Pradesh (All) shows only "City" and "RTO" views.
-      </p>
-
       <BottomBar showDetailedView={false} showAllDataView={false} showManualData />
     </div>
   );
