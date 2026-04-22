@@ -17,7 +17,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function RedirectIfAuthed({ children }: { children: React.ReactNode }) {
   if (isAuthenticated()) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/dashboard/summary" replace />;
   }
   return <>{children}</>;
 }
@@ -34,6 +34,9 @@ export default function App() {
           </RedirectIfAuthed>
         }
       />
+      {/* Legacy dashboard-selection landing page — kept accessible for
+          reference, but users now land directly on the Impact Dashboard
+          after sign-in. */}
       <Route
         path="/home"
         element={

@@ -27,7 +27,7 @@ export default function LoginPage() {
       void password;
       await new Promise((resolve) => setTimeout(resolve, 150));
       signIn();
-      navigate('/home', { replace: true });
+      navigate('/dashboard/summary', { replace: true });
     } catch {
       setSubmitError('Unable to sign in right now. Please try again.');
       setIsSubmitting(false);
