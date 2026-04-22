@@ -1,38 +1,37 @@
 // FILE: components/layout/DashboardSwitcher.tsx
-// PURPOSE: Prominent Action-Plan Dashboard tab in the top-right corner of the
-//          Impact Dashboard, with a secondary AQI link for the future phase.
-// DESIGN REF: Users land on the Impact Dashboard after sign-in and can hop
-//          across to the Action-Plan Dashboard via this tab.
+// PURPOSE: Single prominent "Action-Plan Dashboard" tab in the top-right of
+//          the Impact Dashboard header. One-click hop to the sibling app.
+//          (AQI Dashboard link has been removed per product direction.)
 
 import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DashboardSwitcherProps {
   className?: string;
+  /**
+   * Optional override for the Action-Plan Dashboard target URL. Falls back
+   * to `#` when not configured so the button stays visible in this repo.
+   */
+  actionPlanHref?: string;
 }
 
-export default function DashboardSwitcher({ className }: DashboardSwitcherProps) {
+export default function DashboardSwitcher({
+  className,
+  actionPlanHref = '#',
+}: DashboardSwitcherProps) {
   return (
-    <div className={cn('flex items-center gap-2', className)}>
-      <a
-        href="#"
-        className={cn(
-          'inline-flex min-h-[32px] items-center gap-1.5 rounded-t-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors',
-          'bg-[var(--color-accent)] text-[var(--color-ink)]',
-          'hover:brightness-95',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-ink)]',
-        )}
-        aria-label="Open Action-Plan Dashboard"
-      >
-        <span>Action-Plan Dashboard</span>
-        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-      </a>
-      <span
-        className="hidden text-[10px] text-white/45 sm:inline"
-        title="AQI Dashboard integration is planned for a later phase"
-      >
-        AQI Dashboard (later)
-      </span>
-    </div>
+    <a
+      href={actionPlanHref}
+      className={cn(
+        'inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[var(--color-blue-header)] bg-[var(--color-blue-header)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition-colors sm:text-sm',
+        'hover:bg-[var(--color-navy-mid)] hover:border-[var(--color-navy-mid)]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
+        className,
+      )}
+      aria-label="Open Action-Plan Dashboard"
+    >
+      <span>Action-Plan Dashboard</span>
+      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+    </a>
   );
 }
