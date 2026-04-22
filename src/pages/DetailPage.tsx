@@ -27,16 +27,18 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import MetricCard from '@/components/ui/MetricCard';
-import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
+import DelhiNCRMap, { STATE_BUBBLE_POSITIONS } from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
 import {
   INITIATIVES,
   STATES,
   CITY_STATE_MAP,
+  RTO_OPTIONS_BY_CITY,
   MOCK_DETAIL_MAP_DATA,
   MOCK_DETAIL_CENTER_BUBBLE,
   MOCK_SUMMARY_BY_INITIATIVE,
 } from '@/lib/constants';
+import type { MapDataPoint } from '@/lib/types';
 import type { ViewLevel, Metric } from '@/lib/types';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 
@@ -86,9 +88,68 @@ export default function DetailPage() {
   const effectiveViewLabel: ViewLabel = availableViewLevels.includes(currentViewLabel)
     ? currentViewLabel
     : availableViewLevels[0];
+  const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
 
-  const filteredMapData = useMemo(() => {
-    if (isCentralLevelMetric) return [];
+  // Map data is view-level aware:
+  //   State → draw one bubble per state (from the per-initiative state
+  //           summary), narrowed to the active state if one is picked.
+  //   City  → draw city-level bubbles, narrowed by area.
+  //   RTO   → draw synthesized RTO bubbles around the active city. When
+  //           no city is picked, show nothing + an inline hint.
+  const { mapData, rtoPositions, emptyHint } = useMemo(() => {
+    if (isCentralLevelMetric) {
+      return {
+        mapData: [] as MapDataPoint[],
+        rtoPositions: undefined,
+        emptyHint: 'This metric is tracked centrally.',
+      };
+    }
+
+    if (effectiveViewLevel === 'state') {
+      const stateBubbles = summaryData?.map ?? [];
+      const data = area.state
+        ? stateBubbles.filter((d) => d.name === area.state)
+        : stateBubbles;
+      return { mapData: data, rtoPositions: undefined, emptyHint: undefined };
+    }
+
+    if (effectiveViewLevel === 'rto') {
+      if (!area.city) {
+        return {
+          mapData: [] as MapDataPoint[],
+          rtoPositions: undefined,
+          emptyHint: 'Select a city to view RTOs.',
+        };
+      }
+      const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
+      const cityRow = MOCK_DETAIL_MAP_DATA.find((d) => d.name === area.city);
+      const base = cityRow?.value ?? 0;
+      const anchor = STATE_BUBBLE_POSITIONS[area.city] ?? { x: 185, y: 165 };
+      const perRtoValue = Math.max(1, Math.round(base / Math.max(1, rtos.length)));
+      const data: MapDataPoint[] = rtos.map((name) => ({
+        name,
+        value: perRtoValue,
+        onTrack: cityRow?.onTrack ?? true,
+      }));
+      // Lay the RTO bubbles in a tight ring around the city anchor so
+      // they visibly re-centre when the user switches the toggle.
+      const positions: Record<string, { x: number; y: number }> = {};
+      const radius = rtos.length > 4 ? 46 : 36;
+      rtos.forEach((name, idx) => {
+        const angle = (2 * Math.PI * idx) / Math.max(1, rtos.length) - Math.PI / 2;
+        positions[name] = {
+          x: anchor.x + radius * Math.cos(angle),
+          y: anchor.y + radius * Math.sin(angle),
+        };
+      });
+      return {
+        mapData: data,
+        rtoPositions: positions,
+        emptyHint: rtos.length === 0 ? `No RTOs recorded for ${area.city}.` : undefined,
+      };
+    }
+
+    // City view
     let data = MOCK_DETAIL_MAP_DATA;
     if (area.state) {
       data = data.filter((d) => CITY_STATE_MAP[d.name] === area.state);
@@ -96,8 +157,8 @@ export default function DetailPage() {
     if (area.city) {
       data = data.filter((d) => d.name === area.city);
     }
-    return data;
-  }, [isCentralLevelMetric, area]);
+    return { mapData: data, rtoPositions: undefined, emptyHint: undefined };
+  }, [isCentralLevelMetric, effectiveViewLevel, area, summaryData]);
 
   const areaLabel = area.rto
     ? area.rto
@@ -168,8 +229,10 @@ export default function DetailPage() {
           <div className="flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
             <div className="h-full w-full max-w-[560px]">
               <DelhiNCRMap
-                data={filteredMapData}
+                data={mapData}
                 centerBubble={summaryData?.center ?? MOCK_DETAIL_CENTER_BUBBLE}
+                positionOverrides={rtoPositions}
+                emptyHint={emptyHint}
                 onBubbleClick={(name) => {
                   const isState = STATES.includes(name as (typeof STATES)[number]);
                   if (isState) {
@@ -179,6 +242,13 @@ export default function DetailPage() {
                   const mappedState = CITY_STATE_MAP[name];
                   if (mappedState) {
                     setArea({ state: mappedState, city: name });
+                    return;
+                  }
+                  // Name doesn't map to a known state or city — most likely
+                  // a synthesized RTO bubble. Drill down to RTO under the
+                  // currently-selected city.
+                  if (area.city) {
+                    setArea({ state: area.state, city: area.city, rto: name });
                   }
                 }}
               />

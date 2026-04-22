@@ -12,6 +12,14 @@ interface DelhiNCRMapProps {
   data: MapDataPoint[];
   centerBubble: MapCenterBubble;
   onBubbleClick?: (name: string) => void;
+  /**
+   * Optional per-name position overrides, merged on top of the built-in
+   * state / city positions. Used for synthetic bubbles (e.g. RTOs under a
+   * selected city) that don't have real geographic coordinates.
+   */
+  positionOverrides?: Record<string, { x: number; y: number }>;
+  /** Optional message to show in place of bubbles when `data` is empty. */
+  emptyHint?: string;
 }
 
 const REGION_PATHS = {
@@ -37,7 +45,7 @@ const REGION_PATHS = {
   },
 } as const;
 
-const STATE_BUBBLE_POSITIONS: Record<string, { x: number; y: number }> = {
+export const STATE_BUBBLE_POSITIONS: Record<string, { x: number; y: number }> = {
   Haryana:          { x: 65,  y: 100 },
   'Uttar Pradesh':  { x: 310, y: 130 },
   Delhi:            { x: 175, y: 75 },
@@ -67,9 +75,15 @@ export default function DelhiNCRMap({
   data,
   centerBubble,
   onBubbleClick,
+  positionOverrides,
+  emptyHint,
 }: DelhiNCRMapProps) {
   const shouldReduceMotion = useReducedMotion();
   const [hoveredBubble, setHoveredBubble] = useState<{ x: number; y: number; name: string } | null>(null);
+  const positions: Record<string, { x: number; y: number }> = {
+    ...STATE_BUBBLE_POSITIONS,
+    ...(positionOverrides ?? {}),
+  };
 
   return (
     <svg
@@ -126,7 +140,7 @@ export default function DelhiNCRMap({
 
       {/* ── Data bubbles (on top of center bubble) ── */}
       {data.map((point, i) => {
-        const pos = STATE_BUBBLE_POSITIONS[point.name];
+        const pos = positions[point.name];
         if (!pos) return null;
 
         return (
@@ -145,6 +159,30 @@ export default function DelhiNCRMap({
           </motion.g>
         );
       })}
+
+      {data.length === 0 && emptyHint ? (
+        <g pointerEvents="none" transform="translate(190, 330)">
+          <rect
+            x={-90}
+            y={-11}
+            width={180}
+            height={20}
+            rx={10}
+            fill="var(--color-surface-light)"
+            stroke="var(--color-border)"
+            strokeWidth={0.8}
+          />
+          <text
+            x={0}
+            y={3}
+            textAnchor="middle"
+            fill="var(--color-text-secondary)"
+            style={{ fontSize: 8, fontWeight: 500 }}
+          >
+            {emptyHint}
+          </text>
+        </g>
+      ) : null}
 
       {hoveredBubble ? (
         <g pointerEvents="none" transform={`translate(${hoveredBubble.x}, ${hoveredBubble.y})`}>
