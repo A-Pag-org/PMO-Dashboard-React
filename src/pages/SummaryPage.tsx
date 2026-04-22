@@ -20,9 +20,14 @@ const STATE_FILTER_OPTIONS = ['All - Delhi NCR', ...STATES] as const;
 type StateFilter = (typeof STATE_FILTER_OPTIONS)[number];
 
 export default function SummaryPage() {
-  // TODO: when API is wired up, re-query card data using selectedState.
-  // For now the selector drives UI only — the mock data is NCR-wide.
   const [selectedState, setSelectedState] = useState<StateFilter>('All - Delhi NCR');
+  // `null` means NCR-wide; otherwise a specific state name.
+  const stateForCards: string | null =
+    selectedState === 'All - Delhi NCR' ? null : selectedState;
+  const headerLabel =
+    selectedState === 'All - Delhi NCR'
+      ? 'Overall Delhi-NCR Performance'
+      : `${selectedState} — State Performance`;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
@@ -31,7 +36,7 @@ export default function SummaryPage() {
       {/* ── Section header with State dropdown ── */}
       <div className="flex shrink-0 items-center justify-between bg-[var(--color-blue-header)] px-5 py-2">
         <h1 className="text-base font-bold text-[var(--color-text-white)]">
-          Overall Delhi-NCR Performance
+          {headerLabel}
         </h1>
         <label className="flex items-center gap-2 text-xs font-medium text-white/90">
           <span className="sr-only">State filter</span>
@@ -63,7 +68,11 @@ export default function SummaryPage() {
           style={{ gridAutoRows: 'minmax(180px, 1fr)' }}
         >
           {INITIATIVES.map((init) => (
-            <InitiativeCard key={init.slug} initiative={init} />
+            <InitiativeCard
+              key={init.slug}
+              initiative={init}
+              selectedState={stateForCards}
+            />
           ))}
         </div>
       </main>
