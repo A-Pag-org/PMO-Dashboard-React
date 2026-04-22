@@ -1,114 +1,108 @@
 // FILE: src/components/layout/TopBar.tsx
-// PURPOSE: Persistent top bar with A-PAG brand, page tab navigation, dashboard switchers
-// DESIGN REF: Wireframe pages 7–11 — redesigned for clarity + ease of use
+// PURPOSE: Persistent top bar for senior-government users.
+//   - Left: hamburger menu (opens the SidePanel drawer) + brand + page title.
+//   - Right: prominent "Action-Plan Dashboard" tab + Sign out.
+//
+// Design rationale:
+//   Users expect a Clean-Air-Dashboard-style layout: a single clean header
+//   with a hamburger on the far left that opens the page list as a drawer,
+//   and a one-click jump to the sibling Action-Plan Dashboard on the right.
+//   The previous horizontal tab row and the redundant orange page-title pill
+//   have been removed in favour of this pattern.
 
-import { Link } from 'react-router-dom';
-import { Home, BarChart3, Search, Upload } from 'lucide-react';
+import { useState } from 'react';
+import { Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import SidePanel from './SidePanel';
 import DashboardSwitcher from './DashboardSwitcher';
 import { signOut } from '@/lib/auth';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
 
 export type ActivePage = 'summary' | 'detail' | 'all-data' | 'upload';
 
 interface TopBarProps {
-  activePage: ActivePage;
-  pageTitle: string;
+  /** Kept for API compatibility — the SidePanel derives active state from the URL. */
+  activePage?: ActivePage;
+  /** Kept for API compatibility — no longer rendered (orange pill removed). */
+  pageTitle?: string;
+  /** Kept for API compatibility — navigation lives in the SidePanel now. */
   showBackToSummary?: boolean;
   className?: string;
 }
 
-const NAV_TABS: { key: Exclude<ActivePage, 'all-data'>; label: string; href: string; icon: typeof BarChart3 }[] = [
-  { key: 'summary',  label: 'Summary',         href: '/dashboard/summary', icon: BarChart3 },
-  { key: 'detail',   label: 'Detailed Report', href: '/dashboard/detail',  icon: Search },
-  { key: 'upload',   label: 'Enter Data',      href: '/dashboard/upload',  icon: Upload },
-];
-
-export default function TopBar({
-  activePage,
-  pageTitle,
-  showBackToSummary = false,
-  className,
-}: TopBarProps) {
+export default function TopBar({ className }: TopBarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  function handleSignOut(e: React.MouseEvent<HTMLButtonElement>) {
-    e.preventDefault();
+  function handleSignOut() {
     signOut();
     navigate('/login', { replace: true });
   }
 
   return (
-    <header className={cn('shrink-0', className)}>
-      {/* ── Top strip: brand + switchers ── */}
-      <div className="flex items-center justify-between bg-[var(--color-ink)] px-5 py-1.5">
-        <Link
-          to="/home"
-          className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-ink)]"
-          aria-label="Back to Dashboard Selection"
-        >
-          <span className="flex h-7 w-7 items-center justify-center rounded bg-[var(--color-accent)]">
-            <Home className="h-4 w-4 text-[var(--color-ink)]" />
-          </span>
-        </Link>
-        <div className="flex items-center gap-3">
-          <DashboardSwitcher />
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="text-xs text-white/60 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-ink)]"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-
-      {/* ── Tab navigation bar ── */}
-      <nav className="flex bg-[var(--color-navy)]" aria-label="Dashboard pages">
-        {NAV_TABS.map((tab) => {
-          const isActive =
-            tab.key === activePage ||
-            (activePage === 'all-data' && tab.key === 'detail');
-          const Icon = tab.icon;
-          return (
-            <Link
-              key={tab.key}
-              to={tab.href}
-              className={cn(
-                'flex min-h-[44px] flex-1 items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-inset',
-                isActive
-                  ? 'border-b-[3px] border-[var(--color-accent)] bg-[var(--color-navy-mid)] text-[var(--color-accent)]'
-                  : 'border-b-[3px] border-transparent text-white/70 hover:bg-[var(--color-navy-mid)] hover:text-white',
-              )}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="flex items-center justify-between bg-white px-4 py-2">
-        {showBackToSummary ? (
-          <Link
-            to="/dashboard/summary"
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded px-2 text-xs font-medium text-[var(--color-blue-link)] transition-colors hover:bg-[var(--color-blue-pale)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-          >
-            <Home className="h-3.5 w-3.5" />
-            Back to Summary page
-          </Link>
-        ) : (
-          <div className="h-[36px] w-[170px]" aria-hidden />
+    <>
+      <header
+        className={cn(
+          'shrink-0 border-b border-[var(--color-border)] bg-white',
+          className,
         )}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+          {/* ── Left: hamburger + brand + title ── */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className={cn(
+                'flex h-10 w-10 items-center justify-center rounded-md text-[var(--color-text-primary)] transition-colors',
+                'hover:bg-[var(--color-surface-grey)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
+              )}
+              aria-label="Open navigation menu"
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
 
-        <span className="rounded-full bg-[var(--color-text-orange)] px-4 py-1 text-xs font-semibold tracking-wide text-[var(--color-text-white)]">
-          {pageTitle}
-        </span>
+            <div className="flex items-center gap-2.5">
+              <span
+                className="hidden h-8 w-8 items-center justify-center rounded bg-[var(--color-ink)] text-[var(--color-accent)] sm:flex"
+                aria-hidden
+              >
+                <span className="text-sm font-black">A</span>
+              </span>
+              <div className="leading-tight">
+                <h1 className="text-base font-bold tracking-wide text-[var(--color-blue-header)] sm:text-lg">
+                  IMPACT DASHBOARD
+                </h1>
+                <p className="hidden text-[11px] text-[var(--color-text-secondary)] sm:block">
+                  A-PAG · Delhi-NCR air-quality action tracking
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <div className="h-[36px] w-[170px]" aria-hidden />
-      </div>
-    </header>
+          {/* ── Right: Action-Plan tab + sign out ── */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <DashboardSwitcher />
+            <span className="hidden h-6 w-px bg-[var(--color-border)] sm:inline-block" aria-hidden />
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className={cn(
+                'hidden text-xs font-medium text-[var(--color-text-secondary)] transition-colors sm:inline-flex',
+                'hover:text-[var(--color-text-primary)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
+              )}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <SidePanel open={menuOpen} onClose={() => setMenuOpen(false)} />
+    </>
   );
 }
