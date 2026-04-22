@@ -64,14 +64,9 @@ export default function TopBar({ className }: TopBarProps) {
               >
                 <span className="text-sm font-black">A</span>
               </span>
-              <div className="leading-tight">
-                <h1 className="text-base font-bold tracking-wide text-[var(--color-blue-header)] sm:text-lg">
-                  IMPACT DASHBOARD
-                </h1>
-                <p className="hidden text-[11px] text-[var(--color-text-secondary)] sm:block">
-                  A-PAG · Delhi-NCR air-quality action tracking
-                </p>
-              </div>
+              <h1 className="text-base font-bold tracking-wide text-[var(--color-blue-header)] sm:text-lg">
+                IMPACT DASHBOARD
+              </h1>
             </div>
           </div>
 

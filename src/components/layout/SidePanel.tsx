@@ -17,6 +17,8 @@ import type { LucideIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import DetailFiltersPanel from './DetailFiltersPanel';
+import { useDetailFilters } from '@/lib/useDetailFilters';
 
 export interface SidePanelProps {
   open: boolean;
@@ -53,6 +55,10 @@ const NAV_ITEMS: NavItem[] = [
 export default function SidePanel({ open, onClose }: SidePanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { area, initiativeName, setArea, setInitiativeName } = useDetailFilters();
+  const onDetailPage =
+    location.pathname === '/dashboard/detail' ||
+    location.pathname.startsWith('/dashboard/detail/');
 
   useEffect(() => {
     if (!open) return;
@@ -103,10 +109,7 @@ export default function SidePanel({ open, onClose }: SidePanelProps) {
             <span className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-accent)] text-[var(--color-ink)]">
               <span className="text-sm font-black">A</span>
             </span>
-            <div className="leading-tight">
-              <p className="text-sm font-semibold">Impact Dashboard</p>
-              <p className="text-[11px] text-white/60">A-PAG</p>
-            </div>
+            <p className="text-sm font-semibold leading-tight">Impact Dashboard</p>
           </div>
           <button
             type="button"
@@ -126,6 +129,8 @@ export default function SidePanel({ open, onClose }: SidePanelProps) {
               const isActive =
                 location.pathname === item.href ||
                 (item.matches?.some((m) => location.pathname.startsWith(m)) ?? false);
+              const showDetailFilters =
+                item.href === '/dashboard/detail' && onDetailPage;
               return (
                 <li key={item.href}>
                   <Link
@@ -148,6 +153,15 @@ export default function SidePanel({ open, onClose }: SidePanelProps) {
                     />
                     <span>{item.label}</span>
                   </Link>
+                  {showDetailFilters ? (
+                    <DetailFiltersPanel
+                      area={area}
+                      initiativeName={initiativeName}
+                      onAreaChange={setArea}
+                      onInitiativeChange={setInitiativeName}
+                      onNavigate={onClose}
+                    />
+                  ) : null}
                 </li>
               );
             })}
