@@ -11,7 +11,7 @@
 //                Delhi-NCR map
 //        Right — "Outcome metrics" (then "Progress metrics", then "Readiness
 //                metrics") lists
-//   4. Footnote matching the PDF + BottomBar with "Enter data"
+//   Navigation to other pages lives in the SidePanel drawer (hamburger).
 
 import { useMemo, useState } from 'react';
 import {
@@ -26,7 +26,6 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import TopBar from '@/components/layout/TopBar';
-import BottomBar from '@/components/layout/BottomBar';
 import AreaFilter from '@/components/ui/AreaFilter';
 import type { AreaSelection } from '@/components/ui/AreaFilter';
 import MetricCard from '@/components/ui/MetricCard';
@@ -332,8 +331,6 @@ export default function DetailPage() {
           ) : null}
         </section>
       </main>
-
-      <BottomBar showDetailedView={false} showAllDataView={false} showManualData />
     </div>
   );
 }
