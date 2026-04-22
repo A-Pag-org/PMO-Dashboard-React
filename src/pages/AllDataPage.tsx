@@ -6,7 +6,6 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowUpDown } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
-import BottomBar from '@/components/layout/BottomBar';
 import FilterPill from '@/components/ui/FilterPill';
 import DataTable from '@/components/ui/DataTable';
 import {
@@ -190,8 +189,6 @@ export default function AllDataPage() {
             </div>
           )}
         </div>
-
-        <BottomBar showDetailedView={false} showManualData />
       </div>
     </div>
   );

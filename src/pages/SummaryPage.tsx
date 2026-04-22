@@ -3,15 +3,16 @@
 // DESIGN REF: Wireframe page 7 of Impact_Dashboard_Structure_16_Apr.pdf
 //
 // Layout (top → bottom):
-//   1. Persistent TopBar
+//   1. Persistent TopBar (hamburger opens the SidePanel nav drawer)
 //   2. "Overall Delhi-NCR Performance" blue header with State dropdown on right
 //   3. Grid of 8 initiative cards (2 rows × 4 columns)
-//   4. Persistent BottomBar (Detailed report + Enter data)
+//
+// Navigation to Detailed Report / Enter Data lives in the SidePanel drawer,
+// so no persistent BottomBar is needed here.
 
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
-import BottomBar from '@/components/layout/BottomBar';
 import InitiativeCard from '@/components/ui/InitiativeCard';
 import { INITIATIVES, STATES } from '@/lib/constants';
 
@@ -66,8 +67,6 @@ export default function SummaryPage() {
           ))}
         </div>
       </main>
-
-      <BottomBar showDetailedView showManualData />
     </div>
   );
 }

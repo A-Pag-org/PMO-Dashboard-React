@@ -12,10 +12,8 @@
 
 import { useState } from 'react';
 import { Menu } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import SidePanel from './SidePanel';
 import DashboardSwitcher from './DashboardSwitcher';
-import { signOut } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 export type ActivePage = 'summary' | 'detail' | 'all-data' | 'upload';
@@ -32,12 +30,6 @@ interface TopBarProps {
 
 export default function TopBar({ className }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const navigate = useNavigate();
-
-  function handleSignOut() {
-    signOut();
-    navigate('/login', { replace: true });
-  }
 
   return (
     <>
@@ -83,21 +75,9 @@ export default function TopBar({ className }: TopBarProps) {
             </div>
           </div>
 
-          {/* ── Right: Action-Plan tab + sign out ── */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* ── Right: Action-Plan tab (Sign out lives in the drawer) ── */}
+          <div className="flex items-center">
             <DashboardSwitcher />
-            <span className="hidden h-6 w-px bg-[var(--color-border)] sm:inline-block" aria-hidden />
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className={cn(
-                'hidden text-xs font-medium text-[var(--color-text-secondary)] transition-colors sm:inline-flex',
-                'hover:text-[var(--color-text-primary)]',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
-              )}
-            >
-              Sign out
-            </button>
           </div>
         </div>
       </header>
