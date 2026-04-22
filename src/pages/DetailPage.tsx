@@ -1,17 +1,19 @@
 // FILE: src/pages/DetailPage.tsx
-// PURPOSE: Detailed view — cascading Area filter + Initiative selector, split
-//          panel with map (left) and outcome/progress/readiness metrics (right).
-// DESIGN REF: Wireframe pages 8-9 of Impact_Dashboard_Structure_16_Apr.pdf
+// PURPOSE: Detailed view — split panel with map (left) and
+//          outcome/progress/readiness metrics (right).
+//
+// Filters (Area, Programme, See all data) live in the SidePanel drawer
+// under the "Detailed Report" nav entry — they are backed by URL query
+// params via useDetailFilters, so both the drawer and this page read from
+// the same source of truth.
 //
 // Layout (top -> bottom):
-//   1. Persistent TopBar + orange "DETAILED VIEW (1/2)" pill
-//   2. Filter strip (navy): [Area filter] ...... [Initiative] ...... [See all data]
+//   1. Persistent TopBar (hamburger opens the drawer + filters)
+//   2. Thin context line: "Showing: <area> · <programme>"
 //   3. Main panel, split 50/50:
-//        Left  — outcome-metric title, view-toggle pills (State/City/RTO),
-//                Delhi-NCR map
-//        Right — "Outcome metrics" (then "Progress metrics", then "Readiness
-//                metrics") lists
-//   Navigation to other pages lives in the SidePanel drawer (hamburger).
+//        Left  — outcome-metric title, view-toggle pills, Delhi-NCR map
+//        Right — Outcome / Progress / Readiness metrics lists
+//   Navigation to other pages lives in the drawer.
 
 import { useMemo, useState } from 'react';
 import {
@@ -21,13 +23,9 @@ import {
   Fuel,
   Landmark,
   Database,
-  ChevronDown,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import TopBar from '@/components/layout/TopBar';
-import AreaFilter from '@/components/ui/AreaFilter';
-import type { AreaSelection } from '@/components/ui/AreaFilter';
 import MetricCard from '@/components/ui/MetricCard';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
@@ -35,17 +33,15 @@ import {
   INITIATIVES,
   STATES,
   CITY_STATE_MAP,
-  RTO_OPTIONS_BY_CITY,
   MOCK_DETAIL_MAP_DATA,
   MOCK_DETAIL_CENTER_BUBBLE,
   MOCK_SUMMARY_BY_INITIATIVE,
-  UPLOAD_CITY_OPTIONS_BY_STATE,
 } from '@/lib/constants';
 import type { ViewLevel, Metric } from '@/lib/types';
+import { useDetailFilters } from '@/lib/useDetailFilters';
 
 type ViewLabel = 'State' | 'City' | 'RTO';
 
-/** Pick a contextual icon for each metric, falling back to a Database glyph. */
 function iconForMetric(m: Metric): LucideIcon {
   const n = m.name.toLowerCase();
   if (n.includes('truck')) return Truck;
@@ -57,18 +53,15 @@ function iconForMetric(m: Metric): LucideIcon {
 }
 
 export default function DetailPage() {
-  const [selectedInitiativeName, setSelectedInitiativeName] = useState(
-    INITIATIVES[0].name,
-  );
-  const [area, setArea] = useState<AreaSelection>({});
+  const { area, initiativeName, setArea } = useDetailFilters();
+
   const [viewLevel, setViewLevel] = useState<ViewLevel>('state');
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
-  const [initiativeOpen, setInitiativeOpen] = useState(false);
 
   const currentInit =
-    INITIATIVES.find((i) => i.name === selectedInitiativeName) ?? INITIATIVES[0];
+    INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
   const summaryData = MOCK_SUMMARY_BY_INITIATIVE[currentInit.slug];
 
   const outcomeMetrics = currentInit.metrics.filter((m) => m.type === 'outcome');
@@ -83,8 +76,6 @@ export default function DetailPage() {
     currentInit.metrics[0];
   const isCentralLevelMetric = selectedMetric?.geographyLevel === 'central';
 
-  // View-toggle options adapt to the Area selection, per the PDF note:
-  //   "selecting Uttar Pradesh (All) shows only 'City' and 'RTO' views"
   const availableViewLevels = useMemo<readonly ViewLabel[]>(() => {
     if (area.city) return ['RTO'];
     if (area.state) return ['City', 'RTO'];
@@ -95,21 +86,7 @@ export default function DetailPage() {
   const effectiveViewLabel: ViewLabel = availableViewLevels.includes(currentViewLabel)
     ? currentViewLabel
     : availableViewLevels[0];
-  const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
 
-  function onAreaChange(next: AreaSelection) {
-    setArea(next);
-    if (next.city) {
-      setViewLevel('rto');
-    } else if (next.state) {
-      setViewLevel('city');
-    } else {
-      setViewLevel('state');
-    }
-  }
-
-  // The wireframe map always shows city-level bubbles; the view toggle only
-  // affects how the underlying data rolls up in the detail / all-data tables.
   const filteredMapData = useMemo(() => {
     if (isCentralLevelMetric) return [];
     let data = MOCK_DETAIL_MAP_DATA;
@@ -122,87 +99,33 @@ export default function DetailPage() {
     return data;
   }, [isCentralLevelMetric, area]);
 
+  const areaLabel = area.rto
+    ? area.rto
+    : area.city
+    ? area.city
+    : area.state
+    ? area.state
+    : 'All Delhi-NCR';
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
-      <TopBar
-        activePage="detail"
-        pageTitle="DETAILED VIEW (1/2)"
-        showBackToSummary
-      />
+      <TopBar activePage="detail" />
 
-      {/* ── Filter strip ── */}
-      <div className="flex shrink-0 items-center gap-3 bg-[var(--color-navy)] px-4 py-2">
-        <AreaFilter
-          value={area}
-          onChange={onAreaChange}
-          states={STATES}
-          citiesByState={UPLOAD_CITY_OPTIONS_BY_STATE}
-          rtosByCity={RTO_OPTIONS_BY_CITY}
-        />
-
-        {/* Initiative selector — centred pill */}
-        <div className="relative mx-auto">
-          <button
-            type="button"
-            onClick={() => setInitiativeOpen((v) => !v)}
-            aria-expanded={initiativeOpen}
-            aria-haspopup="listbox"
-            className={cn(
-              'flex min-h-[36px] items-center gap-2 rounded-md bg-[var(--color-blue-link)] px-4 py-1.5',
-              'text-sm font-semibold text-white shadow-sm',
-              'hover:bg-[var(--color-blue-light)]',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-navy)]',
-            )}
-          >
-            {selectedInitiativeName}
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 transition-transform',
-                initiativeOpen && 'rotate-180',
-              )}
-            />
-          </button>
-          {initiativeOpen ? (
-            <ul
-              role="listbox"
-              className="absolute left-1/2 top-full z-50 mt-1 min-w-[220px] -translate-x-1/2 overflow-hidden rounded-md border border-[var(--color-border-table)] bg-white shadow-lg"
-            >
-              {INITIATIVES.map((i) => (
-                <li key={i.slug}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedInitiativeName(i.name);
-                      setInitiativeOpen(false);
-                    }}
-                    className={cn(
-                      'flex w-full items-center px-3 py-1.5 text-left text-xs transition-colors',
-                      i.name === selectedInitiativeName
-                        ? 'bg-[var(--color-blue-pale)] font-semibold text-[var(--color-blue-link)]'
-                        : 'text-[var(--color-text-primary)] hover:bg-[var(--color-surface-light)]',
-                    )}
-                  >
-                    {i.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-
-        {/* See all data */}
-        <Link
-          to="/dashboard/all-data"
-          className={cn(
-            'flex min-h-[36px] items-center gap-2 rounded-md bg-white px-3 py-1 text-sm font-medium text-[var(--color-text-primary)] shadow-sm',
-            'border border-[var(--color-border-table)]',
-            'hover:bg-[var(--color-blue-pale)]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-navy)]',
-          )}
-        >
-          <Database className="h-4 w-4 text-[var(--color-blue-link)]" />
-          See all data
-        </Link>
+      {/* ── Context line: tells users what they are looking at ── */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-[var(--color-border)] bg-[var(--color-surface-light)] px-5 py-2 text-xs">
+        <span className="text-[var(--color-text-secondary)]">
+          Showing:{' '}
+          <span className="font-semibold text-[var(--color-text-primary)]">
+            {areaLabel}
+          </span>{' '}
+          ·{' '}
+          <span className="font-semibold text-[var(--color-text-primary)]">
+            {currentInit.name}
+          </span>
+        </span>
+        <span className="ml-auto text-[11px] text-[var(--color-text-muted)]">
+          Change filters from the menu
+        </span>
       </div>
 
       {/* ── Main split ── */}
@@ -250,12 +173,12 @@ export default function DetailPage() {
                 onBubbleClick={(name) => {
                   const isState = STATES.includes(name as (typeof STATES)[number]);
                   if (isState) {
-                    onAreaChange({ state: name });
+                    setArea({ state: name });
                     return;
                   }
                   const mappedState = CITY_STATE_MAP[name];
                   if (mappedState) {
-                    onAreaChange({ state: mappedState, city: name });
+                    setArea({ state: mappedState, city: name });
                   }
                 }}
               />
