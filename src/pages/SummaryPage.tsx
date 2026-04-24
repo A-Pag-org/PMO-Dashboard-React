@@ -22,11 +22,13 @@ import {
   STATES,
 } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import type { StateName } from '@/lib/constants';
 
+// Explicit const tuple so TypeScript knows every element's literal type.
 const STATE_FILTER_OPTIONS = ['All - Delhi NCR', ...STATES] as const;
 type StateFilter = (typeof STATE_FILTER_OPTIONS)[number];
 
-const ALL_PROGRAMMES = 'All programmes';
+const ALL_PROGRAMMES = 'All programmes' as const;
 const PROGRAMME_OPTIONS = [ALL_PROGRAMMES, ...INITIATIVES.map((i) => i.name)] as const;
 type ProgrammeFilter = (typeof PROGRAMME_OPTIONS)[number];
 
@@ -35,8 +37,13 @@ export default function SummaryPage() {
   const [selectedProgramme, setSelectedProgramme] =
     useState<ProgrammeFilter>(ALL_PROGRAMMES);
 
-  const stateForCards: string | null =
-    selectedState === 'All - Delhi NCR' ? null : selectedState;
+  // null means "All of Delhi-NCR" — typed as StateName | null so callers
+  // that need a real state name get proper type safety.
+  const stateForCards: StateName | null =
+    selectedState === 'All - Delhi NCR'
+      ? null
+      : (selectedState as StateName);
+
   const programmeSelected = selectedProgramme !== ALL_PROGRAMMES;
 
   const selectedInitiative = useMemo(

@@ -15,7 +15,7 @@
 //        Right — Outcome / Progress / Readiness metrics lists
 //   Navigation to other pages lives in the drawer.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Truck,
   Bus,
@@ -38,8 +38,7 @@ import {
   MOCK_DETAIL_CENTER_BUBBLE,
   MOCK_SUMMARY_BY_INITIATIVE,
 } from '@/lib/constants';
-import type { MapDataPoint } from '@/lib/types';
-import type { ViewLevel, Metric } from '@/lib/types';
+import type { MapDataPoint, ViewLevel, Metric } from '@/lib/types';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 
 type ViewLabel = 'State' | 'City' | 'RTO';
@@ -62,6 +61,27 @@ export default function DetailPage() {
     Record<string, string>
   >({});
 
+  // Auto-reset view level to the coarsest available level when the area
+  // filter changes, so the map never shows a stale/incompatible view.
+  const prevAreaRef = useRef(area);
+  useEffect(() => {
+    const prev = prevAreaRef.current;
+    prevAreaRef.current = area;
+    const areaChanged =
+      prev.state !== area.state ||
+      prev.city !== area.city ||
+      prev.rto !== area.rto;
+    if (!areaChanged) return;
+
+    if (area.city) {
+      setViewLevel('rto');
+    } else if (area.state) {
+      setViewLevel('city');
+    } else {
+      setViewLevel('state');
+    }
+  }, [area]);
+
   const currentInit =
     INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
   const summaryData = MOCK_SUMMARY_BY_INITIATIVE[currentInit.slug];
@@ -83,6 +103,7 @@ export default function DetailPage() {
     if (area.state) return ['City', 'RTO'];
     return ['State', 'City', 'RTO'];
   }, [area]);
+
   const currentViewLabel: ViewLabel =
     viewLevel === 'state' ? 'State' : viewLevel === 'city' ? 'City' : 'RTO';
   const effectiveViewLabel: ViewLabel = availableViewLevels.includes(currentViewLabel)
@@ -168,6 +189,10 @@ export default function DetailPage() {
     ? area.state
     : 'All Delhi-NCR';
 
+  function handleSelectMetric(slug: string, name: string) {
+    setSelectedMetricByInitiative((prev) => ({ ...prev, [slug]: name }));
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
       <TopBar activePage="detail" />
@@ -192,7 +217,10 @@ export default function DetailPage() {
       {/* ── Main split ── */}
       <main className="flex min-h-0 flex-1">
         {/* Left: map panel */}
-        <section className="flex min-h-0 w-1/2 flex-col border-r border-[var(--color-divider-dashed)] bg-white">
+        <section
+          className="flex min-h-0 w-1/2 flex-col border-r border-[var(--color-divider-dashed)] bg-white"
+          aria-label="Map view"
+        >
           <div className="flex shrink-0 items-center justify-center border-b border-[var(--color-border-table)] px-4 py-2">
             <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
               {selectedMetric?.name ?? currentInit.primaryMetric}
@@ -203,13 +231,20 @@ export default function DetailPage() {
             <span className="rounded-md bg-[var(--color-accent)] px-2 py-0.5 text-2xs font-semibold text-[var(--color-ink)]">
               View toggle
             </span>
-            <div className="inline-flex rounded-full bg-[var(--color-surface-light)] p-0.5">
+            {/* Segmented control — uses role="radiogroup" for a11y */}
+            <div
+              className="inline-flex rounded-full bg-[var(--color-surface-light)] p-0.5"
+              role="radiogroup"
+              aria-label="Map view level"
+            >
               {availableViewLevels.map((v) => {
                 const isActive = v === effectiveViewLabel;
                 return (
                   <button
                     key={v}
                     type="button"
+                    role="radio"
+                    aria-checked={isActive}
                     onClick={() => setViewLevel(v.toLowerCase() as ViewLevel)}
                     className={cn(
                       'min-h-[28px] rounded-full px-3 py-1 text-xs font-medium transition-colors',
@@ -257,7 +292,10 @@ export default function DetailPage() {
         </section>
 
         {/* Right: metrics list */}
-        <section className="flex min-h-0 w-1/2 flex-col overflow-y-auto bg-white">
+        <section
+          className="flex min-h-0 w-1/2 flex-col overflow-y-auto bg-white"
+          aria-label="Metrics panel"
+        >
           <MetricGroup title="Outcome metrics">
             {outcomeMetrics.length > 0 ? (
               outcomeMetrics.map((m) => (
@@ -268,12 +306,7 @@ export default function DetailPage() {
                   achieved={m.achieved}
                   target={m.target}
                   selected={selectedMetric?.name === m.name}
-                  onSelect={() =>
-                    setSelectedMetricByInitiative((prev) => ({
-                      ...prev,
-                      [currentInit.slug]: m.name,
-                    }))
-                  }
+                  onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
                 />
               ))
             ) : (
@@ -291,12 +324,7 @@ export default function DetailPage() {
                   achieved={m.achieved}
                   target={m.target}
                   selected={selectedMetric?.name === m.name}
-                  onSelect={() =>
-                    setSelectedMetricByInitiative((prev) => ({
-                      ...prev,
-                      [currentInit.slug]: m.name,
-                    }))
-                  }
+                  onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
                 />
               ))}
             </MetricGroup>
@@ -312,12 +340,7 @@ export default function DetailPage() {
                   achieved={m.achieved}
                   target={m.target}
                   selected={selectedMetric?.name === m.name}
-                  onSelect={() =>
-                    setSelectedMetricByInitiative((prev) => ({
-                      ...prev,
-                      [currentInit.slug]: m.name,
-                    }))
-                  }
+                  onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
                 />
               ))}
             </MetricGroup>

@@ -50,40 +50,54 @@ function normalizeHeader(v: string) {
   return v.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+/**
+ * RFC 4180–compliant CSV line parser.
+ * Handles: quoted fields, escaped double-quotes (""), trailing commas.
+ */
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
-  for (let i = 0; i < line.length; i += 1) {
+
+  for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     const next = line[i + 1];
-    if (ch === '"' && inQuotes && next === '"') {
-      current += '"';
-      i += 1;
-      continue;
-    }
+
     if (ch === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-    if (ch === ',' && !inQuotes) {
-      result.push(current);
+      if (inQuotes && next === '"') {
+        // Escaped quote inside a quoted field
+        current += '"';
+        i++;
+      } else {
+        // Toggle quote mode
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
       current = '';
-      continue;
+    } else {
+      current += ch;
     }
-    current += ch;
   }
-  result.push(current);
-  return result.map((c) => c.trim());
+  result.push(current.trim());
+  return result;
 }
 
+/**
+ * Split CSV text into rows.
+ * Normalises all line endings (CRLF, CR, LF) before splitting so Windows
+ * exports from Excel work correctly.
+ */
 function parseCsv(text: string): string[][] {
-  return text
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .filter((l) => l.trim().length > 0)
-    .map(parseCsvLine);
+  return (
+    text
+      // Normalise Windows (CRLF) and old Mac (CR) line endings to LF
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .filter((l) => l.trim().length > 0)
+      .map(parseCsvLine)
+  );
 }
 
 function escapeCsvCell(v: unknown): string {
@@ -145,11 +159,11 @@ export default function UploadPage() {
     const csv = [CSV_HEADERS, ...body]
       .map((row) => row.map(escapeCsvCell).join(','))
       .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `manual-data-upload-template.csv`;
+    a.download = 'manual-data-upload-template.csv';
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -161,15 +175,26 @@ export default function UploadPage() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const name = file.name.toLowerCase();
+    const fileName = file.name.toLowerCase();
 
-    if (!name.endsWith('.csv') && !name.endsWith('.xlsx')) {
-      showStatus('error', 'Invalid file type. Please upload CSV or XLSX.');
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx')) {
+      showStatus('error', 'Invalid file type. Please upload a CSV file.');
       e.target.value = '';
       return;
     }
-    if (name.endsWith('.xlsx')) {
-      showStatus('warning', 'For this demo, please upload the downloaded CSV template.');
+    if (fileName.endsWith('.xlsx')) {
+      showStatus(
+        'warning',
+        'For this demo, please upload the downloaded CSV template (.csv).',
+      );
+      e.target.value = '';
+      return;
+    }
+
+    // Guard: 5 MB max to avoid hanging on huge accidental uploads
+    const MAX_BYTES = 5 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      showStatus('error', 'File is too large (max 5 MB). Please upload a smaller file.');
       e.target.value = '';
       return;
     }
@@ -177,72 +202,93 @@ export default function UploadPage() {
     try {
       const raw = await file.text();
       const parsed = parseCsv(raw);
+
       if (parsed.length < 2) {
-        showStatus('error', 'Uploaded file is empty. Download a fresh template and try again.');
+        showStatus('error', 'Uploaded file has no data rows. Download a fresh template and try again.');
         e.target.value = '';
         return;
       }
 
       const header = parsed[0].map(normalizeHeader);
       const expected = CSV_HEADERS.map(normalizeHeader);
-      const match =
+      const columnsMatch =
         header.length === expected.length &&
         expected.every((h, idx) => h === header[idx]);
-      if (!match) {
-        showStatus('error', 'Template mismatch. Please use the latest downloaded template.');
+
+      if (!columnsMatch) {
+        showStatus(
+          'error',
+          'Column headers don\'t match the template. Please use the latest downloaded template.',
+        );
         e.target.value = '';
         return;
       }
 
       const idx = (name: string) => expected.indexOf(normalizeHeader(name));
-      const iState = idx('State');
-      const iCity = idx('City');
-      const iInit = idx('Initiative');
-      const iMetric = idx('Metric');
-      const iNewVal = idx('New Val');
-      const iRemarks = idx('Remarks');
+      const iState    = idx('State');
+      const iCity     = idx('City');
+      const iInit     = idx('Initiative');
+      const iMetric   = idx('Metric');
+      const iNewVal   = idx('New Val');
+      const iRemarks  = idx('Remarks');
 
       let updated = 0;
       let skipped = 0;
 
       setRows((prev) => {
-        const map = new Map(prev.map((r, i) => [rowKey(r), i]));
+        const keyToIndex = new Map(prev.map((r, i) => [rowKey(r), i]));
         const next = [...prev];
-        for (const r of parsed.slice(1)) {
-          const key = rowKey({
-            state: r[iState],
-            city: r[iCity],
-            initiative: r[iInit],
-            metric: r[iMetric],
-          });
-          const target = map.get(key);
-          if (target === undefined) {
-            skipped += 1;
+
+        for (const csvRow of parsed.slice(1)) {
+          // Skip rows that don't have enough columns (e.g. trailing blank lines
+          // that passed the trim filter, or malformed lines).
+          if (csvRow.length < expected.length) {
+            skipped++;
             continue;
           }
-          next[target] = {
-            ...next[target],
-            newVal: (r[iNewVal] ?? '').trim(),
-            remarks: (r[iRemarks] ?? '').trim(),
+
+          const key = rowKey({
+            state:      csvRow[iState]  ?? '',
+            city:       csvRow[iCity]   ?? '',
+            initiative: csvRow[iInit]   ?? '',
+            metric:     csvRow[iMetric] ?? '',
+          });
+
+          const targetIdx = keyToIndex.get(key);
+          if (targetIdx === undefined) {
+            skipped++;
+            continue;
+          }
+
+          next[targetIdx] = {
+            ...next[targetIdx],
+            newVal:  (csvRow[iNewVal]  ?? '').trim(),
+            remarks: (csvRow[iRemarks] ?? '').trim(),
           };
-          updated += 1;
+          updated++;
         }
         return next;
       });
 
       if (updated > 0 && skipped === 0) {
-        showStatus('success', `Upload successful. ${updated} rows updated.`);
+        showStatus('success', `Upload successful — ${updated} row${updated !== 1 ? 's' : ''} updated.`);
       } else if (updated > 0) {
         showStatus(
           'warning',
-          `Upload partially applied: ${updated} updated, ${skipped} row(s) outside your access were ignored.`,
+          `Partially applied: ${updated} updated, ${skipped} row${skipped !== 1 ? 's' : ''} outside your access were skipped.`,
         );
       } else {
-        showStatus('warning', 'No rows were updated. Please upload rows from your assigned template.');
+        showStatus(
+          'warning',
+          'No rows were updated. Make sure you are uploading a template downloaded from this screen.',
+        );
       }
-    } catch {
-      showStatus('error', 'Could not read uploaded file. Please download a fresh template and retry.');
+    } catch (err) {
+      console.error('[UploadPage] CSV parse error:', err);
+      showStatus('error', 'Could not read the file. Download a fresh template and try again.');
     }
+
+    // Reset the input so the same file can be re-uploaded after fixing
     e.target.value = '';
   }
 
@@ -285,6 +331,8 @@ export default function UploadPage() {
         {/* Upload status toast */}
         {status.type !== 'idle' ? (
           <div
+            role="status"
+            aria-live="polite"
             className={cn(
               'mx-4 mt-2 flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium',
               status.type === 'success'
@@ -295,9 +343,9 @@ export default function UploadPage() {
             )}
           >
             {status.type === 'success' ? (
-              <CheckCircle className="h-4 w-4" />
+              <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
             ) : (
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
             )}
             {status.message}
           </div>
@@ -311,7 +359,6 @@ export default function UploadPage() {
             onRemarksChange={onRemarksChange}
             minVisibleRows={0}
           />
-
         </div>
       </main>
     </div>
@@ -338,11 +385,11 @@ function ActionButton({
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
       )}
     >
-      <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-[var(--color-success-light)]">
+      <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-[var(--color-success-light)]" aria-hidden>
         <Icon className="h-3 w-3 text-[var(--color-success)]" />
       </span>
       {label}
-      <ChevronDown className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
+      <ChevronDown className="h-3.5 w-3.5 text-[var(--color-text-muted)]" aria-hidden />
     </button>
   );
 }

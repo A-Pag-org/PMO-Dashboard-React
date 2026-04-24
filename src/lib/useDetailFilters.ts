@@ -10,8 +10,15 @@
 //   - Selections survive page reload and are bookmarkable — a familiar
 //     pattern in government dashboards (senior users like stable URLs).
 //   - No flash-of-default-state when the drawer opens.
+//
+// Stability notes:
+//   - `writeParams` depends only on `navigate` (stable ref from react-router)
+//     and `location.pathname`. We deliberately exclude `location.search`
+//     from the callback deps and instead read it fresh inside the callback
+//     via a ref to avoid stale-closure issues while also preventing the
+//     function from being recreated on every search-param change.
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { INITIATIVES } from './constants';
 
@@ -45,6 +52,13 @@ export function useDetailFilters(): UseDetailFiltersReturn {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Keep a ref to the latest search string so writeParams can always
+  // build on the current params without creating a new callback on every
+  // search change (which would cause infinite render loops in callers
+  // that list writeParams as a dependency).
+  const searchRef = useRef(location.search);
+  searchRef.current = location.search;
+
   const params = useMemo(
     () => new URLSearchParams(location.search),
     [location.search],
@@ -65,16 +79,20 @@ export function useDetailFilters(): UseDetailFiltersReturn {
     return INITIATIVES[0].name;
   }, [params]);
 
+  // writeParams reads the *current* search string via a ref so it stays
+  // stable across renders and doesn't trigger cascading re-renders.
   const writeParams = useCallback(
     (patch: (p: URLSearchParams) => void) => {
-      const next = new URLSearchParams(location.search);
+      const next = new URLSearchParams(searchRef.current);
       patch(next);
+      const search = next.toString();
       navigate(
-        { pathname: location.pathname, search: next.toString() ? `?${next}` : '' },
+        { pathname: location.pathname, search: search ? `?${search}` : '' },
         { replace: true },
       );
     },
-    [location.pathname, location.search, navigate],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigate, location.pathname],
   );
 
   const setArea = useCallback(
@@ -82,8 +100,11 @@ export function useDetailFilters(): UseDetailFiltersReturn {
       writeParams((p) => {
         if (nextArea.state) p.set('state', nextArea.state);
         else p.delete('state');
+
+        // Cascade: clearing state must also clear city and rto
         if (nextArea.city) p.set('city', nextArea.city);
         else p.delete('city');
+
         if (nextArea.rto) p.set('rto', nextArea.rto);
         else p.delete('rto');
       });
