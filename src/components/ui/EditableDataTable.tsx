@@ -10,6 +10,10 @@
 // *Editable / green-shaded columns.
 //
 // Sort/filter menus appear on State, City, Initiative, Metric column headers.
+//
+// Accessibility:
+//   Placeholder rows that pad the table to minVisibleRows are hidden from
+//   assistive technology via aria-hidden so screen readers skip them.
 
 import { useMemo, useState } from 'react';
 import { cn, formatNumber } from '@/lib/utils';
@@ -192,7 +196,7 @@ export default function EditableDataTable({
                 <BodyCell muted>{row.unit}</BodyCell>
 
                 {/* Editable: New Val */}
-                <td className="bg-[var(--color-cell-highlight)]/40 px-2 py-1 align-middle"
+                <td className="px-2 py-1 align-middle"
                     style={{ backgroundColor: 'rgba(200, 230, 201, 0.45)' }}>
                   <input
                     type="text"
@@ -215,10 +219,11 @@ export default function EditableDataTable({
                     'px-3 py-1.5 text-xs',
                     showDates
                       ? 'bg-white text-[var(--color-text-secondary)]'
-                      : 'bg-[var(--color-cell-locked)] text-transparent',
+                      : 'bg-[var(--color-cell-locked)]',
                   )}
+                  aria-hidden={!showDates}
                 >
-                  {showDates ? row.startDate || '[date]' : '—'}
+                  {showDates ? row.startDate || '[date]' : null}
                 </td>
 
                 {/* End date */}
@@ -227,10 +232,11 @@ export default function EditableDataTable({
                     'px-3 py-1.5 text-xs',
                     showDates
                       ? 'bg-white text-[var(--color-text-secondary)]'
-                      : 'bg-[var(--color-cell-locked)] text-transparent',
+                      : 'bg-[var(--color-cell-locked)]',
                   )}
+                  aria-hidden={!showDates}
                 >
-                  {showDates ? row.endDate || '[date]' : '—'}
+                  {showDates ? row.endDate || '[date]' : null}
                 </td>
 
                 {/* Editable: Remarks */}
@@ -259,16 +265,20 @@ export default function EditableDataTable({
             );
           })}
 
-          {/* Visual filler rows that make the table look like it has "..." more data */}
+          {/*
+           * Visual filler rows — hidden from assistive technology so screen
+           * readers don't announce empty cells as meaningful data.
+           */}
           {placeholderRowCount > 0
             ? Array.from({ length: placeholderRowCount }).map((_, i) => (
                 <tr
                   key={`placeholder-${i}`}
+                  aria-hidden="true"
                   className="border-b border-dashed border-[var(--color-divider-dashed)] bg-white"
                 >
                   {Array.from({ length: 14 }).map((__, ci) => (
-                    <td key={ci} className="px-3 py-2 text-xs text-transparent">
-                      —
+                    <td key={ci} className="px-3 py-2 text-xs">
+                      &nbsp;
                     </td>
                   ))}
                 </tr>
