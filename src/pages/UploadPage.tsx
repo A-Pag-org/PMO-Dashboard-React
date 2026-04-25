@@ -10,6 +10,7 @@ import {
   Download,
   Upload,
   ChevronDown,
+  Info,
 } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import EditableDataTable from '@/components/ui/EditableDataTable';
@@ -350,6 +351,22 @@ export default function UploadPage() {
             {status.message}
           </div>
         ) : null}
+
+        {/* ── Spec callout ── */}
+        <div className="mx-4 mt-3 flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2 text-xs text-[var(--color-text-primary)]">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
+          <div>
+            <p className="font-semibold">Manual entry — spec §7.</p>
+            <p className="text-[var(--color-text-secondary)]">
+              Only metrics whose data source is &quot;Manually entered in
+              portal&quot; appear here. You can edit <strong>New Val</strong>
+              {' '}and <strong>Remarks</strong> on every row;{' '}
+              <strong>Start / End date</strong> are editable only for the
+              two periodic metrics flagged in §7.3 (SCC malba and MRS road
+              coverage). All other columns are locked.
+            </p>
+          </div>
+        </div>
 
         {/* ── Table ── */}
         <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
