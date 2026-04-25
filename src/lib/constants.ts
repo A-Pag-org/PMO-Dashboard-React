@@ -4,7 +4,6 @@
 
 import type {
   Initiative,
-  CompletionThreshold,
   SummaryTableRow,
   DetailTableRow,
   UploadRow,
@@ -17,7 +16,7 @@ import type {
 
 // Order (left→right, top→bottom) matches wireframe page 7:
 //   Row 1:  Naya Safar Yojana | CEMS/APCD installation | Road Repair | MRS
-//   Row 2:  C&D - SCC         | C&D - ICCC             | Green BSVI  | Greening
+//   Row 2:  C&D - SCC         | C&D - ICCC             | Green Contribution | Greening
 export const INITIATIVES: Initiative[] = [
   {
     name: 'Naya Safar Yojana',
@@ -115,16 +114,16 @@ export const INITIATIVES: Initiative[] = [
     ],
   },
   {
-    name: 'Green BSVI',
-    slug: 'green-bsvi',
-    primaryMetric: 'No. of tolls where Green BSVI collection initiated',
+    name: 'Green Contribution',
+    slug: 'green-contribution',
+    primaryMetric: 'No. of tolls where Green Contribution collection initiated',
     summaryCard: {
-      description: 'No. of tolls where Green BSVI collection initiated',
+      description: 'No. of tolls where Green Contribution collection initiated',
       variant: 'donut',
       donut: { target: 100, achieved: 20 },
     },
     metrics: [
-      { name: '# tolls with Green BSVI collection initiated', type: 'outcome', target: 50, achieved: 32 },
+      { name: '# tolls with Green Contribution collection initiated', type: 'outcome', target: 50, achieved: 32, format: 'X/Y' },
     ],
   },
   {
@@ -169,14 +168,29 @@ export const STATES = [
 
 export type StateName = (typeof STATES)[number];
 
-// ─── Completion Bar Thresholds ──────────────────────────────────────────
+// ─── Current User & Tile Highlighting (spec §3.1) ──────────────────────
+// Each user has a set of "relevant" initiatives that render at full
+// color on the Summary page; all others are greyed out.
+//
+// TODO: replace with user lookup when Section 9 (Default View Mapping)
+// is wired up — for now we hard-code MoHUA as the demo user.
 
-export const COMPLETION_THRESHOLDS: CompletionThreshold[] = [
-  { min: 70, max: 100, filledColor: 'var(--color-bar-high)',    remainderColor: 'var(--color-bar-high-rem)' },
-  { min: 40, max: 69,  filledColor: 'var(--color-bar-mid)',     remainderColor: 'var(--color-bar-mid-rem)' },
-  { min: 20, max: 39,  filledColor: 'var(--color-bar-low)',     remainderColor: 'var(--color-bar-low-rem)' },
-  { min: 0,  max: 19,  filledColor: 'var(--color-bar-low)',     remainderColor: 'var(--color-bar-low-rem)' },
-];
+export const CURRENT_USER_ID = 'MoHUA' as const;
+
+export const HIGHLIGHTED_INITIATIVES_BY_USER: Record<string, string[]> = {
+  // MoHUA — per spec §9.1
+  MoHUA: [
+    'naya-safar-yojana',
+    'greening',
+    'cems-apcd',
+    'cd-scc',
+    'mrs',
+  ],
+};
+
+export function getHighlightedInitiativesForCurrentUser(): string[] {
+  return HIGHLIGHTED_INITIATIVES_BY_USER[CURRENT_USER_ID] ?? [];
+}
 
 // ─── Dashboard Selection Options (wireframe page 6) ────────────────────
 
@@ -257,7 +271,7 @@ export const MOCK_SUMMARY_BY_INITIATIVE: Record<string, InitiativeSummaryData> =
     ],
     center: { value: 780, label: 'Km Road-Length Repaired', subtitle: '780 / 1,200 km' },
   },
-  'green-bsvi': {
+  'green-contribution': {
     table: [
       { state: 'Delhi',         target: 15, achieved: 14, completion: 93 },
       { state: 'Uttar Pradesh', target: 12, achieved: 8,  completion: 67 },
@@ -270,7 +284,7 @@ export const MOCK_SUMMARY_BY_INITIATIVE: Record<string, InitiativeSummaryData> =
       { name: 'Haryana',        value: 6,  onTrack: true,  label: '6 tolls' },
       { name: 'Rajasthan',      value: 4,  onTrack: false, label: '4 tolls' },
     ],
-    center: { value: 32, label: 'Tolls with Green BSVI Collection', subtitle: '32 / 50 tolls' },
+    center: { value: 32, label: 'Tolls with Green Contribution Collection', subtitle: '32 / 50 tolls' },
   },
   'cd-scc': {
     table: [
@@ -457,10 +471,10 @@ export const MOCK_UPLOAD_BY_INITIATIVE: Record<string, UploadRow[]> = {
     { name: 'No. of roads surveyed', type: 'readiness', unit: '-' },
   ], ['Delhi', 'Gurugram', 'Rohtak', 'Panipat']),
 
-  'green-bsvi': makeUploadRows('Green BSVI', ALL_CITIES_ORDERED, [
-    { name: '# tolls with Green BSVI collection initiated', type: 'outcome', unit: 'tolls' },
-    { name: 'Green BSVI amount collected', type: 'outcome', unit: 'INR Cr' },
-    { name: '# tolls identified for Green BSVI', type: 'progress', unit: '-' },
+  'green-contribution': makeUploadRows('Green Contribution', ALL_CITIES_ORDERED, [
+    { name: '# tolls with Green Contribution collection initiated', type: 'outcome', unit: 'tolls' },
+    { name: 'Green Contribution amount collected', type: 'outcome', unit: 'INR Cr' },
+    { name: '# tolls identified for Green Contribution', type: 'progress', unit: '-' },
   ], ['Delhi', 'Gurugram', 'Panipat', 'Alwar']),
 
   'cd-scc': makeUploadRows('C&D - SCC', ALL_CITIES_ORDERED, [
@@ -499,7 +513,7 @@ export const UPLOAD_INITIATIVE_SLUG_MAP: Record<string, string> = {
   'C&D - ICCC': 'cd-iccc',
   'CEMS/APCD installation': 'cems-apcd',
   'Road Repair': 'road-repair',
-  'Green BSVI': 'green-bsvi',
+  'Green Contribution': 'green-contribution',
   'C&D - SCC': 'cd-scc',
   'Greening': 'greening',
   'MRS': 'mrs',
