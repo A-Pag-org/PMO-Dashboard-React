@@ -19,40 +19,49 @@ import type {
 //   Row 2:  C&D - SCC         | C&D - ICCC             | Green Contribution | Greening
 export const INITIATIVES: Initiative[] = [
   {
+    // ─── Spec §5 rows 1–7 ───────────────────────────────────────────────
     name: 'Naya Safar Yojana',
     slug: 'naya-safar-yojana',
     primaryMetric: 'No. of pre-BS VI buses / trucks converted',
     summaryCard: {
       description: 'No. of pre-BS VI buses / trucks converted',
-      variant: 'dual-bar',
+      variant: 'two-donuts',
       bars: [
-        { label: 'Trucks', target: 100, achieved: 50 },
-        { label: 'Buses',  target: 100, achieved: 70 },
+        { label: 'Trucks', target: 76496, achieved: 38248 },
+        { label: 'Buses',  target: 10000, achieved: 6500  },
       ],
     },
     metrics: [
-      { name: 'No. of pre-BSVI trucks converted', type: 'outcome', target: 76496, achieved: 38248, unit: 'vehicles' },
-      { name: 'No. of pre-BSVI buses converted', type: 'outcome', target: 10000, achieved: 6500, unit: 'vehicles' },
-      { name: 'No. of events conducted', type: 'outcome', target: 300, achieved: 81 },
-      { name: 'No. of events planned', type: 'progress', target: null, achieved: null },
-      { name: 'No. of outlets activated for fuel voucher acceptance', type: 'progress', target: 1500, achieved: 285 },
-      { name: 'No. of PSBs / NBFCs onboarded', type: 'progress', target: 100, achieved: 78, geographyLevel: 'central' },
+      { name: 'No. of pre-BS VI trucks converted',                      type: 'outcome',  target: 76496, achieved: 38248, unit: 'vehicles', format: 'X/Y', dataSource: 'API (MoRTH portal)' },
+      { name: 'No. of pre-BS VI buses converted',                       type: 'outcome',  target: 10000, achieved: 6500,  unit: 'vehicles', format: 'X/Y', dataSource: 'API (MoRTH portal)' },
+      { name: 'No. of events conducted',                                type: 'outcome',  target: 300,   achieved: 81,                       format: 'X/Y', dataSource: 'API (States)' },
+      { name: 'No. of events planned',                                  type: 'progress', target: 250,   achieved: 175,                      format: 'X/Y', dataSource: 'API (TBD)' },
+      { name: 'No. of outlets activated for fuel voucher acceptance',   type: 'progress', target: 1500,  achieved: 285,                      format: 'X/Y', dataSource: 'API (TBD)' },
+      { name: 'EOIs and Scrapping requests from truckers/bus owners',   type: 'progress', target: null,  achieved: 4820,                     format: 'Xx',  dataSource: 'API (MoRTH)' },
+      { name: 'PSBs / NBFCs onboarded',                                 type: 'progress', target: null,  achieved: 28,    geographyLevel: 'central', format: 'Xx', dataSource: 'API (Canara Bank/MoRTH)' },
     ],
   },
   {
-    name: 'CEMS/APCD installation',
+    // ─── Spec §5 rows 8–13 ──────────────────────────────────────────────
+    name: 'CEMS/APCD',
     slug: 'cems-apcd',
-    primaryMetric: 'No. of industrial units where CEMS / APCDs installation completed',
+    primaryMetric: 'No. of industrial units where CEMS / APCD installation completed',
     summaryCard: {
-      description: 'No. of industrial units where CEMS / APCDs installation completed',
-      variant: 'dual-bar',
+      description: 'No. of industrial units where CEMS / APCD installation completed',
+      variant: 'two-donuts',
       bars: [
-        { label: 'CEMS',  target: 100, achieved: 28 },
-        { label: 'APCDs', target: 100, achieved: 44 },
+        { label: 'CEMS',  target: 250, achieved: 105 },
+        { label: 'APCD',  target: 250, achieved: 105 },
       ],
     },
     metrics: [
-      { name: '# industries with CEMS / APCDs installed', type: 'outcome', target: 500, achieved: 210 },
+      { name: 'No. of industrial units where CEMS installation completed',  type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', dataSource: 'API (CEMS CPCB portal)' },
+      { name: 'No. of industrial units where APCDs installation completed', type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', dataSource: 'Manual (SPCBs)' },
+      // X/Y* per §4.2 — denominator is Total Sites (500), not a target of 0.
+      { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true,                       format: 'X/Y', dataSource: 'API (CEMS CPCB)' },
+      { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320,                                      format: 'Xx',  dataSource: 'Manual (States)' },
+      { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                        format: 'X/Y', dataSource: 'Manual (CPCB/MoEFCC)' },
+      { name: 'Vendors empaneled for CEMS/APCD supply and O&M',             type: 'progress', target: null, achieved: 18,                                       format: 'Xx',  dataSource: 'Manual (CPCB)' },
     ],
   },
   {
