@@ -1,11 +1,11 @@
 // FILE: lib/utils.ts
-// PURPOSE: Shared utility functions — className merge, colour thresholds, number formatting
-// DESIGN REF: Used across all pages
+// PURPOSE: Shared utility functions — className merge, traffic-light color
+//          logic, number formatting, completion %.
+// DESIGN REF: Spec §8 — Color Coding Logic
 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { COMPLETION_THRESHOLDS } from './constants';
-import type { CompletionThreshold } from './types';
+import type { ColorBand } from './types';
 
 /**
  * Merge Tailwind classes with clsx + tailwind-merge for conflict resolution.
@@ -15,19 +15,59 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
- * Returns the filled and remainder CSS colour variables for a given percentage.
- * Centralised threshold logic — used by every progress bar in the app.
+ * Spec §8.1 — getColorBand(completionPct, isInverse).
+ * Standard:  <30 RED · 30-60 YELLOW · ≥60 GREEN
+ * Inverse:   ≥60 RED · 30-60 YELLOW · <30 GREEN
  */
-export function getBarColour(pct: number): { filled: string; remainder: string } {
-  const clamped = Math.max(0, Math.min(100, pct));
-  const threshold: CompletionThreshold =
-    COMPLETION_THRESHOLDS.find((t) => clamped >= t.min && clamped <= t.max) ??
-    COMPLETION_THRESHOLDS[COMPLETION_THRESHOLDS.length - 1];
+export function getColorBand(
+  completionPct: number,
+  isInverse = false,
+): Exclude<ColorBand, 'NA'> {
+  const pct = Math.max(0, Math.min(100, completionPct));
+  if (isInverse) {
+    if (pct >= 60) return 'RED';
+    if (pct >= 30) return 'YELLOW';
+    return 'GREEN';
+  }
+  if (pct < 30) return 'RED';
+  if (pct < 60) return 'YELLOW';
+  return 'GREEN';
+}
 
-  return {
-    filled: threshold.filledColor,
-    remainder: threshold.remainderColor,
-  };
+export interface BandColors {
+  /** Light tint — used as background fill / progress remainder. */
+  bg: string;
+  /** Saturated color — used as progress fill / border / dot. */
+  fg: string;
+  /** Dark variant — used for text on top of the light bg. */
+  text: string;
+}
+
+/**
+ * Spec §8.2 — exact hex codes for each band.
+ */
+export function getBandColors(band: Exclude<ColorBand, 'NA'>): BandColors {
+  switch (band) {
+    case 'GREEN':
+      return { bg: '#E2EFDA', fg: '#70AD47', text: '#375623' };
+    case 'YELLOW':
+      return { bg: '#FFF2CC', fg: '#FFD966', text: '#7D4E00' };
+    case 'RED':
+      return { bg: '#FCE4D6', fg: '#FF0000', text: '#9C0006' };
+  }
+}
+
+/**
+ * Returns the filled and remainder colors for a progress bar / donut.
+ * Backwards-compatible signature kept for existing components.
+ */
+export function getBarColour(
+  pct: number,
+  isInverse = false,
+): { filled: string; remainder: string } {
+  const band = getColorBand(pct, isInverse);
+  const colors = getBandColors(band);
+  return { filled: colors.fg, remainder: colors.bg };
 }
 
 /**
@@ -39,14 +79,12 @@ export function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined) return '-';
   if (value < 0) return `-${formatNumber(-value)}`;
 
-  // Round to nearest integer — Indian formatting only shows whole numbers
   const rounded = Math.round(value);
   const str = rounded.toString();
   if (str.length <= 3) return str;
 
   const lastThree = str.slice(-3);
   const remaining = str.slice(0, -3);
-  // Indian grouping: groups of 2 after the last 3 digits
   const formatted = remaining.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
 
   return `${formatted},${lastThree}`;

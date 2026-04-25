@@ -1,9 +1,11 @@
 // FILE: components/maps/CityBubble.tsx
-// PURPOSE: SVG city/state bubble with name, status icon, and value
-// DESIGN REF: Wireframe pages 7, 9 (map bubbles on Delhi-NCR map)
+// PURPOSE: SVG region bubble — name + value, format-aware rendering.
+// DESIGN REF: Spec §4.5 — map display by metric format.
+//   X/Y standard / inverse  → bubble tinted by band (R/Y/G).
+//   Xx (absolute count)     → raw number, no color coding.
+//   Y/N (boolean)           → big "Y" (green) or "N" (red).
 
-
-import { formatNumber } from '@/lib/utils';
+import { formatNumber, getBandColors } from '@/lib/utils';
 import type { MapDataPoint } from '@/lib/types';
 
 interface CityBubbleProps {
@@ -26,7 +28,6 @@ export default function CityBubble({
   if (isCenter) {
     return (
       <g transform={`translate(${x}, ${y})`}>
-        {/* Drop shadow */}
         <circle r={62} fill="white" filter="url(#bubble-shadow)" />
         <circle r={60} fill="white" stroke="var(--color-border)" strokeWidth={1} />
         <text
@@ -36,7 +37,7 @@ export default function CityBubble({
           fill="var(--color-text-primary)"
           style={{ fontSize: 22 }}
         >
-          {formatNumber(data.value)}
+          {data.label ?? formatNumber(data.value)}
         </text>
         {centerLabel && (
           <text
@@ -62,6 +63,128 @@ export default function CityBubble({
     );
   }
 
+  // ── Y/N — big letter, no value ──────────────────────────────────────
+  if (data.format === 'Y/N') {
+    const isYes = data.value === 1;
+    const colors = getBandColors(isYes ? 'GREEN' : 'RED');
+    return (
+      <g
+        transform={`translate(${x}, ${y})`}
+        className="cursor-pointer"
+        role="img"
+        aria-label={`${data.name} — ${isYes ? 'Yes' : 'No'}`}
+      >
+        <title>{`${data.name}: ${isYes ? 'Yes' : 'No'}`}</title>
+        <rect
+          x={-44} y={-14} width={88} height={28} rx={14}
+          fill={colors.bg}
+          stroke={colors.fg}
+          strokeWidth={1.2}
+          filter="url(#bubble-shadow)"
+        />
+        <circle cx={-30} cy={0} r={9} fill={colors.fg} />
+        <text
+          x={-30} y={4}
+          textAnchor="middle"
+          fill="white"
+          style={{ fontSize: 11, fontWeight: 800 }}
+        >
+          {isYes ? 'Y' : 'N'}
+        </text>
+        <text
+          x={-16} y={1}
+          fill={colors.text}
+          style={{ fontSize: 8, fontWeight: 600 }}
+        >
+          {data.name}
+        </text>
+      </g>
+    );
+  }
+
+  // ── Xx — raw count, no color band ───────────────────────────────────
+  if (data.format === 'Xx') {
+    return (
+      <g
+        transform={`translate(${x}, ${y})`}
+        className="cursor-pointer"
+        role="img"
+        aria-label={`${data.name} — ${formatNumber(data.value)}`}
+      >
+        <title>{`${data.name}: ${formatNumber(data.value)}`}</title>
+        <rect
+          x={-44} y={-14} width={88} height={28} rx={14}
+          fill="white"
+          stroke="var(--color-border)"
+          strokeWidth={0.8}
+          filter="url(#bubble-shadow)"
+        />
+        <text
+          x={0} y={-2}
+          textAnchor="middle"
+          fill="var(--color-text-primary)"
+          style={{ fontSize: 8, fontWeight: 600 }}
+        >
+          {data.name}
+        </text>
+        <text
+          x={0} y={9}
+          textAnchor="middle"
+          fill="var(--color-text-secondary)"
+          style={{ fontSize: 9, fontWeight: 700 }}
+        >
+          {data.label ?? formatNumber(data.value)}
+        </text>
+      </g>
+    );
+  }
+
+  // ── X/Y (with band) — tint bubble per traffic-light band ────────────
+  if (data.format === 'X/Y' && data.band && data.band !== 'NA') {
+    const colors = getBandColors(data.band);
+    return (
+      <g
+        transform={`translate(${x}, ${y})`}
+        className="cursor-pointer"
+        role="img"
+        aria-label={`${data.name} — ${data.label ?? formatNumber(data.value)}`}
+      >
+        <title>{`${data.name}: ${data.label ?? formatNumber(data.value)}`}</title>
+        <rect
+          x={-44} y={-14} width={88} height={28} rx={14}
+          fill={colors.bg}
+          stroke={colors.fg}
+          strokeWidth={1.2}
+          filter="url(#bubble-shadow)"
+        />
+        <circle cx={-30} cy={0} r={7} fill={colors.fg} />
+        <text
+          x={-30} y={3.5}
+          textAnchor="middle"
+          fill="white"
+          style={{ fontSize: 8, fontWeight: 800 }}
+        >
+          %
+        </text>
+        <text
+          x={-16} y={-3}
+          fill={colors.text}
+          style={{ fontSize: 8, fontWeight: 600 }}
+        >
+          {data.name}
+        </text>
+        <text
+          x={-16} y={8}
+          fill={colors.text}
+          style={{ fontSize: 7 }}
+        >
+          {data.label ?? formatNumber(data.value)}
+        </text>
+      </g>
+    );
+  }
+
+  // ── Legacy fallback — onTrack boolean ──────────────────────────────
   const statusColor = data.onTrack
     ? 'var(--color-map-on-track)'
     : 'var(--color-map-off-track)';
@@ -75,45 +198,35 @@ export default function CityBubble({
       aria-label={`${data.name} — ${formatNumber(data.value)} — ${data.onTrack ? 'on track' : 'off track'}`}
     >
       <title>{`${data.name}: ${formatNumber(data.value)} — See on map`}</title>
-      {/* Background pill */}
       <rect
-        x={-44}
-        y={-14}
-        width={88}
-        height={28}
-        rx={14}
+        x={-44} y={-14} width={88} height={28} rx={14}
         fill="white"
         stroke="var(--color-border)"
         strokeWidth={0.8}
         filter="url(#bubble-shadow)"
       />
-      {/* Status icon */}
       <circle cx={-30} cy={0} r={7} fill={statusColor} />
       <text
-        x={-30}
-        y={4}
+        x={-30} y={4}
         textAnchor="middle"
         fill="white"
         style={{ fontSize: 9, fontWeight: 700 }}
       >
         {statusIcon}
       </text>
-      {/* City name + value */}
       <text
-        x={-16}
-        y={-3}
+        x={-16} y={-3}
         fill="var(--color-text-primary)"
         style={{ fontSize: 8, fontWeight: 600 }}
       >
         {data.name}
       </text>
       <text
-        x={-16}
-        y={8}
+        x={-16} y={8}
         fill="var(--color-text-secondary)"
         style={{ fontSize: 7 }}
       >
-        {formatNumber(data.value)}
+        {data.label ?? formatNumber(data.value)}
       </text>
     </g>
   );

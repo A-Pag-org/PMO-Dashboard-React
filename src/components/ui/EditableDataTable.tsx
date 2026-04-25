@@ -99,9 +99,9 @@ export default function EditableDataTable({
     return out;
   }, [rows, filters, sortKey, sortDir]);
 
-  const metricNeedsDates = (metricName: string) =>
-    metricName === 'Total quantum of malba received at SCC' ||
-    metricName === 'MRS: Road coverage';
+  // Spec §7.3 — rows carry their own hasDates flag now (set in
+  // constants.ts based on the metric definition). Trust it.
+  const metricNeedsDates = (row: UploadRow) => row.hasDates;
 
   const hasData = (row: UploadRow) =>
     row.currentVal !== null || row.targetVal !== null;
@@ -174,8 +174,26 @@ export default function EditableDataTable({
         <tbody>
           {processed.map((row, i) => {
             const rowHasData = hasData(row);
-            const showDates = metricNeedsDates(row.metric);
+            const showDates = metricNeedsDates(row);
             const rowKey = `${row.state}-${row.city}-${row.initiative}-${row.metric}-${i}`;
+
+            // Per spec §6.3: target column is "—" for Xx and Y/N.
+            const targetDisplay =
+              row.format === 'X/Y'
+                ? row.targetVal !== null
+                  ? formatNumber(row.targetVal)
+                  : '-'
+                : '—';
+            const currentDisplay =
+              row.format === 'Y/N'
+                ? row.currentVal === 1
+                  ? 'Y'
+                  : row.currentVal === 0
+                  ? 'N'
+                  : '—'
+                : row.currentVal !== null
+                ? formatNumber(row.currentVal)
+                : '-';
 
             return (
               <tr
@@ -185,32 +203,56 @@ export default function EditableDataTable({
                 <BodyCell>{row.state}</BodyCell>
                 <BodyCell>{row.city}</BodyCell>
                 <BodyCell>{row.initiative}</BodyCell>
-                <BodyCell wide>{row.metric}</BodyCell>
+                <BodyCell wide>
+                  <span className="inline-flex items-center gap-1.5">
+                    {row.metric}
+                    <FormatBadge format={row.format} isInverse={row.isInverse} />
+                  </span>
+                </BodyCell>
                 <BodyCell capitalize>{row.metricType}</BodyCell>
-                <BodyCell align="right" locked={!rowHasData}>
-                  {row.targetVal !== null ? formatNumber(row.targetVal) : '-'}
+                <BodyCell align="right" locked>
+                  {targetDisplay}
                 </BodyCell>
                 <BodyCell align="right" locked={!rowHasData}>
-                  {row.currentVal !== null ? formatNumber(row.currentVal) : '-'}
+                  {currentDisplay}
                 </BodyCell>
                 <BodyCell muted>{row.unit}</BodyCell>
 
-                {/* Editable: New Val */}
+                {/* Editable: New Val — format-aware input */}
                 <td className="px-2 py-1 align-middle"
                     style={{ backgroundColor: 'rgba(200, 230, 201, 0.45)' }}>
-                  <input
-                    type="text"
-                    value={row.newVal}
-                    onChange={(e) => onNewValChange(row, e.target.value)}
-                    placeholder="[ ]"
-                    aria-label={`New value for ${row.city} / ${row.metric}`}
-                    className={cn(
-                      'w-full min-w-[60px] rounded border border-transparent bg-white/80 px-2 py-1 text-xs',
-                      'text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]',
-                      'focus-visible:border-[var(--color-border-blue)] focus-visible:outline-none',
-                      'focus-visible:ring-2 focus-visible:ring-blue-300',
-                    )}
-                  />
+                  {row.format === 'Y/N' ? (
+                    <select
+                      value={row.newVal}
+                      onChange={(e) => onNewValChange(row, e.target.value)}
+                      aria-label={`New value for ${row.city} / ${row.metric}`}
+                      className={cn(
+                        'w-full min-w-[60px] rounded border border-transparent bg-white/80 px-2 py-1 text-xs',
+                        'text-[var(--color-text-primary)]',
+                        'focus-visible:border-[var(--color-border-blue)] focus-visible:outline-none',
+                        'focus-visible:ring-2 focus-visible:ring-blue-300',
+                      )}
+                    >
+                      <option value="">—</option>
+                      <option value="Y">Y</option>
+                      <option value="N">N</option>
+                    </select>
+                  ) : (
+                    <input
+                      type={row.format === 'X/Y' || row.format === 'Xx' ? 'number' : 'text'}
+                      inputMode={row.format === 'X/Y' || row.format === 'Xx' ? 'numeric' : undefined}
+                      value={row.newVal}
+                      onChange={(e) => onNewValChange(row, e.target.value)}
+                      placeholder="[ ]"
+                      aria-label={`New value for ${row.city} / ${row.metric}`}
+                      className={cn(
+                        'w-full min-w-[60px] rounded border border-transparent bg-white/80 px-2 py-1 text-xs',
+                        'text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]',
+                        'focus-visible:border-[var(--color-border-blue)] focus-visible:outline-none',
+                        'focus-visible:ring-2 focus-visible:ring-blue-300',
+                      )}
+                    />
+                  )}
                 </td>
 
                 {/* Start date */}
@@ -360,6 +402,34 @@ function PlainHeader({
     >
       {label}
     </th>
+  );
+}
+
+function FormatBadge({
+  format,
+  isInverse,
+}: {
+  format: UploadRow['format'];
+  isInverse?: boolean;
+}) {
+  const label = format;
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <span
+        className="rounded bg-[var(--color-blue-pale)] px-1 py-px font-mono text-[9px] font-bold text-[var(--color-blue-link)]"
+        title={`Metric format: ${format}`}
+      >
+        {label}
+      </span>
+      {isInverse ? (
+        <span
+          className="rounded bg-[var(--color-tl-red-bg)] px-1 py-px text-[8px] font-bold uppercase text-[var(--color-tl-red-text)]"
+          title="Inverse metric — high % is bad"
+        >
+          INV
+        </span>
+      ) : null}
+    </span>
   );
 }
 

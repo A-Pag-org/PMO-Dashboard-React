@@ -1,16 +1,25 @@
 // FILE: components/ui/InitiativeCard.tsx
-// PURPOSE: Summary-page initiative card — always a circular (donut) chart for
-//          visual coherence. Single-ring when the card has one headline
-//          metric (e.g. Road Repair, C&D-SCC); dual concentric rings when it
-//          has two sub-metrics (e.g. Naya Safar — Trucks + Buses).
+// PURPOSE: Summary-page initiative tile (spec §3).
 //
-// The card reacts to the Summary-page state filter: both the donut values
-// and the subtitle text recompute when the user changes geography.
+// Tile chart variant comes from the initiative's summaryCard.variant:
+//   donut         — single ring (Road Repair, SCC, ICCC, Green Contribution, Greening)
+//   two-donuts    — two side-by-side donuts (Naya Safar, CEMS/APCD)
+//   three-donuts  — three side-by-side donuts (MRS by road width)
+//   dual-bar      — DEPRECATED concentric rings (kept for back-compat only)
+//
+// Highlighting (spec §3.1): tiles in the user's "highlighted" set
+// render at full color; other tiles are visible but greyed out.
+//
+// Clicking the tile navigates to the Detailed View, pre-filtered for
+// that initiative via the `?p=<initiative-name>` query param read by
+// useDetailFilters.
 
 import { Hand } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DonutProgress from './DonutProgress';
 import DualDonutProgress from './DualDonutProgress';
+import TwoDonutsProgress from './TwoDonutsProgress';
+import ThreeDonutsProgress from './ThreeDonutsProgress';
 import { cn, formatNumber, getCompletionPercentage } from '@/lib/utils';
 import { MOCK_SUMMARY_BY_INITIATIVE } from '@/lib/constants';
 import type { Initiative, SummaryCardBar, SummaryCardConfig } from '@/lib/types';
@@ -23,23 +32,19 @@ interface InitiativeCardProps {
    * state name and looked up against the per-state mock summary table.
    */
   selectedState?: string | null;
-  /** Optional drill-down target; defaults to /dashboard/detail. */
-  href?: string;
+  /**
+   * Spec §3.1 — when false, the tile renders at reduced opacity to
+   * indicate it is outside the current user's "highlighted" set.
+   */
+  highlighted?: boolean;
   className?: string;
 }
 
 /**
  * Derive the summary-card config for a specific geography.
- *
- * Donut cards: take the state's achieved/target directly from the
- * per-state summary table.
- *
- * Dual-bar cards: scale each sub-metric proportionally by the ratio of
- * the state's total achieved vs. the NCR total. This keeps the two
- * sub-metric breakdowns visible while honouring the state filter.
- *
- * When `selectedState` is null or the state is not in the table, we fall
- * back to the NCR-wide config baked into the initiative.
+ * For now we only adjust donut/two-donuts/three-donuts variants by
+ * scaling each value by the state's share of the NCR total.
+ * Dual-bar (legacy) keeps its previous behaviour.
  */
 function deriveCardConfig(
   initiative: Initiative,
@@ -54,52 +59,58 @@ function deriveCardConfig(
   const row = summary.table.find((r) => r.state === selectedState);
   if (!row) return base;
 
+  const ncrTotal = summary.table.reduce((sum, r) => sum + r.achieved, 0);
+  const share = ncrTotal > 0 ? row.achieved / ncrTotal : 0;
+  const scale = (bar: SummaryCardBar): SummaryCardBar => ({
+    ...bar,
+    achieved: Math.round(bar.achieved * share * summary.table.length),
+  });
+
   if (base.variant === 'donut' && base.donut) {
-    // Express the state completion % on the same 0-100 target scale the
-    // NCR card uses, so visual parity is preserved across states.
     const pct = Math.max(0, Math.min(100, row.completion));
     return {
       ...base,
-      donut: {
-        ...base.donut,
-        target: 100,
-        achieved: pct,
-      },
+      donut: { ...base.donut, target: 100, achieved: pct },
     };
   }
-
-  if (base.variant === 'dual-bar' && base.bars) {
-    const ncrTotal = summary.table.reduce((sum, r) => sum + r.achieved, 0);
-    const share = ncrTotal > 0 ? row.achieved / ncrTotal : 0;
-    const scale = (bar: SummaryCardBar): SummaryCardBar => ({
-      ...bar,
-      achieved: Math.round(bar.achieved * share * summary.table.length),
-    });
+  if (base.variant === 'two-donuts' && base.bars) {
+    return { ...base, bars: [scale(base.bars[0]), scale(base.bars[1])] };
+  }
+  if (base.variant === 'three-donuts' && base.trio) {
     return {
       ...base,
-      bars: [scale(base.bars[0]), scale(base.bars[1])],
+      trio: [scale(base.trio[0]), scale(base.trio[1]), scale(base.trio[2])],
     };
   }
-
+  if (base.variant === 'dual-bar' && base.bars) {
+    return { ...base, bars: [scale(base.bars[0]), scale(base.bars[1])] };
+  }
   return base;
 }
 
 export default function InitiativeCard({
   initiative,
   selectedState = null,
-  href = '/dashboard/detail',
+  highlighted = true,
   className,
 }: InitiativeCardProps) {
   const cfg = deriveCardConfig(initiative, selectedState);
   const geographyLabel = selectedState ?? 'All Delhi-NCR';
 
+  // Carry the initiative name forward as a query param so DetailPage
+  // can pre-select it via useDetailFilters (?initiative=…).
+  const detailHref = `/dashboard/detail?initiative=${encodeURIComponent(initiative.name)}`;
+
   return (
     <Link
-      to={href}
+      to={detailHref}
       aria-label={`${initiative.name} – open detailed view for ${geographyLabel}`}
       className={cn(
-        'group relative flex h-full flex-col rounded-md border-2 border-[var(--color-border-blue)] bg-white p-3 text-left transition-shadow',
+        'group relative flex h-full flex-col rounded-md border-2 p-3 text-left transition-all',
         'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
+        highlighted
+          ? 'border-[var(--color-border-blue)] bg-white'
+          : 'border-[var(--color-border-table)] bg-[var(--color-surface-light)] opacity-60 grayscale hover:opacity-90 hover:grayscale-0',
         className,
       )}
     >
@@ -112,33 +123,12 @@ export default function InitiativeCard({
         </span>
       </div>
 
-      {cfg?.description ? (
-        <p className="mt-1 text-2xs leading-tight text-[var(--color-text-primary)]">
-          {cfg.description}
-        </p>
-      ) : (
-        <p className="mt-1 text-2xs leading-tight text-[var(--color-text-primary)]">
-          {initiative.primaryMetric}
-        </p>
-      )}
+      <p className="mt-1 text-2xs leading-tight text-[var(--color-text-primary)]">
+        {cfg?.description ?? initiative.primaryMetric}
+      </p>
 
       <div className="mt-2 flex flex-1 items-center justify-center">
-        {cfg?.variant === 'dual-bar' && cfg.bars ? (
-          <DualDonutProgress bars={cfg.bars} size={104} thickness={9} gap={3} />
-        ) : cfg?.variant === 'donut' && cfg.donut ? (
-          <div className="flex flex-col items-center">
-            <DonutProgress
-              value={getCompletionPercentage(cfg.donut.target, cfg.donut.achieved)}
-              size={96}
-              thickness={12}
-            />
-            <p className="mt-0.5 text-2xs font-semibold text-[var(--color-text-primary)]">
-              {formatNumber(cfg.donut.achieved)}/{formatNumber(cfg.donut.target)}
-            </p>
-          </div>
-        ) : (
-          <FallbackFromMetrics initiative={initiative} />
-        )}
+        <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
       </div>
 
       <div className="absolute bottom-2 right-2">
@@ -150,6 +140,38 @@ export default function InitiativeCard({
   );
 }
 
+function CardChart({
+  cfg,
+  fallback,
+}: {
+  cfg: SummaryCardConfig | undefined;
+  fallback: React.ReactNode;
+}) {
+  if (!cfg) return <>{fallback}</>;
+
+  if (cfg.variant === 'donut' && cfg.donut) {
+    const pct = getCompletionPercentage(cfg.donut.target, cfg.donut.achieved);
+    return (
+      <div className="flex flex-col items-center">
+        <DonutProgress value={pct} size={96} thickness={12} />
+        <p className="mt-0.5 text-2xs font-semibold tabular-nums text-[var(--color-text-primary)]">
+          {formatNumber(cfg.donut.achieved)} / {formatNumber(cfg.donut.target)}
+        </p>
+      </div>
+    );
+  }
+  if (cfg.variant === 'two-donuts' && cfg.bars) {
+    return <TwoDonutsProgress bars={cfg.bars} />;
+  }
+  if (cfg.variant === 'three-donuts' && cfg.trio) {
+    return <ThreeDonutsProgress trio={cfg.trio} />;
+  }
+  if (cfg.variant === 'dual-bar' && cfg.bars) {
+    return <DualDonutProgress bars={cfg.bars} size={104} thickness={9} gap={3} />;
+  }
+  return <>{fallback}</>;
+}
+
 function FallbackFromMetrics({ initiative }: { initiative: Initiative }) {
   const primary = initiative.metrics[0];
   if (!primary) return null;
@@ -157,8 +179,8 @@ function FallbackFromMetrics({ initiative }: { initiative: Initiative }) {
   return (
     <div className="flex flex-col items-center">
       <DonutProgress value={pct} size={96} thickness={12} />
-      <p className="mt-0.5 text-2xs font-semibold text-[var(--color-text-primary)]">
-        {formatNumber(primary.achieved)}/{formatNumber(primary.target)}
+      <p className="mt-0.5 text-2xs font-semibold tabular-nums text-[var(--color-text-primary)]">
+        {formatNumber(primary.achieved)} / {formatNumber(primary.target)}
       </p>
     </div>
   );
