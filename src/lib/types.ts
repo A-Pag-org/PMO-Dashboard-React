@@ -126,6 +126,12 @@ export interface UploadRow {
   geography: string;
   metric: string;
   metricType: MetricType;
+  /** Display format — drives table column visibility (spec §7). */
+  format: MetricFormat;
+  /** Inverse / violation metric — color logic reverses on display. */
+  isInverse?: boolean;
+  /** Whether Start/End date are editable (spec §7.3 — only 2 metrics). */
+  hasDates: boolean;
   targetVal: number | null;
   currentVal: number | null;
   unit: string;

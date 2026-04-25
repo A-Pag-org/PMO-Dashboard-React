@@ -4,6 +4,7 @@
 
 import type {
   Initiative,
+  Metric,
   SummaryTableRow,
   DetailTableRow,
   UploadRow,
@@ -465,98 +466,107 @@ export const MOCK_DETAIL_TABLE_ALL: DetailTableRow[] = [
 // Legacy alias
 export const MOCK_DETAIL_TABLE = MOCK_DETAIL_TABLE_ALL;
 
-// ─── Mock Data: Upload Page Rows — per initiative, all 9 cities ─────────
-// TODO: replace with API call
-// Keyed by initiative slug. Each has rows for cities with realistic metrics.
-
-function makeUploadRows(
-  initiativeName: string,
-  cities: string[],
-  metrics: { name: string; type: 'outcome' | 'progress' | 'readiness'; unit: string; hasDates?: boolean }[],
-  filledCities: string[],
-): UploadRow[] {
-  const rows: UploadRow[] = [];
-  for (const city of cities) {
-    const hasFill = filledCities.includes(city);
-    const state = CITY_STATE_MAP[city] ?? city;
-    for (const m of metrics) {
-      rows.push({
-        state,
-        city,
-        initiative: initiativeName,
-        geography: city,
-        metric: m.name,
-        metricType: m.type,
-        targetVal: hasFill ? Math.floor(Math.random() * 400 + 100) : null,
-        currentVal: hasFill ? Math.floor(Math.random() * 200 + 10) : null,
-        unit: m.unit,
-        newVal: '',
-        lastUpdated: hasFill ? '2026-04-10T14:30:00' : '',
-        lastUpdatedBy: hasFill ? `admin@${city.toLowerCase().replace(/\s+/g, '')}.gov.in` : '',
-        startDate: m.hasDates && hasFill ? '2026-01-01' : '',
-        endDate: m.hasDates && hasFill ? '2026-12-31' : '',
-        remarks: '',
-      });
-    }
-  }
-  return rows;
-}
+// ─── Mock Data: Upload Page Rows (spec §7) ─────────────────────────────
+//
+// Per spec §7.1, only metrics whose data source is "Manually entered in
+// portal" appear on the Manual Upload screen. We derive those rows
+// directly from each initiative's metric list, so adding a new manual
+// metric anywhere automatically lights it up on the upload page.
+//
+// Date fields are editable for ONLY two metrics per spec §7.3:
+//   - "Total quantum of malba received at SCC"
+//   - MRS Route coverage outcome metrics (>15m / 10–15m / <10m)
+// (The MRS route-coverage metrics aren't strictly Manual per §5, but
+//  §7.3 explicitly grants them date-edit access, so we surface them on
+//  the upload screen with hasDates=true and value-fields locked.)
 
 const ALL_CITIES_ORDERED = ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad', 'Gurugram', 'Rohtak', 'Panipat', 'Neemrana', 'Alwar'];
 
-export const MOCK_UPLOAD_BY_INITIATIVE: Record<string, UploadRow[]> = {
-  'naya-safar-yojana': makeUploadRows('Naya Safar Yojana', ALL_CITIES_ORDERED, [
-    { name: 'Pre-BS VI trucks / buses converted', type: 'outcome', unit: 'vehicles' },
-    { name: 'No. of Events Conducted', type: 'outcome', unit: '-' },
-    { name: 'No. of Events Planned', type: 'progress', unit: '-' },
-    { name: 'No. of Outlets Activated', type: 'progress', unit: '-' },
-  ], ['Delhi', 'Noida', 'Gurugram']),
+const DATE_METRIC_NAMES = new Set<string>([
+  'Total quantum of malba received at SCC',
+  'Route coverage achieved (>15m)',
+  'Route coverage achieved (10–15m)',
+  'Route coverage achieved (<10m)',
+]);
 
-  'cd-iccc': makeUploadRows('C&D - ICCC', ALL_CITIES_ORDERED, [
-    { name: '# sites integrated in ICCC', type: 'outcome', unit: 'sites' },
-    { name: '# cameras installed', type: 'progress', unit: '-' },
-    { name: '# sites identified for ICCC', type: 'readiness', unit: '-' },
-  ], ['Delhi', 'Gurugram', 'Noida']),
+/** True iff the metric is meant to surface on the Manual Upload screen. */
+function isUploadableMetric(m: { dataSource?: string; name: string }): boolean {
+  if (DATE_METRIC_NAMES.has(m.name)) return true;
+  return (m.dataSource ?? '').toLowerCase().includes('manual');
+}
 
-  'cems-apcd': makeUploadRows('CEMS/APCD installation', ALL_CITIES_ORDERED, [
-    { name: '# industries with CEMS installed', type: 'outcome', unit: 'industries' },
-    { name: '# industries with APCDs installed', type: 'outcome', unit: 'industries' },
-    { name: '# industries identified for CEMS/APCD', type: 'progress', unit: '-' },
-    { name: '# show-cause notices issued', type: 'progress', unit: '-' },
-  ], ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad']),
+/**
+ * Build per-city rows for a single (initiative, metric) pair.
+ * `filledCities` simulates which jurisdictions have already submitted
+ * data — matters for the demo's "current val populated" look.
+ */
+function buildUploadRows(
+  initiativeName: string,
+  metric: Metric,
+  cities: string[],
+  filledCities: string[],
+): UploadRow[] {
+  const hasDates = DATE_METRIC_NAMES.has(metric.name);
+  return cities.map((city) => {
+    const hasFill = filledCities.includes(city);
+    const state = CITY_STATE_MAP[city] ?? city;
+    let target: number | null = null;
+    let current: number | null = null;
+    if (metric.format === 'X/Y' && hasFill) {
+      target  = Math.floor(Math.random() * 400 + 100);
+      current = Math.floor(Math.random() * (target + 1));
+    } else if (metric.format === 'Xx' && hasFill) {
+      current = Math.floor(Math.random() * 250 + 20);
+    } else if (metric.format === 'Y/N' && hasFill) {
+      target  = 1;
+      current = Math.random() > 0.4 ? 1 : 0;
+    }
+    return {
+      state,
+      city,
+      initiative: initiativeName,
+      geography: city,
+      metric: metric.name,
+      metricType: metric.type,
+      format: metric.format,
+      isInverse: metric.isInverse,
+      hasDates,
+      targetVal: target,
+      currentVal: current,
+      unit: metric.unit ?? '-',
+      newVal: '',
+      lastUpdated:   hasFill ? '2026-04-10T14:30:00' : '',
+      lastUpdatedBy: hasFill ? `admin@${city.toLowerCase().replace(/\s+/g, '')}.gov.in` : '',
+      startDate: hasDates && hasFill ? '2026-01-01' : '',
+      endDate:   hasDates && hasFill ? '2026-12-31' : '',
+      remarks: '',
+    };
+  });
+}
 
-  'road-repair': makeUploadRows('Road Repair', ALL_CITIES_ORDERED, [
-    { name: 'Km road-length repaired', type: 'outcome', unit: 'km' },
-    { name: 'No. of roads identified for repair', type: 'progress', unit: '-' },
-    { name: 'No. of roads surveyed', type: 'readiness', unit: '-' },
-  ], ['Delhi', 'Gurugram', 'Rohtak', 'Panipat']),
-
-  'green-contribution': makeUploadRows('Green Contribution', ALL_CITIES_ORDERED, [
-    { name: '# tolls with Green Contribution collection initiated', type: 'outcome', unit: 'tolls' },
-    { name: 'Green Contribution amount collected', type: 'outcome', unit: 'INR Cr' },
-    { name: '# tolls identified for Green Contribution', type: 'progress', unit: '-' },
-  ], ['Delhi', 'Gurugram', 'Panipat', 'Alwar']),
-
-  'cd-scc': makeUploadRows('C&D - SCC', ALL_CITIES_ORDERED, [
-    { name: 'No. of SCC setup achieved', type: 'outcome', unit: '-' },
-    { name: 'Total quantum of malba received at SCC', type: 'outcome', unit: 'MMT', hasDates: true },
-    { name: 'No. of SCC identified (land parcels earmarked)', type: 'progress', unit: '-' },
-    { name: 'No. of SCC required', type: 'readiness', unit: '-' },
-  ], ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad']),
-
-  'greening': makeUploadRows('Greening', ALL_CITIES_ORDERED, [
-    { name: 'Phase 1 greening action plan zones completed', type: 'outcome', unit: 'zones' },
-    { name: 'No. of saplings planted', type: 'outcome', unit: '-' },
-    { name: 'No. of zones identified', type: 'progress', unit: '-' },
-  ], ['Delhi', 'Noida', 'Gurugram', 'Rohtak', 'Neemrana']),
-
-  'mrs': makeUploadRows('MRS', ALL_CITIES_ORDERED, [
-    { name: 'Route coverage achieved', type: 'outcome', unit: 'routes' },
-    { name: 'MRS: Road coverage', type: 'outcome', unit: 'km', hasDates: true },
-    { name: 'No. of vehicles deployed', type: 'progress', unit: '-' },
-    { name: 'No. of routes planned', type: 'readiness', unit: '-' },
-  ], ['Delhi', 'Noida', 'Gurugram', 'Greater Noida', 'Rohtak']),
+const FILLED_CITIES_BY_SLUG: Record<string, string[]> = {
+  'naya-safar-yojana':  ['Delhi', 'Noida', 'Gurugram'],
+  'cems-apcd':          ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad'],
+  'road-repair':        ['Delhi', 'Gurugram', 'Rohtak', 'Panipat'],
+  'mrs':                ['Delhi', 'Noida', 'Gurugram', 'Greater Noida', 'Rohtak'],
+  'cd-scc':             ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad'],
+  'cd-iccc':            ['Delhi', 'Gurugram', 'Noida'],
+  'green-contribution': ['Delhi', 'Gurugram', 'Panipat', 'Alwar'],
+  'greening':           ['Delhi', 'Noida', 'Gurugram', 'Rohtak', 'Neemrana'],
 };
+
+export const MOCK_UPLOAD_BY_INITIATIVE: Record<string, UploadRow[]> =
+  Object.fromEntries(
+    INITIATIVES.map((init) => {
+      const filled = FILLED_CITIES_BY_SLUG[init.slug] ?? [];
+      const rows = init.metrics
+        .filter(isUploadableMetric)
+        .flatMap((metric) =>
+          buildUploadRows(init.name, metric, ALL_CITIES_ORDERED, filled),
+        );
+      return [init.slug, rows];
+    }),
+  );
 
 // Flat list across every initiative — used as the primary data source by
 // the Manual Data Upload page (wireframe page 11), where rows are filtered
@@ -571,7 +581,7 @@ export const MOCK_UPLOAD_ROWS: UploadRow[] = MOCK_UPLOAD_BY_INITIATIVE['cd-scc']
 export const UPLOAD_INITIATIVE_SLUG_MAP: Record<string, string> = {
   'Naya Safar Yojana': 'naya-safar-yojana',
   'C&D - ICCC': 'cd-iccc',
-  'CEMS/APCD installation': 'cems-apcd',
+  'CEMS/APCD': 'cems-apcd',
   'Road Repair': 'road-repair',
   'Green Contribution': 'green-contribution',
   'C&D - SCC': 'cd-scc',
