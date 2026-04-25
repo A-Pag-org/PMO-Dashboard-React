@@ -90,9 +90,24 @@ export interface CompletionData {
 
 export interface MapDataPoint {
   name: string;
+  /** Numeric value to display under the name (raw count, completion %, etc.). */
   value: number;
+  /**
+   * Legacy binary status flag. When `format`/`band` are absent the bubble
+   * falls back to this boolean (green check / red cross).
+   */
   onTrack: boolean;
+  /** Optional override for the value text (e.g. "12 / 50"). */
   label?: string;
+  /**
+   * Spec §4.5 — drives bubble rendering:
+   *   X/Y → tinted by `band` (R/Y/G)
+   *   Xx  → raw number, no color band
+   *   Y/N → big Y (green) or N (red)
+   */
+  format?: MetricFormat;
+  /** Computed traffic-light band for X/Y metrics. */
+  band?: ColorBand;
 }
 
 export interface MapCenterBubble {
