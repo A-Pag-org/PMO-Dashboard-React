@@ -98,8 +98,8 @@ export default function InitiativeCard({
   const geographyLabel = selectedState ?? 'All Delhi-NCR';
 
   // Carry the initiative name forward as a query param so DetailPage
-  // can pre-select it via useDetailFilters.
-  const detailHref = `/dashboard/detail?p=${encodeURIComponent(initiative.name)}`;
+  // can pre-select it via useDetailFilters (?initiative=…).
+  const detailHref = `/dashboard/detail?initiative=${encodeURIComponent(initiative.name)}`;
 
   return (
     <Link

@@ -1,98 +1,222 @@
 // FILE: src/pages/AllDataPage.tsx
-// PURPOSE: All-data view with initiative, sort/filter controls, and full table visibility
-// DESIGN REF: Wireframe page 10 of 13 (All Data View)
+// PURPOSE: All Data View (spec §6) — full tabular data, all geographies,
+//          for the initiative carried over from the Detailed View.
+//
+// Spec rules:
+//   §6.1  initiative carried via ?initiative=<name> from Detail's
+//         "See all data" link.
+//   §6.2  rows are nested:  NCR > State > City > RTO  with indentation
+//         and expand/collapse on every parent.
+//   §6.3  columns vary by metric format (X/Y vs Xx vs Y/N).
+//   §6.4  geography + completion sortable; geography filter via dropdown.
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowUpDown } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import FilterPill from '@/components/ui/FilterPill';
-import DataTable from '@/components/ui/DataTable';
+import NestedDataTable, { type NestedRow } from '@/components/ui/NestedDataTable';
 import {
   INITIATIVES,
-  MOCK_DETAIL_TABLE_ALL,
-  CITY_STATE_MAP,
-  UPLOAD_CITY_OPTIONS_BY_STATE,
   STATES,
-  MOCK_SUMMARY_BY_INITIATIVE,
+  UPLOAD_CITY_OPTIONS_BY_STATE,
+  RTO_OPTIONS_BY_CITY,
 } from '@/lib/constants';
+import { getCompletionPercentage } from '@/lib/utils';
+import type { Metric } from '@/lib/types';
+import { useDetailFilters } from '@/lib/useDetailFilters';
 
-type SortBy = 'completion-desc' | 'completion-asc' | 'achieved-desc' | 'achieved-asc';
+// Same per-state weights used on Detail page — keeps the demo consistent
+// when a user navigates Detail → All Data.
+const STATE_WEIGHTS: Record<string, number> = {
+  Delhi: 0.40,
+  'Uttar Pradesh': 0.25,
+  Haryana: 0.22,
+  Rajasthan: 0.13,
+};
 
-const SORT_OPTIONS: { label: string; value: SortBy }[] = [
-  { label: 'Completion (high to low)', value: 'completion-desc' },
-  { label: 'Completion (low to high)', value: 'completion-asc' },
-  { label: 'Achieved (high to low)', value: 'achieved-desc' },
-  { label: 'Achieved (low to high)', value: 'achieved-asc' },
-];
+function rtoWeight(_rto: string, count: number): number {
+  return 1 / Math.max(1, count);
+}
+
+/**
+ * Builds a 4-level tree (NCR > State > City > RTO) of dummy values for
+ * the given metric. Aggregates upward so child sums equal parent.
+ */
+function buildTree(metric: Metric, stateFilter: string): NestedRow[] {
+  const totalTarget   = metric.target ?? 0;
+  const totalAchieved = metric.achieved ?? 0;
+
+  function calcChildXY(weight: number): { target: number; achieved: number } {
+    if (metric.format === 'Y/N') return { target: 0, achieved: 0 };
+    return {
+      target: Math.max(metric.format === 'X/Y' ? 1 : 0, Math.round(totalTarget * weight)),
+      achieved: Math.round(totalAchieved * weight),
+    };
+  }
+
+  function rtoNode(state: string, city: string, rto: string, rtoCount: number, cityWeight: number): NestedRow {
+    const w = cityWeight * rtoWeight(rto, rtoCount);
+    const { target, achieved } = calcChildXY(w);
+    if (metric.format === 'Y/N') {
+      // Deterministic Y/N at RTO level using metric+rto name.
+      let h = 0;
+      const seed = metric.name + state + city + rto;
+      for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) | 0;
+      const isYes = (h & 1) === 1;
+      return {
+        id: `rto::${state}::${city}::${rto}`,
+        label: rto,
+        level: 3,
+        target: 1,
+        achieved: isYes ? 1 : 0,
+      };
+    }
+    if (metric.format === 'Xx') {
+      return {
+        id: `rto::${state}::${city}::${rto}`,
+        label: rto,
+        level: 3,
+        target: null,
+        achieved,
+      };
+    }
+    return {
+      id: `rto::${state}::${city}::${rto}`,
+      label: rto,
+      level: 3,
+      target,
+      achieved,
+    };
+  }
+
+  function cityNode(state: string, city: string, stateWeight: number, cityCount: number): NestedRow {
+    const cityWeight = stateWeight / Math.max(1, cityCount);
+    const rtos = RTO_OPTIONS_BY_CITY[city] ?? [];
+    const rtoChildren = rtos.map((r) => rtoNode(state, city, r, rtos.length, cityWeight));
+
+    if (metric.format === 'Y/N') {
+      // Aggregate "Y" iff ALL RTOs are Y (a strict reading; alternative
+      // is majority — left as a TODO).
+      const isYes = rtoChildren.length > 0 && rtoChildren.every((c) => c.achieved === 1);
+      return {
+        id: `city::${state}::${city}`,
+        label: city,
+        level: 2,
+        target: 1,
+        achieved: isYes ? 1 : 0,
+        children: rtoChildren,
+      };
+    }
+    const target = rtoChildren.reduce((s, c) => s + (c.target ?? 0), 0) || calcChildXY(cityWeight).target;
+    const achieved = rtoChildren.reduce((s, c) => s + (c.achieved ?? 0), 0);
+    return {
+      id: `city::${state}::${city}`,
+      label: city,
+      level: 2,
+      target: metric.format === 'Xx' ? null : Math.max(1, target),
+      achieved,
+      children: rtoChildren,
+    };
+  }
+
+  function stateNode(state: string): NestedRow {
+    const stateWeight = STATE_WEIGHTS[state] ?? 0.1;
+    const cities = UPLOAD_CITY_OPTIONS_BY_STATE[state] ?? [];
+    const cityChildren = cities.map((c) => cityNode(state, c, stateWeight, cities.length));
+
+    if (metric.format === 'Y/N') {
+      const isYes = cityChildren.length > 0 && cityChildren.every((c) => c.achieved === 1);
+      return {
+        id: `state::${state}`,
+        label: state,
+        level: 1,
+        target: 1,
+        achieved: isYes ? 1 : 0,
+        children: cityChildren,
+      };
+    }
+    const target = cityChildren.reduce((s, c) => s + (c.target ?? 0), 0);
+    const achieved = cityChildren.reduce((s, c) => s + (c.achieved ?? 0), 0);
+    return {
+      id: `state::${state}`,
+      label: state,
+      level: 1,
+      target: metric.format === 'Xx' ? null : Math.max(1, target),
+      achieved,
+      children: cityChildren,
+    };
+  }
+
+  const stateNodes = STATES
+    .filter((s) => stateFilter === 'All' || s === stateFilter)
+    .map(stateNode);
+
+  // L1 — Delhi NCR aggregate. Skip when a single state is filtered, to
+  // avoid showing a near-duplicate top-level row.
+  if (stateFilter !== 'All') return stateNodes;
+
+  if (metric.format === 'Y/N') {
+    const isYes = stateNodes.length > 0 && stateNodes.every((s) => s.achieved === 1);
+    return [
+      {
+        id: 'ncr::delhi-ncr',
+        label: 'Delhi NCR',
+        level: 0,
+        target: 1,
+        achieved: isYes ? 1 : 0,
+        children: stateNodes,
+      },
+    ];
+  }
+  const totalT = stateNodes.reduce((s, c) => s + (c.target ?? 0), 0);
+  const totalA = stateNodes.reduce((s, c) => s + (c.achieved ?? 0), 0);
+  return [
+    {
+      id: 'ncr::delhi-ncr',
+      label: 'Delhi NCR',
+      level: 0,
+      target: metric.format === 'Xx' ? null : Math.max(1, totalT),
+      achieved: totalA,
+      children: stateNodes,
+    },
+  ];
+}
 
 export default function AllDataPage() {
-  const [initiative, setInitiative] = useState(INITIATIVES[0].name);
-  const [stateFilter, setStateFilter] = useState('All');
-  const [sortBy, setSortBy] = useState<SortBy>('completion-desc');
-  const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<Record<string, string>>({});
+  // Honour ?initiative=<name> passed in from Detail page (spec §4.1).
+  const { initiativeName } = useDetailFilters();
+  const [initiative, setInitiative] = useState(
+    INITIATIVES.find((i) => i.name === initiativeName)?.name ?? INITIATIVES[0].name,
+  );
+  const [stateFilter, setStateFilter] = useState<string>('All');
+  const [selectedMetricByInitiative, setSelectedMetricByInitiative] =
+    useState<Record<string, string>>({});
+
   const selectedInitiative = INITIATIVES.find((i) => i.name === initiative) ?? INITIATIVES[0];
   const metricOptions = selectedInitiative.metrics.map((m) => m.name);
-  const selectedMetricName = selectedMetricByInitiative[selectedInitiative.slug] ?? metricOptions[0];
+  const selectedMetricName =
+    selectedMetricByInitiative[selectedInitiative.slug] ?? metricOptions[0];
   const selectedMetric =
     selectedInitiative.metrics.find((m) => m.name === selectedMetricName) ??
     selectedInitiative.metrics[0];
 
-  const baseRows = useMemo(() => {
-    const summaryRows = MOCK_SUMMARY_BY_INITIATIVE[selectedInitiative.slug]?.table ?? [];
-    const metricBaseRows =
-      summaryRows.length > 0
-        ? summaryRows.map((row) => ({
-            geography: row.state,
-            target: row.target,
-            achieved: row.achieved,
-            completion: row.completion,
-          }))
-        : MOCK_DETAIL_TABLE_ALL;
+  const tree = useMemo(
+    () => (selectedMetric ? buildTree(selectedMetric, stateFilter) : []),
+    [selectedMetric, stateFilter],
+  );
 
-    const rows = metricBaseRows.filter((row) => {
-      if (stateFilter === 'All') return true;
-      return CITY_STATE_MAP[row.geography] === stateFilter || row.geography === stateFilter;
-    });
-
-    const sorted = [...rows].sort((a, b) => {
-      switch (sortBy) {
-        case 'completion-asc':
-          return a.completion - b.completion;
-        case 'completion-desc':
-          return b.completion - a.completion;
-        case 'achieved-asc':
-          return a.achieved - b.achieved;
-        case 'achieved-desc':
-          return b.achieved - a.achieved;
-      }
-    });
-
-    return sorted.map((r) => ({
-      label: r.geography,
-      target: r.target,
-      achieved: r.achieved,
-      completion: r.completion,
-    }));
-  }, [selectedInitiative.slug, stateFilter, sortBy]);
-
-  const tableRows = selectedMetric?.geographyLevel === 'central' ? [] : baseRows;
-  const continuationMetrics = selectedInitiative.metrics
-    .filter((m) => m.name !== selectedMetric?.name)
-    .slice(0, 2);
-
-  const sortLabel = SORT_OPTIONS.find((opt) => opt.value === sortBy)?.label ?? SORT_OPTIONS[0].label;
   const stateOptions = ['All', ...STATES];
-  const cityCount =
-    stateFilter === 'All'
-      ? Object.values(UPLOAD_CITY_OPTIONS_BY_STATE).flat().length
-      : (UPLOAD_CITY_OPTIONS_BY_STATE[stateFilter] ?? []).length;
+  const isCentral = selectedMetric?.geographyLevel === 'central';
+  const ncrPct = selectedMetric
+    ? getCompletionPercentage(selectedMetric.target, selectedMetric.achieved)
+    : 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <TopBar
         activePage="all-data"
-        pageTitle="FULL DATA TABLE"
+        pageTitle="ALL DATA VIEW"
         showBackToSummary
       />
 
@@ -122,15 +246,6 @@ export default function AllDataPage() {
                 }))
               }
             />
-            <FilterPill
-              label="Sort"
-              options={SORT_OPTIONS.map((o) => o.label)}
-              value={sortLabel}
-              onChange={(label) => {
-                const selected = SORT_OPTIONS.find((o) => o.label === label);
-                if (selected) setSortBy(selected.value);
-              }}
-            />
           </div>
 
           <Link
@@ -143,50 +258,44 @@ export default function AllDataPage() {
         </div>
 
         <div className="flex-1 space-y-4 overflow-auto p-4">
-          <div className="flex items-center justify-between rounded-md border border-[var(--color-border-table)] bg-[var(--color-surface-light)] px-3 py-2">
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Showing all rows for{' '}
-              <span className="font-semibold text-[var(--color-text-primary)]">{initiative}</span>{' '}
-              across {cityCount} city records
-              {stateFilter === 'All' ? '' : ` in ${stateFilter}`}.
-            </p>
-            <span className="inline-flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
-              <ArrowUpDown className="h-3.5 w-3.5" />
-              Sorted by {sortLabel}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--color-border-table)] bg-[var(--color-surface-light)] px-3 py-2">
+            <div className="text-xs text-[var(--color-text-secondary)]">
+              <p>
+                <span className="font-semibold text-[var(--color-text-primary)]">
+                  {selectedInitiative.name}
+                </span>{' '}
+                · {selectedMetric?.name ?? '—'}
+              </p>
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
+                Format:{' '}
+                <span className="font-mono">{selectedMetric?.format ?? 'X/Y'}</span>
+                {selectedMetric?.isInverse ? ' · Inverse' : ''}
+                {' · '}
+                Source: {selectedMetric?.dataSource ?? '—'}
+              </p>
+            </div>
+            {selectedMetric?.format === 'X/Y' ? (
+              <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+                NCR aggregate: {ncrPct}%
+              </span>
+            ) : null}
           </div>
 
-          <DataTable
-            title={`${selectedMetric?.name ?? initiative} — All Data View`}
-            geographyLabel="Geography"
-            rows={tableRows}
-          />
-
-          {selectedMetric?.geographyLevel === 'central' ? (
-            <div className="rounded-lg border border-dashed border-[var(--color-border-table)] p-6">
-              <p className="text-xs text-[var(--color-text-muted)]">
-                {selectedMetric.name} is a central-level metric and appears only in the center bubble (not in the geography table).
+          {isCentral ? (
+            <div className="rounded-lg border border-dashed border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] p-6">
+              <p className="text-xs text-[var(--color-text-primary)]">
+                <strong>{selectedMetric?.name}</strong> is a central-level
+                metric — it is tracked at the NCR aggregate only. There is
+                no per-state, per-city, or per-RTO breakdown for this
+                metric.
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {continuationMetrics.map((metric) =>
-                metric.geographyLevel === 'central' ? (
-                  <div key={metric.name} className="rounded-lg border border-dashed border-[var(--color-border-table)] p-6">
-                    <p className="text-xs text-[var(--color-text-muted)]">
-                      {metric.name} is central-level and is not shown in this table view.
-                    </p>
-                  </div>
-                ) : (
-                  <DataTable
-                    key={metric.name}
-                    title={metric.name}
-                    geographyLabel="Geography"
-                    rows={baseRows}
-                  />
-                ),
-              )}
-            </div>
+            <NestedDataTable
+              rows={tree}
+              format={selectedMetric?.format ?? 'X/Y'}
+              isInverse={selectedMetric?.isInverse ?? false}
+            />
           )}
         </div>
       </div>

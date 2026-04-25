@@ -267,7 +267,7 @@ export default function DetailPage() {
   }
 
   // "See all data" button — carries the initiative forward (spec §4.1).
-  const seeAllHref = `/dashboard/all-data?p=${encodeURIComponent(currentInit.name)}`;
+  const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
