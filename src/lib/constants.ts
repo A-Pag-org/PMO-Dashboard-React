@@ -127,58 +127,76 @@ export const INITIATIVES: Initiative[] = [
     ],
   },
   {
+    // ─── Spec §5 rows 35–42 ─────────────────────────────────────────────
     name: 'C&D - SCC',
     slug: 'cd-scc',
     primaryMetric: 'No. of SCCs operationalized',
     summaryCard: {
       description: 'No. of SCCs operationalized',
       variant: 'donut',
-      donut: { target: 100, achieved: 60 },
+      donut: { target: 500, achieved: 200 },
     },
     metrics: [
-      { name: 'No. of SCC setup achieved', type: 'outcome', target: 500, achieved: 200 },
-      { name: 'Total quantum of malba received at SCC', type: 'outcome', target: 400, achieved: 50, unit: 'MMT' },
-      { name: 'No. of SCC identified (land parcels earmarked)', type: 'progress', target: null, achieved: 30 },
-      { name: 'No. of SCC required', type: 'readiness', target: null, achieved: 500 },
+      { name: 'No. of SCCs operationalized',                           type: 'outcome',   target: 500, achieved: 200,                                  format: 'X/Y', dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'Total quantum of malba received at SCC',                type: 'outcome',   target: null, achieved: 50,  unit: 'MMT',                    format: 'Xx',  dataSource: 'Manual (C&D Dashboard)' },
+      { name: 'Utilization of C&D waste processed material (tonnes)',  type: 'progress',  target: 800, achieved: 420, unit: 'tonnes',                  format: 'X/Y', dataSource: 'MoHUA Malba portal (TBD)' },
+      { name: 'Recycling plant capacity available (tonnes)',           type: 'progress',  target: 1000, achieved: 650, unit: 'tonnes',                 format: 'X/Y', dataSource: 'MoHUA Malba portal (TBD)' },
+      { name: 'No. of SCC identified (land parcels earmarked)',        type: 'progress',  target: null, achieved: 320,                                 format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'No. of SCC required',                                   type: 'readiness', target: null, achieved: 500,                                 format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'Adequate recycling plant capacity in place',            type: 'readiness', target: 1,    achieved: 0,                                   format: 'Y/N', dataSource: 'Manual' },
+      { name: 'Digital tool to track intake via SCCs exists',          type: 'readiness', target: 1,    achieved: 1,                                   format: 'Y/N', dataSource: 'Manual' },
     ],
   },
   {
+    // ─── Spec §5 rows 43–46 ─────────────────────────────────────────────
     name: 'C&D - ICCC',
     slug: 'cd-iccc',
     primaryMetric: 'No. of sites registered and connected with ICCC',
     summaryCard: {
       description: 'No. of sites registered and connected with ICCC',
       variant: 'donut',
-      donut: { target: 100, achieved: 90 },
+      donut: { target: 100, achieved: 45 },
     },
     metrics: [
-      { name: '# sites integrated in ICCC', type: 'outcome', target: 100, achieved: 45 },
+      { name: 'No. of sites registered and connected with ICCC',     type: 'outcome',  target: 100, achieved: 45,                                       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
+      // X/Y* — denominator is Total Sites (200), per §4.2.
+      { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true,                       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
+      { name: 'No. of inspections of construction sites conducted',  type: 'progress', target: 300, achieved: 245, isInverse: true,                      format: 'X/Y', dataSource: 'ICCC DPCC (TBD)' },
+      { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612,                                      format: 'Xx',  dataSource: 'ICCC DPCC (TBD)' },
     ],
   },
   {
+    // ─── Spec §5 rows 47–48 ─────────────────────────────────────────────
     name: 'Green Contribution',
     slug: 'green-contribution',
     primaryMetric: 'No. of tolls where Green Contribution collection initiated',
     summaryCard: {
       description: 'No. of tolls where Green Contribution collection initiated',
       variant: 'donut',
-      donut: { target: 100, achieved: 20 },
+      donut: { target: 50, achieved: 32 },
     },
     metrics: [
-      { name: '# tolls with Green Contribution collection initiated', type: 'outcome', target: 50, achieved: 32, format: 'X/Y' },
+      { name: 'Tolls with Green Contribution collection initiated',         type: 'outcome',  target: 50, achieved: 32, format: 'X/Y', dataSource: 'API (MoRTH / IHMCL)' },
+      { name: 'Identified tolls with Infra setup done (ANPR + FASTag)',     type: 'progress', target: 50, achieved: 38, format: 'X/Y', dataSource: 'API (MoRTH / IHMCL)' },
     ],
   },
   {
+    // ─── Spec §5 rows 49–54 ─────────────────────────────────────────────
     name: 'Greening',
     slug: 'greening',
     primaryMetric: 'Area of land greened (hectares)',
     summaryCard: {
       description: 'Area of land greened (hectares)',
       variant: 'donut',
-      donut: { target: 100, achieved: 90 },
+      donut: { target: 5000, achieved: 3120 },
     },
     metrics: [
-      { name: 'Phase 1 implementation of greening action plan initiated', type: 'outcome', target: 100, achieved: 60 },
+      { name: 'Area of land greened (hectares)',                          type: 'outcome',   target: 5000, achieved: 3120, unit: 'ha', format: 'X/Y', dataSource: 'Manual' },
+      { name: 'No. of trees planted',                                     type: 'progress',  target: 250000, achieved: 162000,        format: 'X/Y', dataSource: 'Manual' },
+      { name: 'No. of shrubs planted',                                    type: 'progress',  target: 180000, achieved: 78000,         format: 'X/Y', dataSource: 'Manual' },
+      { name: 'No. of bamboos planted',                                   type: 'progress',  target: 60000,  achieved: 12000,         format: 'X/Y', dataSource: 'Manual' },
+      { name: 'Annual city-level greening action plan finalized',         type: 'progress',  target: 1, achieved: 1,                  format: 'Y/N', dataSource: 'Manual (Forest/Horticulture dept)' },
+      { name: 'Phase 1 implementation of greening action plan initiated', type: 'progress',  target: 1, achieved: 0,                  format: 'Y/N', dataSource: 'Manual (Forest/Horticulture dept)' },
     ],
   },
 ];
