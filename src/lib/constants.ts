@@ -65,32 +65,65 @@ export const INITIATIVES: Initiative[] = [
     ],
   },
   {
+    // ─── Spec §5 rows 14–20 ─────────────────────────────────────────────
     name: 'Road Repair',
     slug: 'road-repair',
     primaryMetric: 'Road length for which repairs completed (km)',
     summaryCard: {
+      // Donut chosen over the spec's "single bar" per customer override.
       description: 'Road length for which repairs completed (km)',
       variant: 'donut',
-      donut: { target: 100, achieved: 73 },
+      donut: { target: 1200, achieved: 780 },
     },
     metrics: [
-      { name: 'Km road-length repaired', type: 'outcome', target: 1200, achieved: 780 },
+      { name: 'Road length for which repairs completed (km)',     type: 'outcome',   target: 1200, achieved: 780, unit: 'km',  format: 'X/Y', dataSource: 'API (311 Apps)' },
+      { name: 'Road length for which tender published (km)',      type: 'progress',  target: 1500, achieved: 980, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
+      { name: 'Road length for which work order issued (km)',     type: 'progress',  target: 1500, achieved: 820, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
+      { name: 'Road length surveyed (km)',                        type: 'progress',  target: 1800, achieved: 1320, unit: 'km', format: 'X/Y', dataSource: 'API (311 Apps)' },
+      { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612,                            format: 'Xx',  dataSource: 'API (311 Apps)' },
+      // Y/N — target = 1, achieved = 1 (Y) or 0 (N)
+      { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', dataSource: 'Manual' },
+      { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', dataSource: 'Manual' },
     ],
   },
   {
+    // ─── Spec §5 rows 21–34 ─────────────────────────────────────────────
     name: 'MRS',
     slug: 'mrs',
-    primaryMetric: 'No. of MRS operational',
+    primaryMetric: 'Route coverage achieved',
     summaryCard: {
-      description: 'No. of MRS operational',
-      variant: 'dual-bar',
-      bars: [
-        { label: '>15 mt',   target: 100, achieved: 50 },
-        { label: '10-15 mt', target: 100, achieved: 70 },
+      description: 'Route coverage achieved (km)',
+      variant: 'three-donuts',
+      trio: [
+        { label: '>15m',     target: 800, achieved: 560 },
+        { label: '10–15m',   target: 600, achieved: 300 },
+        { label: '<10m',     target: 400, achieved: 100 },
       ],
     },
     metrics: [
-      { name: 'Route coverage achieved', type: 'outcome', target: 200, achieved: 140 },
+      // Outcome — route coverage, by road width
+      { name: 'Route coverage achieved (>15m)',     type: 'outcome',   target: 800, achieved: 560, unit: 'km', format: 'X/Y', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
+      { name: 'Route coverage achieved (10–15m)',   type: 'outcome',   target: 600, achieved: 300, unit: 'km', format: 'X/Y', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
+      { name: 'Route coverage achieved (<10m)',     type: 'outcome',   target: 400, achieved: 100, unit: 'km', format: 'X/Y', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
+
+      // Progress — target road length to be covered (Xx)
+      { name: 'Target road length to be covered (>15m)',   type: 'progress', target: null, achieved: 800, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (10–15m)', type: 'progress', target: null, achieved: 600, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (<10m)',   type: 'progress', target: null, achieved: 400, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
+
+      // Progress — MRS operational, by road width
+      { name: 'No. of MRS operational (>15m)',     type: 'progress', target: 60, achieved: 38, format: 'X/Y', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS operational (10–15m)',   type: 'progress', target: 45, achieved: 18, format: 'X/Y', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS operational (<10m)',     type: 'progress', target: 30, achieved: 6,  format: 'X/Y', dataSource: 'API (TBD)' },
+
+      // Readiness — MRS required (Xx)
+      { name: 'No. of MRS required (>15m)',     type: 'readiness', target: null, achieved: 60, format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (10–15m)',   type: 'readiness', target: null, achieved: 45, format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (<10m)',     type: 'readiness', target: null, achieved: 30, format: 'Xx', dataSource: 'API (TBD)' },
+
+      // Readiness — Y/N
+      { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', dataSource: 'Manual' },
+      { name: 'Digital tool to track road covered exists',    type: 'readiness', target: 1, achieved: 1, format: 'Y/N', dataSource: 'Manual' },
     ],
   },
   {
