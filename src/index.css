@@ -47,13 +47,28 @@
   --color-text-blue-link:   #4A90D9;
   --color-text-orange:      #E07B2A;
 
-  /* ── Completion Bar Thresholds ── */
-  --color-bar-high:         #1B5E20;
-  --color-bar-high-rem:     #4CAF50;
-  --color-bar-mid:          #8BC34A;
-  --color-bar-mid-rem:      #CDDC39;
-  --color-bar-low:          #6D0D1A;
-  --color-bar-low-rem:      #E91E63;
+  /* ── Traffic-Light Bands (spec §8 — Red/Yellow/Green) ── */
+  /* Standard scale: <30% RED, 30-60% YELLOW, >=60% GREEN. */
+  /* Inverse scale (violation metrics): reversed. */
+  --color-tl-green-bg:      #E2EFDA;
+  --color-tl-green-fg:      #70AD47;
+  --color-tl-green-text:    #375623;
+  --color-tl-yellow-bg:     #FFF2CC;
+  --color-tl-yellow-fg:     #FFD966;
+  --color-tl-yellow-text:   #7D4E00;
+  --color-tl-red-bg:        #FCE4D6;
+  --color-tl-red-fg:        #FF0000;
+  --color-tl-red-text:      #9C0006;
+  --color-tl-na-text:       #404040;
+
+  /* ── Legacy Completion Bar Aliases (mapped to traffic-light) ── */
+  /* Kept so existing components continue to compile. */
+  --color-bar-high:         var(--color-tl-green-fg);
+  --color-bar-high-rem:     var(--color-tl-green-bg);
+  --color-bar-mid:          var(--color-tl-yellow-fg);
+  --color-bar-mid-rem:      var(--color-tl-yellow-bg);
+  --color-bar-low:          var(--color-tl-red-fg);
+  --color-bar-low-rem:      var(--color-tl-red-bg);
 
   /* ── Semantic ── */
   --color-success:          #2D6A4F;
@@ -120,7 +135,19 @@
   --color-text-blue-link: var(--color-text-blue-link);
   --color-text-orange:    var(--color-text-orange);
 
-  /* Completion Bar */
+  /* Traffic-light bands */
+  --color-tl-green-bg:    var(--color-tl-green-bg);
+  --color-tl-green-fg:    var(--color-tl-green-fg);
+  --color-tl-green-text:  var(--color-tl-green-text);
+  --color-tl-yellow-bg:   var(--color-tl-yellow-bg);
+  --color-tl-yellow-fg:   var(--color-tl-yellow-fg);
+  --color-tl-yellow-text: var(--color-tl-yellow-text);
+  --color-tl-red-bg:      var(--color-tl-red-bg);
+  --color-tl-red-fg:      var(--color-tl-red-fg);
+  --color-tl-red-text:    var(--color-tl-red-text);
+  --color-tl-na-text:     var(--color-tl-na-text);
+
+  /* Completion Bar (legacy aliases) */
   --color-bar-high:       var(--color-bar-high);
   --color-bar-high-rem:   var(--color-bar-high-rem);
   --color-bar-mid:        var(--color-bar-mid);
