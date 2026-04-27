@@ -106,7 +106,14 @@ function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
 }
 
 export default function DetailPage() {
-  const { area, initiativeName, setArea, setInitiativeName } = useDetailFilters();
+  const {
+    area,
+    initiativeName,
+    extras,
+    setArea,
+    setInitiativeName,
+    setExtra,
+  } = useDetailFilters();
 
   const [viewLevel, setViewLevel] = useState<ViewLevel>('state');
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
@@ -312,8 +319,10 @@ export default function DetailPage() {
       <DetailFilterStrip
         area={area}
         initiativeName={initiativeName}
+        extras={extras}
         onAreaChange={setArea}
         onInitiativeChange={setInitiativeName}
+        onExtraChange={setExtra}
       />
 
       <main className="flex min-h-0 flex-1">

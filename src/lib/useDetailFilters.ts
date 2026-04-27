@@ -1,47 +1,50 @@
 // FILE: src/lib/useDetailFilters.ts
-// PURPOSE: Shared, URL-param-backed state for Detailed Report filters
-//          (Area + Initiative). Consumed by both the DetailPage and the
-//          SidePanel drawer so the controls can be rendered in either
-//          place while staying in sync.
+// PURPOSE: URL-param-backed state for Detailed Report filters.
+//          Holds the area selection (state/city/rto/toll/ulb), the
+//          active initiative, and the initiative-specific "extras"
+//          (e.g. Vehicle Type, Industry Type) defined by §8.
 //
 // Why URL params?
-//   - Both the drawer and the page see the same source of truth without
-//     any context provider or prop drilling.
-//   - Selections survive page reload and are bookmarkable — a familiar
-//     pattern in government dashboards (senior users like stable URLs).
-//   - No flash-of-default-state when the drawer opens.
-//
-// Stability notes:
-//   - `writeParams` depends only on `navigate` (stable ref from react-router)
-//     and `location.pathname`. We deliberately exclude `location.search`
-//     from the callback deps and instead read it fresh inside the callback
-//     via a ref to avoid stale-closure issues while also preventing the
-//     function from being recreated on every search-param change.
+//   - Single source of truth, survives reload, deep-linkable.
+//   - No context provider or prop drilling needed.
 
 import { useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { INITIATIVES } from './constants';
+import { INITIATIVE_CONFIGS } from './initiatives';
 
+/** Area scope. RTO/Toll/ULB are only meaningful for certain initiatives
+ *  (spec §7) — the AreaFilterValue carries them all so the URL can
+ *  encode any combination, but pages should only show controls for
+ *  levels their active initiative supports. */
 export interface AreaFilterValue {
   /** undefined means "All - Delhi NCR" */
   state?: string;
   /** undefined when the whole state is selected */
   city?: string;
-  /** undefined when the whole city is selected */
+  /** Naya Safar only (spec §7). */
   rto?: string;
+  /** Green Contribution only. */
+  toll?: string;
+  /** C&D-SCC only. */
+  ulb?: string;
 }
 
 export interface DetailFilters {
-  /** Area selection. */
   area: AreaFilterValue;
-  /** Selected initiative (programme) name. Defaults to the first initiative. */
   initiativeName: string;
+  /** Initiative-specific filter values (key → value), e.g. vehicleType=Truck. */
+  extras: Record<string, string>;
 }
 
 export interface UseDetailFiltersReturn extends DetailFilters {
   setArea: (area: AreaFilterValue) => void;
   setInitiativeName: (name: string) => void;
+  setExtra: (key: string, value: string) => void;
 }
+
+/** Reserved query-param keys not treated as initiative extras. */
+const RESERVED_KEYS = new Set(['state', 'city', 'rto', 'toll', 'ulb', 'initiative']);
 
 /**
  * Reads and writes the Detailed-Report filter state from the URL query
@@ -69,6 +72,8 @@ export function useDetailFilters(): UseDetailFiltersReturn {
       state: params.get('state') ?? undefined,
       city: params.get('city') ?? undefined,
       rto: params.get('rto') ?? undefined,
+      toll: params.get('toll') ?? undefined,
+      ulb: params.get('ulb') ?? undefined,
     }),
     [params],
   );
@@ -79,8 +84,17 @@ export function useDetailFilters(): UseDetailFiltersReturn {
     return INITIATIVES[0].name;
   }, [params]);
 
-  // writeParams reads the *current* search string via a ref so it stays
-  // stable across renders and doesn't trigger cascading re-renders.
+  // Extras: every non-reserved param. The active initiative's
+  // configured extra-filter keys are what's actually meaningful; we
+  // keep the rest in the bag too so deep links don't lose data.
+  const extras = useMemo(() => {
+    const out: Record<string, string> = {};
+    params.forEach((value, key) => {
+      if (!RESERVED_KEYS.has(key)) out[key] = value;
+    });
+    return out;
+  }, [params]);
+
   const writeParams = useCallback(
     (patch: (p: URLSearchParams) => void) => {
       const next = new URLSearchParams(searchRef.current);
@@ -98,15 +112,11 @@ export function useDetailFilters(): UseDetailFiltersReturn {
   const setArea = useCallback(
     (nextArea: AreaFilterValue) => {
       writeParams((p) => {
-        if (nextArea.state) p.set('state', nextArea.state);
-        else p.delete('state');
-
-        // Cascade: clearing state must also clear city and rto
-        if (nextArea.city) p.set('city', nextArea.city);
-        else p.delete('city');
-
-        if (nextArea.rto) p.set('rto', nextArea.rto);
-        else p.delete('rto');
+        for (const key of ['state', 'city', 'rto', 'toll', 'ulb'] as const) {
+          const v = nextArea[key];
+          if (v) p.set(key, v);
+          else p.delete(key);
+        }
       });
     },
     [writeParams],
@@ -117,10 +127,32 @@ export function useDetailFilters(): UseDetailFiltersReturn {
       writeParams((p) => {
         if (name && name !== INITIATIVES[0].name) p.set('initiative', name);
         else p.delete('initiative');
+
+        // Wipe any extras that don't belong to the new initiative,
+        // so URLs stay tidy when switching programmes.
+        const validKeys = new Set(
+          INITIATIVE_CONFIGS[
+            INITIATIVES.find((i) => i.name === name)?.slug ?? ''
+          ]?.extraFilters.map((f) => f.key) ?? [],
+        );
+        for (const key of Array.from(p.keys())) {
+          if (RESERVED_KEYS.has(key)) continue;
+          if (!validKeys.has(key)) p.delete(key);
+        }
       });
     },
     [writeParams],
   );
 
-  return { area, initiativeName, setArea, setInitiativeName };
+  const setExtra = useCallback(
+    (key: string, value: string) => {
+      writeParams((p) => {
+        if (value) p.set(key, value);
+        else p.delete(key);
+      });
+    },
+    [writeParams],
+  );
+
+  return { area, initiativeName, extras, setArea, setInitiativeName, setExtra };
 }
