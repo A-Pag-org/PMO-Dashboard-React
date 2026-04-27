@@ -491,7 +491,7 @@ export default function DetailPage() {
           <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
             <div
               className={cn(
-                'h-full w-full max-w-[560px]',
+                'h-full w-full',
                 isCentralLevelMetric && 'opacity-50 grayscale',
               )}
             >
