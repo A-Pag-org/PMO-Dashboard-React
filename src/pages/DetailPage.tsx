@@ -254,16 +254,38 @@ export default function DetailPage() {
     return { mapData: data, rtoPositions: undefined, emptyHint: undefined };
   }, [isCentralLevelMetric, effectiveViewLevel, area, selectedMetric]);
 
-  const areaLabel = area.rto
-    ? area.rto
-    : area.city
-    ? area.city
-    : area.state
-    ? area.state
-    : 'All Delhi-NCR';
-
   function handleSelectMetric(slug: string, name: string) {
     setSelectedMetricByInitiative((prev) => ({ ...prev, [slug]: name }));
+  }
+
+  // Breadcrumb trail — every segment except the deepest one is a
+  // button that resets the area filter to that level. Lets users
+  // drill back up after they've drilled into a state / city / RTO,
+  // which the SidePanel-only flow doesn't expose anywhere on the page.
+  const breadcrumb: { label: string; onClick?: () => void }[] = [
+    {
+      label: 'All Delhi-NCR',
+      onClick:
+        area.state || area.city || area.rto ? () => setArea({}) : undefined,
+    },
+  ];
+  if (area.state) {
+    breadcrumb.push({
+      label: area.state,
+      onClick:
+        area.city || area.rto ? () => setArea({ state: area.state }) : undefined,
+    });
+  }
+  if (area.city) {
+    breadcrumb.push({
+      label: area.city,
+      onClick: area.rto
+        ? () => setArea({ state: area.state, city: area.city })
+        : undefined,
+    });
+  }
+  if (area.rto) {
+    breadcrumb.push({ label: area.rto });
   }
 
   // "See all data" button — carries the initiative forward (spec §4.1).
@@ -274,16 +296,43 @@ export default function DetailPage() {
       <TopBar activePage="detail" />
 
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-[var(--color-border)] bg-[var(--color-surface-light)] px-5 py-2 text-xs">
-        <span className="text-[var(--color-text-secondary)]">
-          Showing:{' '}
-          <span className="font-semibold text-[var(--color-text-primary)]">
-            {areaLabel}
-          </span>{' '}
-          ·{' '}
+        <nav
+          aria-label="Geography breadcrumb"
+          className="flex flex-wrap items-center gap-1"
+        >
+          <span className="text-[var(--color-text-secondary)]">Showing:</span>
+          {breadcrumb.map((seg, i) => (
+            <span key={`${i}-${seg.label}`} className="flex items-center gap-1">
+              {i > 0 ? (
+                <span className="text-[var(--color-text-muted)]" aria-hidden>
+                  ›
+                </span>
+              ) : null}
+              {seg.onClick ? (
+                <button
+                  type="button"
+                  onClick={seg.onClick}
+                  className="rounded px-1 py-0.5 font-semibold text-[var(--color-blue-link)] hover:bg-[var(--color-blue-pale)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  {seg.label}
+                </button>
+              ) : (
+                <span
+                  className="px-1 font-semibold text-[var(--color-text-primary)]"
+                  aria-current="page"
+                >
+                  {seg.label}
+                </span>
+              )}
+            </span>
+          ))}
+          <span className="ml-2 text-[var(--color-text-muted)]" aria-hidden>
+            ·
+          </span>
           <span className="font-semibold text-[var(--color-text-primary)]">
             {currentInit.name}
           </span>
-        </span>
+        </nav>
         <div className="ml-auto flex items-center gap-3">
           <Link
             to={seeAllHref}
