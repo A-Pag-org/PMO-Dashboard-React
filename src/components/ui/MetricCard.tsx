@@ -31,6 +31,8 @@ interface MetricCardProps {
   onSelect?: () => void;
   className?: string;
   highlight?: boolean;
+  /** Outcome rows render slightly larger / bolder per spec hierarchy. */
+  prominent?: boolean;
 }
 
 export default function MetricCard({
@@ -44,6 +46,7 @@ export default function MetricCard({
   onSelect,
   className,
   highlight = false,
+  prominent = false,
 }: MetricCardProps) {
   const isInteractive = Boolean(onSelect);
   const isSelected = selected || highlight;
@@ -55,10 +58,13 @@ export default function MetricCard({
       onClick={onSelect}
       aria-pressed={isInteractive ? isSelected : undefined}
       className={cn(
-        'relative flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors',
+        'relative flex w-full items-center gap-3 rounded-md border-l-4 border-y border-r px-3 text-left transition-colors',
+        prominent ? 'py-2.5' : 'py-2',
         isSelected
-          ? 'border-[var(--color-border-blue)] bg-[var(--color-blue-pale)]'
-          : 'border-[var(--color-border-table)] bg-white',
+          ? 'border-l-[var(--color-blue-link)] border-y-[var(--color-border-blue)] border-r-[var(--color-border-blue)] bg-[var(--color-blue-pale)]'
+          : prominent
+          ? 'border-l-[var(--color-accent)] border-y-[var(--color-border-table)] border-r-[var(--color-border-table)] bg-white'
+          : 'border-l-[var(--color-border-table)] border-y-[var(--color-border-table)] border-r-[var(--color-border-table)] bg-white',
         isInteractive &&
           'cursor-pointer hover:bg-[var(--color-blue-pale)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
         className,
@@ -66,16 +72,22 @@ export default function MetricCard({
     >
       <div
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-md',
+          'flex shrink-0 items-center justify-center rounded-md',
+          prominent ? 'h-10 w-10' : 'h-9 w-9',
           isSelected ? 'bg-white' : 'bg-[var(--color-blue-pale)]',
         )}
       >
-        <Icon className="h-5 w-5 text-[var(--color-blue-link)]" />
+        <Icon className={cn(prominent ? 'h-5 w-5' : 'h-5 w-5', 'text-[var(--color-blue-link)]')} />
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <p className="truncate text-xs font-semibold leading-tight text-[var(--color-blue-link)]">
+          <p
+            className={cn(
+              'truncate font-semibold leading-tight text-[var(--color-blue-link)]',
+              prominent ? 'text-sm' : 'text-xs',
+            )}
+          >
             {label}
             {isInverse ? (
               <span className="ml-1 rounded bg-[var(--color-tl-red-bg)] px-1 py-px text-[8px] font-bold uppercase text-[var(--color-tl-red-text)]">

@@ -429,7 +429,22 @@ export default function DetailPage() {
           className="relative flex min-h-0 w-1/2 flex-col border-r border-[var(--color-divider-dashed)] bg-white"
           aria-label="Map view"
         >
-          <div className="flex shrink-0 items-center justify-center border-b border-[var(--color-border-table)] px-4 py-2">
+          <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[var(--color-border-table)] px-4 py-2">
+            <span
+              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              style={{
+                backgroundColor:
+                  selectedMetric?.type === 'outcome'
+                    ? 'var(--color-accent)'
+                    : selectedMetric?.type === 'progress'
+                    ? 'var(--color-blue-link)'
+                    : 'var(--color-text-muted)',
+              }}
+              aria-hidden
+            />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              {selectedMetric?.type ?? 'metric'}
+            </span>
             <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
               {selectedMetric?.name ?? currentInit.primaryMetric}
               {selectedMetric?.isInverse ? (
@@ -526,7 +541,12 @@ export default function DetailPage() {
           className="flex min-h-0 w-1/2 flex-col overflow-y-auto bg-white"
           aria-label="Metrics panel"
         >
-          <MetricGroup title="Outcome metrics">
+          <MetricGroup
+            title="Outcome metrics"
+            count={outcomeMetrics.length}
+            emphasis
+            defaultOpen
+          >
             {outcomeMetrics.length > 0 ? (
               outcomeMetrics.map((m) => (
                 <MetricCard
@@ -537,6 +557,7 @@ export default function DetailPage() {
                   target={m.target}
                   format={m.format}
                   isInverse={m.isInverse}
+                  prominent
                   selected={selectedMetric?.name === m.name}
                   onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
                 />
@@ -547,7 +568,11 @@ export default function DetailPage() {
           </MetricGroup>
 
           {progressMetrics.length > 0 ? (
-            <MetricGroup title="Progress metrics">
+            <MetricGroup
+              title="Progress metrics"
+              count={progressMetrics.length}
+              defaultOpen
+            >
               {progressMetrics.map((m) => (
                 <MetricCard
                   key={m.name}
@@ -565,7 +590,11 @@ export default function DetailPage() {
           ) : null}
 
           {readinessMetrics.length > 0 ? (
-            <MetricGroup title="Readiness metrics">
+            <MetricGroup
+              title="Readiness metrics"
+              count={readinessMetrics.length}
+              defaultOpen={false}
+            >
               {readinessMetrics.map((m) => (
                 <MetricCard
                   key={m.name}
@@ -587,19 +616,62 @@ export default function DetailPage() {
   );
 }
 
+/**
+ * Collapsible metric-group section. Spec §4.1 implies Outcome is the
+ * headline (default-selected first row); Progress is supporting; Readiness
+ * is the lowest-density (mostly Y/N setup flags) — collapsed by default.
+ */
 function MetricGroup({
   title,
+  count,
+  defaultOpen = true,
+  emphasis = false,
   children,
 }: {
   title: string;
+  count: number;
+  defaultOpen?: boolean;
+  /** Outcome group gets a thin accent rule above for visual prominence. */
+  emphasis?: boolean;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const headingId = `metric-group-${title.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <div className="shrink-0">
-      <div className="bg-[var(--color-navy)] px-4 py-1.5">
-        <h3 className="text-center text-xs font-semibold text-white">{title}</h3>
-      </div>
-      <div className="flex flex-col gap-2 px-3 py-2">{children}</div>
+    <div
+      className={cn(
+        'shrink-0',
+        emphasis && 'border-t-2 border-[var(--color-accent)]',
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={headingId}
+        className="flex w-full items-center justify-between bg-[var(--color-navy)] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-inset"
+      >
+        <span className="inline-flex items-center gap-2">
+          <span
+            className={cn(
+              'inline-block h-3.5 w-3.5 transition-transform',
+              open && 'rotate-90',
+            )}
+            aria-hidden
+          >
+            ›
+          </span>
+          {title}
+          <span className="rounded bg-white/15 px-1.5 py-px text-[10px] font-bold tabular-nums">
+            {count}
+          </span>
+        </span>
+      </button>
+      {open ? (
+        <div id={headingId} className="flex flex-col gap-2 px-3 py-2">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
