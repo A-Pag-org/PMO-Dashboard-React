@@ -37,6 +37,12 @@ interface DelhiNCRMapProps {
   centerBubble: MapCenterBubble;
   /** Drives projection fit + visible polygons + RTO ring layout. */
   area?: AreaFilterValue;
+  /**
+   * Spec §10: RTO bubbles render only when the active initiative
+   * supports them (Naya Safar). When false, the RTO ring is suppressed
+   * even if the area filter is at city level.
+   */
+  supportsRto?: boolean;
   onBubbleClick?: (name: string) => void;
   /** Optional message to show when `data` is empty. */
   emptyHint?: string;
@@ -183,6 +189,7 @@ export default function DelhiNCRMap({
   data,
   centerBubble,
   area,
+  supportsRto = true,
   onBubbleClick,
   emptyHint,
 }: DelhiNCRMapProps) {
@@ -242,8 +249,9 @@ export default function DelhiNCRMap({
       const off = useNcrOffsets ? BUBBLE_OFFSET_NCR[name] ?? {} : {};
       out[name] = { x: p.x + (off.dx ?? 0), y: p.y + (off.dy ?? 0) };
     }
-    // RTOs — when filtered to a city, ring them around its centre.
-    if (area?.city) {
+    // RTOs — only when filtered to a city AND the active initiative
+    // supports the RTO drill-down level (spec §10).
+    if (area?.city && supportsRto) {
       const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
       const cityCoords = CITY_COORDS[area.city];
       if (cityCoords && rtos.length > 0) {
@@ -259,7 +267,7 @@ export default function DelhiNCRMap({
       }
     }
     return out;
-  }, [projection, zoom, area]);
+  }, [projection, zoom, area, supportsRto]);
 
   // ── State labels (only at NCR zoom; redundant when zoomed in) ─────
   const stateLabels = useMemo(() => {

@@ -22,164 +22,103 @@ import {
   UPLOAD_CITY_OPTIONS_BY_STATE,
   RTO_OPTIONS_BY_CITY,
 } from '@/lib/constants';
+import { getInitiativeConfig } from '@/lib/initiatives';
+import { getMetricValueForArea, type AreaScope } from '@/lib/aggregation';
 import { getCompletionPercentage } from '@/lib/utils';
 import type { Metric } from '@/lib/types';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 
-// Same per-state weights used on Detail page — keeps the demo consistent
-// when a user navigates Detail → All Data.
-const STATE_WEIGHTS: Record<string, number> = {
-  Delhi: 0.40,
-  'Uttar Pradesh': 0.25,
-  Haryana: 0.22,
-  Rajasthan: 0.13,
-};
-
-function rtoWeight(_rto: string, count: number): number {
-  return 1 / Math.max(1, count);
+/**
+ * Build a row from the shared aggregator at a given area scope. Keeps
+ * the page free of any per-state weight math.
+ */
+function rowFor(
+  metric: Metric,
+  scope: AreaScope,
+  level: 0 | 1 | 2 | 3,
+  id: string,
+  label: string,
+  children?: NestedRow[],
+): NestedRow {
+  const agg = getMetricValueForArea(metric, scope, label);
+  if (metric.format === 'Y/N') {
+    // For tree rendering, aggregate Y/N by strict-AND of children.
+    if (children && children.length > 0) {
+      const allYes = children.every((c) => c.achieved === 1);
+      return { id, label, level, target: 1, achieved: allYes ? 1 : 0, children };
+    }
+    return { id, label, level, target: 1, achieved: agg.achieved };
+  }
+  if (metric.format === 'Xx') {
+    return {
+      id,
+      label,
+      level,
+      target: null,
+      achieved: children
+        ? children.reduce((s, c) => s + (c.achieved ?? 0), 0)
+        : agg.achieved,
+      children,
+    };
+  }
+  // X/Y — sum children for parent rows so totals reconcile.
+  if (children && children.length > 0) {
+    return {
+      id,
+      label,
+      level,
+      target: Math.max(1, children.reduce((s, c) => s + (c.target ?? 0), 0)),
+      achieved: children.reduce((s, c) => s + (c.achieved ?? 0), 0),
+      children,
+    };
+  }
+  return { id, label, level, target: agg.target, achieved: agg.achieved };
 }
 
 /**
- * Builds a 4-level tree (NCR > State > City > RTO) of dummy values for
- * the given metric. Aggregates upward so child sums equal parent.
+ * Builds the NCR > State > City > RTO tree using the shared aggregator.
+ * Every numeric value comes from getMetricValueForArea — no local
+ * weight or split math.
  */
-function buildTree(metric: Metric, stateFilter: string): NestedRow[] {
-  const totalTarget   = metric.target ?? 0;
-  const totalAchieved = metric.achieved ?? 0;
-
-  function calcChildXY(weight: number): { target: number; achieved: number } {
-    if (metric.format === 'Y/N') return { target: 0, achieved: 0 };
-    return {
-      target: Math.max(metric.format === 'X/Y' ? 1 : 0, Math.round(totalTarget * weight)),
-      achieved: Math.round(totalAchieved * weight),
-    };
-  }
-
-  function rtoNode(state: string, city: string, rto: string, rtoCount: number, cityWeight: number): NestedRow {
-    const w = cityWeight * rtoWeight(rto, rtoCount);
-    const { target, achieved } = calcChildXY(w);
-    if (metric.format === 'Y/N') {
-      // Deterministic Y/N at RTO level using metric+rto name.
-      let h = 0;
-      const seed = metric.name + state + city + rto;
-      for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) | 0;
-      const isYes = (h & 1) === 1;
-      return {
-        id: `rto::${state}::${city}::${rto}`,
-        label: rto,
-        level: 3,
-        target: 1,
-        achieved: isYes ? 1 : 0,
-      };
-    }
-    if (metric.format === 'Xx') {
-      return {
-        id: `rto::${state}::${city}::${rto}`,
-        label: rto,
-        level: 3,
-        target: null,
-        achieved,
-      };
-    }
-    return {
-      id: `rto::${state}::${city}::${rto}`,
-      label: rto,
-      level: 3,
-      target,
-      achieved,
-    };
-  }
-
-  function cityNode(state: string, city: string, stateWeight: number, cityCount: number): NestedRow {
-    const cityWeight = stateWeight / Math.max(1, cityCount);
-    const rtos = RTO_OPTIONS_BY_CITY[city] ?? [];
-    const rtoChildren = rtos.map((r) => rtoNode(state, city, r, rtos.length, cityWeight));
-
-    if (metric.format === 'Y/N') {
-      // Aggregate "Y" iff ALL RTOs are Y (a strict reading; alternative
-      // is majority — left as a TODO).
-      const isYes = rtoChildren.length > 0 && rtoChildren.every((c) => c.achieved === 1);
-      return {
-        id: `city::${state}::${city}`,
-        label: city,
-        level: 2,
-        target: 1,
-        achieved: isYes ? 1 : 0,
-        children: rtoChildren,
-      };
-    }
-    const target = rtoChildren.reduce((s, c) => s + (c.target ?? 0), 0) || calcChildXY(cityWeight).target;
-    const achieved = rtoChildren.reduce((s, c) => s + (c.achieved ?? 0), 0);
-    return {
-      id: `city::${state}::${city}`,
-      label: city,
-      level: 2,
-      target: metric.format === 'Xx' ? null : Math.max(1, target),
-      achieved,
-      children: rtoChildren,
-    };
-  }
-
-  function stateNode(state: string): NestedRow {
-    const stateWeight = STATE_WEIGHTS[state] ?? 0.1;
-    const cities = UPLOAD_CITY_OPTIONS_BY_STATE[state] ?? [];
-    const cityChildren = cities.map((c) => cityNode(state, c, stateWeight, cities.length));
-
-    if (metric.format === 'Y/N') {
-      const isYes = cityChildren.length > 0 && cityChildren.every((c) => c.achieved === 1);
-      return {
-        id: `state::${state}`,
-        label: state,
-        level: 1,
-        target: 1,
-        achieved: isYes ? 1 : 0,
-        children: cityChildren,
-      };
-    }
-    const target = cityChildren.reduce((s, c) => s + (c.target ?? 0), 0);
-    const achieved = cityChildren.reduce((s, c) => s + (c.achieved ?? 0), 0);
-    return {
-      id: `state::${state}`,
-      label: state,
-      level: 1,
-      target: metric.format === 'Xx' ? null : Math.max(1, target),
-      achieved,
-      children: cityChildren,
-    };
-  }
-
+function buildTree(metric: Metric, stateFilter: string, includeRtoLevel: boolean): NestedRow[] {
   const stateNodes = STATES
     .filter((s) => stateFilter === 'All' || s === stateFilter)
-    .map(stateNode);
+    .map((state) => {
+      const cities = UPLOAD_CITY_OPTIONS_BY_STATE[state] ?? [];
+      const cityChildren = cities.map((city) => {
+        const rtos = includeRtoLevel ? RTO_OPTIONS_BY_CITY[city] ?? [] : [];
+        const rtoChildren = rtos.map((rto) =>
+          rowFor(
+            metric,
+            { state, city, rto },
+            3,
+            `rto::${state}::${city}::${rto}`,
+            rto,
+          ),
+        );
+        return rowFor(
+          metric,
+          { state, city },
+          2,
+          `city::${state}::${city}`,
+          city,
+          rtoChildren.length ? rtoChildren : undefined,
+        );
+      });
+      return rowFor(
+        metric,
+        { state },
+        1,
+        `state::${state}`,
+        state,
+        cityChildren,
+      );
+    });
 
-  // L1 — Delhi NCR aggregate. Skip when a single state is filtered, to
-  // avoid showing a near-duplicate top-level row.
   if (stateFilter !== 'All') return stateNodes;
 
-  if (metric.format === 'Y/N') {
-    const isYes = stateNodes.length > 0 && stateNodes.every((s) => s.achieved === 1);
-    return [
-      {
-        id: 'ncr::delhi-ncr',
-        label: 'Delhi NCR',
-        level: 0,
-        target: 1,
-        achieved: isYes ? 1 : 0,
-        children: stateNodes,
-      },
-    ];
-  }
-  const totalT = stateNodes.reduce((s, c) => s + (c.target ?? 0), 0);
-  const totalA = stateNodes.reduce((s, c) => s + (c.achieved ?? 0), 0);
   return [
-    {
-      id: 'ncr::delhi-ncr',
-      label: 'Delhi NCR',
-      level: 0,
-      target: metric.format === 'Xx' ? null : Math.max(1, totalT),
-      achieved: totalA,
-      children: stateNodes,
-    },
+    rowFor(metric, {}, 0, 'ncr::delhi-ncr', 'Delhi NCR', stateNodes),
   ];
 }
 
@@ -201,9 +140,15 @@ export default function AllDataPage() {
     selectedInitiative.metrics.find((m) => m.name === selectedMetricName) ??
     selectedInitiative.metrics[0];
 
+  // Spec §7: RTO is in the geography model for Naya Safar only. Other
+  // initiatives stop the tree at the city level.
+  const includeRtoLevel =
+    getInitiativeConfig(selectedInitiative.slug)?.geographyLevels.includes('rto') ?? false;
+
   const tree = useMemo(
-    () => (selectedMetric ? buildTree(selectedMetric, stateFilter) : []),
-    [selectedMetric, stateFilter],
+    () =>
+      selectedMetric ? buildTree(selectedMetric, stateFilter, includeRtoLevel) : [],
+    [selectedMetric, stateFilter, includeRtoLevel],
   );
 
   const stateOptions = ['All', ...STATES];
