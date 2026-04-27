@@ -33,7 +33,7 @@ import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterStrip from '@/components/layout/DetailFilterStrip';
 import MetricCard from '@/components/ui/MetricCard';
-import DelhiNCRMap, { STATE_BUBBLE_POSITIONS } from '@/components/maps/DelhiNCRMap';
+import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn, getColorBand, getCompletionPercentage } from '@/lib/utils';
 import {
   INITIATIVES,
@@ -275,38 +275,31 @@ export default function DetailPage() {
     : availableViewLevels[0];
   const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
 
-  // Map data — view-level + format aware.
-  const { mapData, rtoPositions, emptyHint } = useMemo(() => {
+  // Map data — view-level + format aware. Position is handled by
+  // DelhiNCRMap based on the live projection (refits to area filter).
+  const { mapData, emptyHint } = useMemo(() => {
     if (isCentralLevelMetric || !selectedMetric) {
-      return {
-        mapData: [] as MapDataPoint[],
-        rtoPositions: undefined,
-        emptyHint: undefined,
-      };
+      return { mapData: [] as MapDataPoint[], emptyHint: undefined };
     }
 
     if (effectiveViewLevel === 'state') {
-      // Use the per-metric synthesized state data so X/Y bubbles show
-      // the right band and Xx/Y/N show the right format.
       const stateData = buildMapDataForMetric(selectedMetric);
       const filtered = area.state
         ? stateData.filter((d) => d.name === area.state)
         : stateData;
-      return { mapData: filtered, rtoPositions: undefined, emptyHint: undefined };
+      return { mapData: filtered, emptyHint: undefined };
     }
 
     if (effectiveViewLevel === 'rto') {
       if (!area.city) {
         return {
           mapData: [] as MapDataPoint[],
-          rtoPositions: undefined,
           emptyHint: 'Select a city to view RTOs.',
         };
       }
       const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
       const cityRow = MOCK_DETAIL_MAP_DATA.find((d) => d.name === area.city);
       const base = cityRow?.value ?? 0;
-      const anchor = STATE_BUBBLE_POSITIONS[area.city] ?? { x: 185, y: 165 };
       const perRtoValue = Math.max(1, Math.round(base / Math.max(1, rtos.length)));
       const data: MapDataPoint[] = rtos.map((name) => ({
         name,
@@ -314,18 +307,8 @@ export default function DetailPage() {
         onTrack: cityRow?.onTrack ?? true,
         format: selectedMetric.format,
       }));
-      const positions: Record<string, { x: number; y: number }> = {};
-      const radius = rtos.length > 4 ? 46 : 36;
-      rtos.forEach((name, idx) => {
-        const angle = (2 * Math.PI * idx) / Math.max(1, rtos.length) - Math.PI / 2;
-        positions[name] = {
-          x: anchor.x + radius * Math.cos(angle),
-          y: anchor.y + radius * Math.sin(angle),
-        };
-      });
       return {
         mapData: data,
-        rtoPositions: positions,
         emptyHint: rtos.length === 0 ? `No RTOs recorded for ${area.city}.` : undefined,
       };
     }
@@ -342,7 +325,7 @@ export default function DetailPage() {
     if (area.city) {
       data = data.filter((d) => d.name === area.city);
     }
-    return { mapData: data, rtoPositions: undefined, emptyHint: undefined };
+    return { mapData: data, emptyHint: undefined };
   }, [isCentralLevelMetric, effectiveViewLevel, area, selectedMetric]);
 
   function handleSelectMetric(slug: string, name: string) {
@@ -500,7 +483,7 @@ export default function DetailPage() {
               <DelhiNCRMap
                 data={mapData}
                 centerBubble={centerBubble}
-                positionOverrides={rtoPositions}
+                area={area}
                 emptyHint={emptyHint}
                 onBubbleClick={(name) => {
                   if (isCentralLevelMetric) return;
