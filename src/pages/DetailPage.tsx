@@ -34,15 +34,18 @@ import TopBar from '@/components/layout/TopBar';
 import DetailFilterStrip from '@/components/layout/DetailFilterStrip';
 import MetricCard from '@/components/ui/MetricCard';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
-import { cn, getColorBand, getCompletionPercentage } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import {
   INITIATIVES,
   STATES,
   CITY_STATE_MAP,
   RTO_OPTIONS_BY_CITY,
-  UPLOAD_CITY_OPTIONS_BY_STATE,
   MOCK_DETAIL_MAP_DATA,
 } from '@/lib/constants';
+import {
+  getMetricByState,
+  getMetricValueForArea,
+} from '@/lib/aggregation';
 import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/types';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
@@ -59,40 +62,6 @@ function iconForMetric(m: Metric): LucideIcon {
   return Database;
 }
 
-// State-share weights used to fan a metric's NCR-level total out across
-// the four states for the map. Roughly proportional to population share
-// inside the NCR window. Used for non-primary metrics where we don't
-// have hand-curated per-state data.
-const STATE_WEIGHTS: Record<string, number> = {
-  Delhi: 0.40,
-  'Uttar Pradesh': 0.25,
-  Haryana: 0.22,
-  Rajasthan: 0.13,
-};
-
-/**
- * Computes the cascading weight share of the filtered geography vs the
- * NCR total. Used to size the centre bubble's aggregate so it tracks
- * the area filter (spec §4.3).
- *   no filter         → 1
- *   state             → STATE_WEIGHTS[state]
- *   state + city      → STATE_WEIGHTS[state] / cities-in-state
- *   state + city + rto → above / rtos-in-city
- */
-function areaWeight(area: AreaFilterValue): number {
-  if (!area.state) return 1;
-  let w = STATE_WEIGHTS[area.state] ?? 0;
-  if (area.city) {
-    const cities = UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? [];
-    w = w / Math.max(1, cities.length);
-  }
-  if (area.rto && area.city) {
-    const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
-    w = w / Math.max(1, rtos.length);
-  }
-  return w;
-}
-
 function areaLabel(area: AreaFilterValue): string {
   if (area.rto)   return area.rto;
   if (area.city)  return area.city;
@@ -100,12 +69,7 @@ function areaLabel(area: AreaFilterValue): string {
   return 'Delhi-NCR';
 }
 
-/**
- * Builds the centre-bubble payload for the selected metric scoped to
- * the area filter. Falls back to NCR-level numbers for central
- * metrics (spec §4.5: "Central-level → show value in centre bubble
- * only").
- */
+/** Centre-bubble payload — delegates to the shared aggregation helper. */
 function buildCenterBubble(
   metric: Metric | undefined,
   area: AreaFilterValue,
@@ -114,103 +78,31 @@ function buildCenterBubble(
     return { value: 0, label: '—', subtitle: '' };
   }
   const isCentral = metric.geographyLevel === 'central';
-  const w = isCentral ? 1 : areaWeight(area);
   const label = isCentral ? 'Delhi-NCR (central)' : areaLabel(area);
-
-  if (metric.format === 'Y/N') {
-    let h = 0;
-    const seed = metric.name + label;
-    for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) | 0;
-    const isYes = (h & 1) === 1;
-    return {
-      value: isYes ? 1 : 0,
-      displayText: isYes ? 'Y' : 'N',
-      label,
-      subtitle: isYes ? 'Yes' : 'No',
-    };
-  }
-
-  if (metric.format === 'Xx') {
-    const total = metric.achieved ?? 0;
-    const v = Math.round(total * w);
-    return {
-      value: v,
-      displayText: v.toLocaleString('en-IN'),
-      label,
-      subtitle: metric.unit ? `${metric.unit}` : 'count',
-    };
-  }
-
-  // X/Y
-  const target = Math.max(1, Math.round((metric.target ?? 0) * w));
-  const achieved = Math.round((metric.achieved ?? 0) * w);
-  const pct = Math.max(0, Math.min(100, Math.round((achieved / Math.max(1, target)) * 100)));
+  const agg = getMetricValueForArea(metric, isCentral ? {} : area, label);
   return {
-    value: pct,
-    displayText: `${pct}%`,
+    value: agg.format === 'X/Y' ? agg.pct : agg.achieved ?? 0,
+    displayText: agg.displayText,
     label,
-    subtitle: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')}`,
+    subtitle: agg.subtitle,
   };
 }
 
 /**
- * Synthesizes per-state values for the selected metric. For X/Y metrics
- * we split target + achieved by STATE_WEIGHTS so each state gets a
- * meaningful completion %. For Xx we split the count. For Y/N we
- * randomly assign Y/N per state from a deterministic seed (the metric
- * name) so the demo isn't jittery between renders.
+ * Per-state map data for the selected metric. Returns one bubble per
+ * state with format/band already filled in by the shared helper.
  */
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
-  const states = Object.keys(STATE_WEIGHTS);
-
-  if (metric.format === 'Y/N') {
-    // Deterministic per-state Y/N from metric-name hash + state index.
-    // For demo purposes only — real data will replace this.
-    let h = 0;
-    for (const ch of metric.name) h = (h * 31 + ch.charCodeAt(0)) | 0;
-    return states.map((name, i) => {
-      const isYes = ((h ^ i) & 1) === 1;
-      return {
-        name,
-        value: isYes ? 1 : 0,
-        onTrack: isYes,
-        format: 'Y/N',
-        label: isYes ? 'Y' : 'N',
-      };
-    });
-  }
-
-  if (metric.format === 'Xx') {
-    const total = metric.achieved ?? 0;
-    return states.map((name) => {
-      const v = Math.round(total * STATE_WEIGHTS[name]);
-      return {
-        name,
-        value: v,
-        onTrack: true,
-        format: 'Xx',
-        label: v.toLocaleString('en-IN'),
-      };
-    });
-  }
-
-  // X/Y — split target and achieved across states, derive band per state.
-  const total = metric.target ?? 0;
-  const totalAchieved = metric.achieved ?? 0;
-  return states.map((name) => {
-    const t = Math.max(1, Math.round(total * STATE_WEIGHTS[name]));
-    const a = Math.round(totalAchieved * STATE_WEIGHTS[name]);
-    const pct = getCompletionPercentage(t, a);
-    const band = getColorBand(pct, metric.isInverse ?? false);
-    return {
-      name,
-      value: pct,
-      onTrack: band === 'GREEN',
-      format: 'X/Y',
-      band,
-      label: `${a.toLocaleString('en-IN')} / ${t.toLocaleString('en-IN')} (${pct}%)`,
-    };
-  });
+  return getMetricByState(metric).map(({ name, agg }) => ({
+    name,
+    value: agg.format === 'X/Y' ? agg.pct : agg.achieved ?? 0,
+    onTrack: agg.band === 'GREEN',
+    format: agg.format,
+    band: agg.band,
+    label: agg.format === 'X/Y'
+      ? `${(agg.achieved ?? 0).toLocaleString('en-IN')} / ${(agg.target ?? 0).toLocaleString('en-IN')} (${agg.pct}%)`
+      : agg.displayText,
+  }));
 }
 
 export default function DetailPage() {
