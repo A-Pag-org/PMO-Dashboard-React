@@ -31,19 +31,20 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
+import DetailFilterStrip from '@/components/layout/DetailFilterStrip';
 import MetricCard from '@/components/ui/MetricCard';
-import DelhiNCRMap, { STATE_BUBBLE_POSITIONS } from '@/components/maps/DelhiNCRMap';
+import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn, getColorBand, getCompletionPercentage } from '@/lib/utils';
 import {
   INITIATIVES,
   STATES,
   CITY_STATE_MAP,
   RTO_OPTIONS_BY_CITY,
+  UPLOAD_CITY_OPTIONS_BY_STATE,
   MOCK_DETAIL_MAP_DATA,
-  MOCK_DETAIL_CENTER_BUBBLE,
-  MOCK_SUMMARY_BY_INITIATIVE,
 } from '@/lib/constants';
-import type { MapDataPoint, ViewLevel, Metric } from '@/lib/types';
+import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/types';
+import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 
 type ViewLabel = 'State' | 'City' | 'RTO';
@@ -68,6 +69,89 @@ const STATE_WEIGHTS: Record<string, number> = {
   Haryana: 0.22,
   Rajasthan: 0.13,
 };
+
+/**
+ * Computes the cascading weight share of the filtered geography vs the
+ * NCR total. Used to size the centre bubble's aggregate so it tracks
+ * the area filter (spec §4.3).
+ *   no filter         → 1
+ *   state             → STATE_WEIGHTS[state]
+ *   state + city      → STATE_WEIGHTS[state] / cities-in-state
+ *   state + city + rto → above / rtos-in-city
+ */
+function areaWeight(area: AreaFilterValue): number {
+  if (!area.state) return 1;
+  let w = STATE_WEIGHTS[area.state] ?? 0;
+  if (area.city) {
+    const cities = UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? [];
+    w = w / Math.max(1, cities.length);
+  }
+  if (area.rto && area.city) {
+    const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
+    w = w / Math.max(1, rtos.length);
+  }
+  return w;
+}
+
+function areaLabel(area: AreaFilterValue): string {
+  if (area.rto)   return area.rto;
+  if (area.city)  return area.city;
+  if (area.state) return area.state;
+  return 'Delhi-NCR';
+}
+
+/**
+ * Builds the centre-bubble payload for the selected metric scoped to
+ * the area filter. Falls back to NCR-level numbers for central
+ * metrics (spec §4.5: "Central-level → show value in centre bubble
+ * only").
+ */
+function buildCenterBubble(
+  metric: Metric | undefined,
+  area: AreaFilterValue,
+): MapCenterBubble {
+  if (!metric) {
+    return { value: 0, label: '—', subtitle: '' };
+  }
+  const isCentral = metric.geographyLevel === 'central';
+  const w = isCentral ? 1 : areaWeight(area);
+  const label = isCentral ? 'Delhi-NCR (central)' : areaLabel(area);
+
+  if (metric.format === 'Y/N') {
+    let h = 0;
+    const seed = metric.name + label;
+    for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) | 0;
+    const isYes = (h & 1) === 1;
+    return {
+      value: isYes ? 1 : 0,
+      displayText: isYes ? 'Y' : 'N',
+      label,
+      subtitle: isYes ? 'Yes' : 'No',
+    };
+  }
+
+  if (metric.format === 'Xx') {
+    const total = metric.achieved ?? 0;
+    const v = Math.round(total * w);
+    return {
+      value: v,
+      displayText: v.toLocaleString('en-IN'),
+      label,
+      subtitle: metric.unit ? `${metric.unit}` : 'count',
+    };
+  }
+
+  // X/Y
+  const target = Math.max(1, Math.round((metric.target ?? 0) * w));
+  const achieved = Math.round((metric.achieved ?? 0) * w);
+  const pct = Math.max(0, Math.min(100, Math.round((achieved / Math.max(1, target)) * 100)));
+  return {
+    value: pct,
+    displayText: `${pct}%`,
+    label,
+    subtitle: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')}`,
+  };
+}
 
 /**
  * Synthesizes per-state values for the selected metric. For X/Y metrics
@@ -130,7 +214,7 @@ function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
 }
 
 export default function DetailPage() {
-  const { area, initiativeName, setArea } = useDetailFilters();
+  const { area, initiativeName, setArea, setInitiativeName } = useDetailFilters();
 
   const [viewLevel, setViewLevel] = useState<ViewLevel>('state');
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
@@ -155,7 +239,6 @@ export default function DetailPage() {
 
   const currentInit =
     INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
-  const summaryData = MOCK_SUMMARY_BY_INITIATIVE[currentInit.slug];
 
   const outcomeMetrics  = currentInit.metrics.filter((m) => m.type === 'outcome');
   const progressMetrics = currentInit.metrics.filter((m) => m.type === 'progress');
@@ -171,6 +254,14 @@ export default function DetailPage() {
 
   const isCentralLevelMetric = selectedMetric?.geographyLevel === 'central';
 
+  // Spec §4.3: centre bubble shows the aggregate for the FILTERED
+  // geography (not always NCR), and reflects the SELECTED metric (not
+  // just the initiative's primary).
+  const centerBubble = useMemo(
+    () => buildCenterBubble(selectedMetric, area),
+    [selectedMetric, area],
+  );
+
   const availableViewLevels = useMemo<readonly ViewLabel[]>(() => {
     if (area.city) return ['RTO'];
     if (area.state) return ['City', 'RTO'];
@@ -184,38 +275,31 @@ export default function DetailPage() {
     : availableViewLevels[0];
   const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
 
-  // Map data — view-level + format aware.
-  const { mapData, rtoPositions, emptyHint } = useMemo(() => {
+  // Map data — view-level + format aware. Position is handled by
+  // DelhiNCRMap based on the live projection (refits to area filter).
+  const { mapData, emptyHint } = useMemo(() => {
     if (isCentralLevelMetric || !selectedMetric) {
-      return {
-        mapData: [] as MapDataPoint[],
-        rtoPositions: undefined,
-        emptyHint: undefined,
-      };
+      return { mapData: [] as MapDataPoint[], emptyHint: undefined };
     }
 
     if (effectiveViewLevel === 'state') {
-      // Use the per-metric synthesized state data so X/Y bubbles show
-      // the right band and Xx/Y/N show the right format.
       const stateData = buildMapDataForMetric(selectedMetric);
       const filtered = area.state
         ? stateData.filter((d) => d.name === area.state)
         : stateData;
-      return { mapData: filtered, rtoPositions: undefined, emptyHint: undefined };
+      return { mapData: filtered, emptyHint: undefined };
     }
 
     if (effectiveViewLevel === 'rto') {
       if (!area.city) {
         return {
           mapData: [] as MapDataPoint[],
-          rtoPositions: undefined,
           emptyHint: 'Select a city to view RTOs.',
         };
       }
       const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
       const cityRow = MOCK_DETAIL_MAP_DATA.find((d) => d.name === area.city);
       const base = cityRow?.value ?? 0;
-      const anchor = STATE_BUBBLE_POSITIONS[area.city] ?? { x: 185, y: 165 };
       const perRtoValue = Math.max(1, Math.round(base / Math.max(1, rtos.length)));
       const data: MapDataPoint[] = rtos.map((name) => ({
         name,
@@ -223,18 +307,8 @@ export default function DetailPage() {
         onTrack: cityRow?.onTrack ?? true,
         format: selectedMetric.format,
       }));
-      const positions: Record<string, { x: number; y: number }> = {};
-      const radius = rtos.length > 4 ? 46 : 36;
-      rtos.forEach((name, idx) => {
-        const angle = (2 * Math.PI * idx) / Math.max(1, rtos.length) - Math.PI / 2;
-        positions[name] = {
-          x: anchor.x + radius * Math.cos(angle),
-          y: anchor.y + radius * Math.sin(angle),
-        };
-      });
       return {
         mapData: data,
-        rtoPositions: positions,
         emptyHint: rtos.length === 0 ? `No RTOs recorded for ${area.city}.` : undefined,
       };
     }
@@ -251,7 +325,7 @@ export default function DetailPage() {
     if (area.city) {
       data = data.filter((d) => d.name === area.city);
     }
-    return { mapData: data, rtoPositions: undefined, emptyHint: undefined };
+    return { mapData: data, emptyHint: undefined };
   }, [isCentralLevelMetric, effectiveViewLevel, area, selectedMetric]);
 
   function handleSelectMetric(slug: string, name: string) {
@@ -343,12 +417,34 @@ export default function DetailPage() {
         </div>
       </div>
 
+      <DetailFilterStrip
+        area={area}
+        initiativeName={initiativeName}
+        onAreaChange={setArea}
+        onInitiativeChange={setInitiativeName}
+      />
+
       <main className="flex min-h-0 flex-1">
         <section
           className="relative flex min-h-0 w-1/2 flex-col border-r border-[var(--color-divider-dashed)] bg-white"
           aria-label="Map view"
         >
-          <div className="flex shrink-0 items-center justify-center border-b border-[var(--color-border-table)] px-4 py-2">
+          <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[var(--color-border-table)] px-4 py-2">
+            <span
+              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              style={{
+                backgroundColor:
+                  selectedMetric?.type === 'outcome'
+                    ? 'var(--color-accent)'
+                    : selectedMetric?.type === 'progress'
+                    ? 'var(--color-blue-link)'
+                    : 'var(--color-text-muted)',
+              }}
+              aria-hidden
+            />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              {selectedMetric?.type ?? 'metric'}
+            </span>
             <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
               {selectedMetric?.name ?? currentInit.primaryMetric}
               {selectedMetric?.isInverse ? (
@@ -395,14 +491,14 @@ export default function DetailPage() {
           <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
             <div
               className={cn(
-                'h-full w-full max-w-[560px]',
+                'h-full w-full',
                 isCentralLevelMetric && 'opacity-50 grayscale',
               )}
             >
               <DelhiNCRMap
                 data={mapData}
-                centerBubble={summaryData?.center ?? MOCK_DETAIL_CENTER_BUBBLE}
-                positionOverrides={rtoPositions}
+                centerBubble={centerBubble}
+                area={area}
                 emptyHint={emptyHint}
                 onBubbleClick={(name) => {
                   if (isCentralLevelMetric) return;
@@ -445,7 +541,12 @@ export default function DetailPage() {
           className="flex min-h-0 w-1/2 flex-col overflow-y-auto bg-white"
           aria-label="Metrics panel"
         >
-          <MetricGroup title="Outcome metrics">
+          <MetricGroup
+            title="Outcome metrics"
+            count={outcomeMetrics.length}
+            emphasis
+            defaultOpen
+          >
             {outcomeMetrics.length > 0 ? (
               outcomeMetrics.map((m) => (
                 <MetricCard
@@ -456,6 +557,7 @@ export default function DetailPage() {
                   target={m.target}
                   format={m.format}
                   isInverse={m.isInverse}
+                  prominent
                   selected={selectedMetric?.name === m.name}
                   onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
                 />
@@ -466,7 +568,11 @@ export default function DetailPage() {
           </MetricGroup>
 
           {progressMetrics.length > 0 ? (
-            <MetricGroup title="Progress metrics">
+            <MetricGroup
+              title="Progress metrics"
+              count={progressMetrics.length}
+              defaultOpen
+            >
               {progressMetrics.map((m) => (
                 <MetricCard
                   key={m.name}
@@ -484,7 +590,11 @@ export default function DetailPage() {
           ) : null}
 
           {readinessMetrics.length > 0 ? (
-            <MetricGroup title="Readiness metrics">
+            <MetricGroup
+              title="Readiness metrics"
+              count={readinessMetrics.length}
+              defaultOpen={false}
+            >
               {readinessMetrics.map((m) => (
                 <MetricCard
                   key={m.name}
@@ -506,19 +616,62 @@ export default function DetailPage() {
   );
 }
 
+/**
+ * Collapsible metric-group section. Spec §4.1 implies Outcome is the
+ * headline (default-selected first row); Progress is supporting; Readiness
+ * is the lowest-density (mostly Y/N setup flags) — collapsed by default.
+ */
 function MetricGroup({
   title,
+  count,
+  defaultOpen = true,
+  emphasis = false,
   children,
 }: {
   title: string;
+  count: number;
+  defaultOpen?: boolean;
+  /** Outcome group gets a thin accent rule above for visual prominence. */
+  emphasis?: boolean;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const headingId = `metric-group-${title.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <div className="shrink-0">
-      <div className="bg-[var(--color-navy)] px-4 py-1.5">
-        <h3 className="text-center text-xs font-semibold text-white">{title}</h3>
-      </div>
-      <div className="flex flex-col gap-2 px-3 py-2">{children}</div>
+    <div
+      className={cn(
+        'shrink-0',
+        emphasis && 'border-t-2 border-[var(--color-accent)]',
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={headingId}
+        className="flex w-full items-center justify-between bg-[var(--color-navy)] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-inset"
+      >
+        <span className="inline-flex items-center gap-2">
+          <span
+            className={cn(
+              'inline-block h-3.5 w-3.5 transition-transform',
+              open && 'rotate-90',
+            )}
+            aria-hidden
+          >
+            ›
+          </span>
+          {title}
+          <span className="rounded bg-white/15 px-1.5 py-px text-[10px] font-bold tabular-nums">
+            {count}
+          </span>
+        </span>
+      </button>
+      {open ? (
+        <div id={headingId} className="flex flex-col gap-2 px-3 py-2">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

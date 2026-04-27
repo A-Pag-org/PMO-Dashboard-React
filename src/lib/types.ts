@@ -111,9 +111,18 @@ export interface MapDataPoint {
 }
 
 export interface MapCenterBubble {
+  /** Numeric backing value (used as fallback when displayText is absent). */
   value: number;
+  /** Top-line label below the big number. */
   label: string;
+  /** Smaller subtitle line below the label. */
   subtitle: string;
+  /**
+   * Optional override for the big display text. Lets the caller render
+   * "65%" / "Y" / "1,250" / etc. without us guessing the format from
+   * the numeric value.
+   */
+  displayText?: string;
 }
 
 export interface SummaryTableRow {

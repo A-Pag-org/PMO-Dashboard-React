@@ -17,8 +17,6 @@ import type { LucideIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '@/lib/auth';
 import { cn } from '@/lib/utils';
-import DetailFiltersPanel from './DetailFiltersPanel';
-import { useDetailFilters } from '@/lib/useDetailFilters';
 
 export interface SidePanelProps {
   open: boolean;
@@ -55,10 +53,6 @@ const NAV_ITEMS: NavItem[] = [
 export default function SidePanel({ open, onClose }: SidePanelProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { area, initiativeName, setArea, setInitiativeName } = useDetailFilters();
-  const onDetailPage =
-    location.pathname === '/dashboard/detail' ||
-    location.pathname.startsWith('/dashboard/detail/');
 
   useEffect(() => {
     if (!open) return;
@@ -129,8 +123,6 @@ export default function SidePanel({ open, onClose }: SidePanelProps) {
               const isActive =
                 location.pathname === item.href ||
                 (item.matches?.some((m) => location.pathname.startsWith(m)) ?? false);
-              const showDetailFilters =
-                item.href === '/dashboard/detail' && onDetailPage;
               return (
                 <li key={item.href}>
                   <Link
@@ -153,15 +145,6 @@ export default function SidePanel({ open, onClose }: SidePanelProps) {
                     />
                     <span>{item.label}</span>
                   </Link>
-                  {showDetailFilters ? (
-                    <DetailFiltersPanel
-                      area={area}
-                      initiativeName={initiativeName}
-                      onAreaChange={setArea}
-                      onInitiativeChange={setInitiativeName}
-                      onNavigate={onClose}
-                    />
-                  ) : null}
                 </li>
               );
             })}

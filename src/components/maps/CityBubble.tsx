@@ -15,6 +15,8 @@ interface CityBubbleProps {
   isCenter?: boolean;
   centerLabel?: string;
   centerSubtitle?: string;
+  /** Optional explicit display text for the big centre number. */
+  centerDisplayText?: string;
 }
 
 export default function CityBubble({
@@ -24,6 +26,7 @@ export default function CityBubble({
   isCenter = false,
   centerLabel,
   centerSubtitle,
+  centerDisplayText,
 }: CityBubbleProps) {
   if (isCenter) {
     return (
@@ -37,7 +40,7 @@ export default function CityBubble({
           fill="var(--color-text-primary)"
           style={{ fontSize: 22 }}
         >
-          {data.label ?? formatNumber(data.value)}
+          {centerDisplayText ?? data.label ?? formatNumber(data.value)}
         </text>
         {centerLabel && (
           <text
