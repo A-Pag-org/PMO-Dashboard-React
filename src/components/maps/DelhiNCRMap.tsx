@@ -278,6 +278,7 @@ export default function DelhiNCRMap({
           isCenter
           centerLabel={centerBubble.label}
           centerSubtitle={centerBubble.subtitle}
+          centerDisplayText={centerBubble.displayText}
         />
       </motion.g>
 

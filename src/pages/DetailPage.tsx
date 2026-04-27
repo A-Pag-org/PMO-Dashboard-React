@@ -40,11 +40,11 @@ import {
   STATES,
   CITY_STATE_MAP,
   RTO_OPTIONS_BY_CITY,
+  UPLOAD_CITY_OPTIONS_BY_STATE,
   MOCK_DETAIL_MAP_DATA,
-  MOCK_DETAIL_CENTER_BUBBLE,
-  MOCK_SUMMARY_BY_INITIATIVE,
 } from '@/lib/constants';
-import type { MapDataPoint, ViewLevel, Metric } from '@/lib/types';
+import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/types';
+import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 
 type ViewLabel = 'State' | 'City' | 'RTO';
@@ -69,6 +69,89 @@ const STATE_WEIGHTS: Record<string, number> = {
   Haryana: 0.22,
   Rajasthan: 0.13,
 };
+
+/**
+ * Computes the cascading weight share of the filtered geography vs the
+ * NCR total. Used to size the centre bubble's aggregate so it tracks
+ * the area filter (spec §4.3).
+ *   no filter         → 1
+ *   state             → STATE_WEIGHTS[state]
+ *   state + city      → STATE_WEIGHTS[state] / cities-in-state
+ *   state + city + rto → above / rtos-in-city
+ */
+function areaWeight(area: AreaFilterValue): number {
+  if (!area.state) return 1;
+  let w = STATE_WEIGHTS[area.state] ?? 0;
+  if (area.city) {
+    const cities = UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? [];
+    w = w / Math.max(1, cities.length);
+  }
+  if (area.rto && area.city) {
+    const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
+    w = w / Math.max(1, rtos.length);
+  }
+  return w;
+}
+
+function areaLabel(area: AreaFilterValue): string {
+  if (area.rto)   return area.rto;
+  if (area.city)  return area.city;
+  if (area.state) return area.state;
+  return 'Delhi-NCR';
+}
+
+/**
+ * Builds the centre-bubble payload for the selected metric scoped to
+ * the area filter. Falls back to NCR-level numbers for central
+ * metrics (spec §4.5: "Central-level → show value in centre bubble
+ * only").
+ */
+function buildCenterBubble(
+  metric: Metric | undefined,
+  area: AreaFilterValue,
+): MapCenterBubble {
+  if (!metric) {
+    return { value: 0, label: '—', subtitle: '' };
+  }
+  const isCentral = metric.geographyLevel === 'central';
+  const w = isCentral ? 1 : areaWeight(area);
+  const label = isCentral ? 'Delhi-NCR (central)' : areaLabel(area);
+
+  if (metric.format === 'Y/N') {
+    let h = 0;
+    const seed = metric.name + label;
+    for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) | 0;
+    const isYes = (h & 1) === 1;
+    return {
+      value: isYes ? 1 : 0,
+      displayText: isYes ? 'Y' : 'N',
+      label,
+      subtitle: isYes ? 'Yes' : 'No',
+    };
+  }
+
+  if (metric.format === 'Xx') {
+    const total = metric.achieved ?? 0;
+    const v = Math.round(total * w);
+    return {
+      value: v,
+      displayText: v.toLocaleString('en-IN'),
+      label,
+      subtitle: metric.unit ? `${metric.unit}` : 'count',
+    };
+  }
+
+  // X/Y
+  const target = Math.max(1, Math.round((metric.target ?? 0) * w));
+  const achieved = Math.round((metric.achieved ?? 0) * w);
+  const pct = Math.max(0, Math.min(100, Math.round((achieved / Math.max(1, target)) * 100)));
+  return {
+    value: pct,
+    displayText: `${pct}%`,
+    label,
+    subtitle: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')}`,
+  };
+}
 
 /**
  * Synthesizes per-state values for the selected metric. For X/Y metrics
@@ -156,7 +239,6 @@ export default function DetailPage() {
 
   const currentInit =
     INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
-  const summaryData = MOCK_SUMMARY_BY_INITIATIVE[currentInit.slug];
 
   const outcomeMetrics  = currentInit.metrics.filter((m) => m.type === 'outcome');
   const progressMetrics = currentInit.metrics.filter((m) => m.type === 'progress');
@@ -171,6 +253,14 @@ export default function DetailPage() {
     currentInit.metrics[0];
 
   const isCentralLevelMetric = selectedMetric?.geographyLevel === 'central';
+
+  // Spec §4.3: centre bubble shows the aggregate for the FILTERED
+  // geography (not always NCR), and reflects the SELECTED metric (not
+  // just the initiative's primary).
+  const centerBubble = useMemo(
+    () => buildCenterBubble(selectedMetric, area),
+    [selectedMetric, area],
+  );
 
   const availableViewLevels = useMemo<readonly ViewLabel[]>(() => {
     if (area.city) return ['RTO'];
@@ -409,7 +499,7 @@ export default function DetailPage() {
             >
               <DelhiNCRMap
                 data={mapData}
-                centerBubble={summaryData?.center ?? MOCK_DETAIL_CENTER_BUBBLE}
+                centerBubble={centerBubble}
                 positionOverrides={rtoPositions}
                 emptyHint={emptyHint}
                 onBubbleClick={(name) => {
