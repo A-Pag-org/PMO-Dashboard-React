@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
+import DetailFilterStrip from '@/components/layout/DetailFilterStrip';
 import MetricCard from '@/components/ui/MetricCard';
 import DelhiNCRMap, { STATE_BUBBLE_POSITIONS } from '@/components/maps/DelhiNCRMap';
 import { cn, getColorBand, getCompletionPercentage } from '@/lib/utils';
@@ -130,7 +131,7 @@ function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
 }
 
 export default function DetailPage() {
-  const { area, initiativeName, setArea } = useDetailFilters();
+  const { area, initiativeName, setArea, setInitiativeName } = useDetailFilters();
 
   const [viewLevel, setViewLevel] = useState<ViewLevel>('state');
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
@@ -342,6 +343,13 @@ export default function DetailPage() {
           </Link>
         </div>
       </div>
+
+      <DetailFilterStrip
+        area={area}
+        initiativeName={initiativeName}
+        onAreaChange={setArea}
+        onInitiativeChange={setInitiativeName}
+      />
 
       <main className="flex min-h-0 flex-1">
         <section
