@@ -46,6 +46,7 @@ import {
   getMetricByState,
   getMetricValueForArea,
 } from '@/lib/aggregation';
+import { getInitiativeConfig } from '@/lib/initiatives';
 import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/types';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
@@ -161,11 +162,18 @@ export default function DetailPage() {
     [selectedMetric, area],
   );
 
+  // Spec §7 + §10: RTO only for Naya Safar, Toll only for Green
+  // Contribution, ULB only for C&D-SCC. Other initiatives stop the
+  // map drill-down at city level.
+  const initiativeConfig = getInitiativeConfig(currentInit.slug);
+  const supportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
+
   const availableViewLevels = useMemo<readonly ViewLabel[]>(() => {
-    if (area.city) return ['RTO'];
-    if (area.state) return ['City', 'RTO'];
-    return ['State', 'City', 'RTO'];
-  }, [area]);
+    const rtoTail = supportsRto ? ['RTO' as const] : [];
+    if (area.city) return supportsRto ? ['RTO'] : ['City'];
+    if (area.state) return ['City', ...rtoTail];
+    return ['State', 'City', ...rtoTail];
+  }, [area, supportsRto]);
 
   const currentViewLabel: ViewLabel =
     viewLevel === 'state' ? 'State' : viewLevel === 'city' ? 'City' : 'RTO';
@@ -242,23 +250,29 @@ export default function DetailPage() {
         area.state || area.city || area.rto ? () => setArea({}) : undefined,
     },
   ];
+  // RTO segment is only meaningful when the active initiative supports
+  // it (spec §10). Same gating will apply when toll/ulb segments are
+  // added in future.
+  const showRtoSegment = !!area.rto && supportsRto;
   if (area.state) {
     breadcrumb.push({
       label: area.state,
       onClick:
-        area.city || area.rto ? () => setArea({ state: area.state }) : undefined,
+        area.city || showRtoSegment
+          ? () => setArea({ state: area.state })
+          : undefined,
     });
   }
   if (area.city) {
     breadcrumb.push({
       label: area.city,
-      onClick: area.rto
+      onClick: showRtoSegment
         ? () => setArea({ state: area.state, city: area.city })
         : undefined,
     });
   }
-  if (area.rto) {
-    breadcrumb.push({ label: area.rto });
+  if (showRtoSegment) {
+    breadcrumb.push({ label: area.rto! });
   }
 
   // "See all data" button — carries the initiative forward (spec §4.1).
@@ -400,6 +414,7 @@ export default function DetailPage() {
                 data={mapData}
                 centerBubble={centerBubble}
                 area={area}
+                supportsRto={supportsRto}
                 emptyHint={emptyHint}
                 onBubbleClick={(name) => {
                   if (isCentralLevelMetric) return;
@@ -413,7 +428,10 @@ export default function DetailPage() {
                     setArea({ state: mappedState, city: name });
                     return;
                   }
-                  if (area.city) {
+                  // Sub-city click — only valid when the initiative
+                  // supports the RTO level (spec §10: RTO only for
+                  // Naya Safar). Other initiatives stop at city.
+                  if (area.city && supportsRto) {
                     setArea({ state: area.state, city: area.city, rto: name });
                   }
                 }}
