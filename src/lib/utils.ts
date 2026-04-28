@@ -15,9 +15,13 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
- * Spec §8.1 — getColorBand(completionPct, isInverse).
+ * Spec §8.1 / COLOR_001 — getColorBand(completionPct, isInverse).
  * Standard:  <30 RED · 30-60 YELLOW · ≥60 GREEN
  * Inverse:   ≥60 RED · 30-60 YELLOW · <30 GREEN
+ *
+ * COLOR_001 makes this the SINGLE entry point for traffic-light banding
+ * across Summary, Detailed View, and All Data. Y/N pills hard-code
+ * GREEN/RED per the boolean rule and don't go through here.
  */
 export function getColorBand(
   completionPct: number,

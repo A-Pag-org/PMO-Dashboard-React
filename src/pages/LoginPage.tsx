@@ -6,13 +6,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import Badge from '@/components/ui/Badge';
-import { signIn } from '@/lib/auth';
+import { signIn, KNOWN_ROLES, type UserRole } from '@/lib/auth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('MoHUA');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -26,7 +27,7 @@ export default function LoginPage() {
       void email;
       void password;
       await new Promise((resolve) => setTimeout(resolve, 150));
-      signIn();
+      signIn(role);
       navigate('/dashboard/summary', { replace: true });
     } catch {
       setSubmitError('Unable to sign in right now. Please try again.');
@@ -122,6 +123,25 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="role"
+                className="mb-1.5 block text-sm font-medium text-[var(--color-text-secondary)]"
+              >
+                Sign in as
+              </label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+                className="w-full rounded-lg border border-[var(--color-border)] bg-white px-4 py-3 text-base text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2"
+              >
+                {KNOWN_ROLES.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </div>
 
             <button

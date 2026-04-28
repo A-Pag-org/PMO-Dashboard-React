@@ -18,6 +18,15 @@ import { MOCK_UPLOAD_ROWS_ALL } from '@/lib/constants';
 import type { UploadRow } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
+/**
+ * UPLOAD_002 / UPLOAD_003 validation result for a single CSV data row.
+ *   accept  — value passes data-type, range, and locked-cell integrity.
+ *   ignore  — out-of-jurisdiction OR validation failure; silently dropped.
+ */
+type RowVerdict =
+  | { kind: 'accept'; newVal: string; remarks: string }
+  | { kind: 'ignore' };
+
 type UploadStatusType = 'idle' | 'success' | 'error' | 'warning';
 interface UploadStatus {
   type: UploadStatusType;
@@ -87,7 +96,9 @@ function parseCsvLine(line: string): string[] {
 /**
  * Split CSV text into rows.
  * Normalises all line endings (CRLF, CR, LF) before splitting so Windows
- * exports from Excel work correctly.
+ * exports from Excel work correctly. Lines beginning with "#" are
+ * treated as comments (used for the UPLOAD_003 locking notice that we
+ * prepend to downloaded templates).
  */
 function parseCsv(text: string): string[][] {
   return (
@@ -96,7 +107,7 @@ function parseCsv(text: string): string[][] {
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
       .split('\n')
-      .filter((l) => l.trim().length > 0)
+      .filter((l) => l.trim().length > 0 && !l.trimStart().startsWith('#'))
       .map(parseCsvLine)
   );
 }
@@ -107,6 +118,90 @@ function escapeCsvCell(v: unknown): string {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
+}
+
+/**
+ * UPLOAD_002 / UPLOAD_003 — single-row validator. A row is silently
+ * ignored ({ kind: 'ignore' }) when:
+ *   · It has fewer columns than the template (malformed).
+ *   · Its (state, city, initiative, metric) key is outside the user's
+ *     jurisdiction (no matching server-side row).
+ *   · `New Val` fails a data-type or range check for the row's format.
+ *   · Any locked column has been edited (locked-cell integrity).
+ *   · `Start Date` / `End Date` were edited on a metric that doesn't
+ *     allow date edits (only the four metrics flagged via hasDates).
+ */
+function validateCsvRow(
+  csvRow: string[],
+  prev: UploadRow[],
+  keyToIndex: Map<string, number>,
+  cols: {
+    iState: number; iCity: number; iInit: number; iMetric: number;
+    iNewVal: number; iRemarks: number; iTarget: number; iCurrent: number;
+    iStart: number; iEndDate: number;
+    editableCols: Set<number>;
+    expectedColCount: number;
+  },
+): RowVerdict {
+  if (csvRow.length < cols.expectedColCount) return { kind: 'ignore' };
+
+  const key = `${csvRow[cols.iState] ?? ''}::${csvRow[cols.iCity] ?? ''}::${csvRow[cols.iInit] ?? ''}::${csvRow[cols.iMetric] ?? ''}`;
+  const targetIdx = keyToIndex.get(key);
+  if (targetIdx === undefined) return { kind: 'ignore' }; // out-of-jurisdiction
+
+  const original = prev[targetIdx];
+  const newVal  = (csvRow[cols.iNewVal]  ?? '').trim();
+  const remarks = (csvRow[cols.iRemarks] ?? '').trim();
+
+  // Locked-cell integrity: every column that is NOT in editableCols
+  // must match the value the user originally downloaded.
+  const expectedAt = (i: number): string => {
+    if (i === cols.iState)   return original.state;
+    if (i === cols.iCity)    return original.city;
+    if (i === cols.iInit)    return original.initiative;
+    if (i === cols.iMetric)  return original.metric;
+    if (i === cols.iTarget)  return original.targetVal == null ? '' : String(original.targetVal);
+    if (i === cols.iCurrent) return original.currentVal == null ? '' : String(original.currentVal);
+    if (i === cols.iStart)   return original.startDate;
+    if (i === cols.iEndDate) return original.endDate;
+    return '';
+  };
+  for (let i = 0; i < cols.expectedColCount; i++) {
+    if (cols.editableCols.has(i)) continue;
+    const got = (csvRow[i] ?? '').trim();
+    const want = expectedAt(i).trim();
+    // Only check columns we know how to compare; let unknown locked
+    // columns (e.g. Last Updated By) pass through silently.
+    if (i === cols.iState || i === cols.iCity || i === cols.iInit || i === cols.iMetric ||
+        i === cols.iTarget || i === cols.iCurrent) {
+      if (got !== want) return { kind: 'ignore' };
+    }
+  }
+
+  // Date-edit gate: only metrics with hasDates may change Start/End.
+  if (!original.hasDates) {
+    const startGot = (csvRow[cols.iStart]   ?? '').trim();
+    const endGot   = (csvRow[cols.iEndDate] ?? '').trim();
+    if (startGot !== (original.startDate ?? '').trim()) return { kind: 'ignore' };
+    if (endGot   !== (original.endDate   ?? '').trim()) return { kind: 'ignore' };
+  }
+
+  // Data-type & range checks against the metric's format.
+  if (newVal !== '') {
+    if (original.format === 'X/Y') {
+      const n = Number(newVal);
+      if (!Number.isFinite(n) || n < 0) return { kind: 'ignore' };
+      if (original.targetVal != null && n > original.targetVal) return { kind: 'ignore' };
+    } else if (original.format === 'Xx') {
+      const n = Number(newVal);
+      if (!Number.isFinite(n) || n < 0) return { kind: 'ignore' };
+    } else if (original.format === 'Y/N') {
+      const u = newVal.toUpperCase();
+      if (u !== 'Y' && u !== 'N') return { kind: 'ignore' };
+    }
+  }
+
+  return { kind: 'accept', newVal, remarks };
 }
 
 export default function UploadPage() {
@@ -157,9 +252,21 @@ export default function UploadPage() {
       r.lastUpdated,
       r.lastUpdatedBy,
     ]);
-    const csv = [CSV_HEADERS, ...body]
-      .map((row) => row.map(escapeCsvCell).join(','))
-      .join('\n');
+    // UPLOAD_003 — annotate the template with the lock policy. The "#"
+    // lines are stripped on parse but stay visible when the file is
+    // opened in Excel/Sheets so users know which columns they may edit.
+    const noticeLines = [
+      '# Manual Data Upload Template — locked-cell policy',
+      '# EDITABLE columns: New Val, Remarks (and Start Date / End Date',
+      '#                    only on rows whose Metric is flagged for date',
+      '#                    edits — e.g. SCC malba and MRS road coverage).',
+      '# All OTHER columns are LOCKED — changes will cause the row to be',
+      '# silently ignored on upload (UPLOAD_002 / UPLOAD_003).',
+    ];
+    const csv = [
+      ...noticeLines,
+      ...[CSV_HEADERS, ...body].map((row) => row.map(escapeCsvCell).join(',')),
+    ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -232,21 +339,31 @@ export default function UploadPage() {
       const iMetric   = idx('Metric');
       const iNewVal   = idx('New Val');
       const iRemarks  = idx('Remarks');
+      const iTarget   = idx('Target Val');
+      const iCurrent  = idx('Current Val');
+      const iStart    = idx('Start Date');
+      const iEndDate  = idx('End Date');
+
+      // The CSV columns the user is permitted to change. Any other
+      // column whose value differs from the in-memory row is treated as
+      // a locked-cell-integrity violation and the row is silently
+      // ignored (UPLOAD_002 / UPLOAD_003).
+      const EDITABLE_COLS = new Set([iNewVal, iRemarks, iStart, iEndDate]);
 
       let updated = 0;
-      let skipped = 0;
 
       setRows((prev) => {
         const keyToIndex = new Map(prev.map((r, i) => [rowKey(r), i]));
         const next = [...prev];
 
         for (const csvRow of parsed.slice(1)) {
-          // Skip rows that don't have enough columns (e.g. trailing blank lines
-          // that passed the trim filter, or malformed lines).
-          if (csvRow.length < expected.length) {
-            skipped++;
-            continue;
-          }
+          const verdict = validateCsvRow(csvRow, prev, keyToIndex, {
+            iState, iCity, iInit, iMetric,
+            iNewVal, iRemarks, iTarget, iCurrent, iStart, iEndDate,
+            editableCols: EDITABLE_COLS,
+            expectedColCount: expected.length,
+          });
+          if (verdict.kind === 'ignore') continue;
 
           const key = rowKey({
             state:      csvRow[iState]  ?? '',
@@ -254,30 +371,20 @@ export default function UploadPage() {
             initiative: csvRow[iInit]   ?? '',
             metric:     csvRow[iMetric] ?? '',
           });
-
-          const targetIdx = keyToIndex.get(key);
-          if (targetIdx === undefined) {
-            skipped++;
-            continue;
-          }
+          const targetIdx = keyToIndex.get(key)!;
 
           next[targetIdx] = {
             ...next[targetIdx],
-            newVal:  (csvRow[iNewVal]  ?? '').trim(),
-            remarks: (csvRow[iRemarks] ?? '').trim(),
+            newVal:  verdict.newVal,
+            remarks: verdict.remarks,
           };
           updated++;
         }
         return next;
       });
 
-      if (updated > 0 && skipped === 0) {
+      if (updated > 0) {
         showStatus('success', `Upload successful — ${updated} row${updated !== 1 ? 's' : ''} updated.`);
-      } else if (updated > 0) {
-        showStatus(
-          'warning',
-          `Partially applied: ${updated} updated, ${skipped} row${skipped !== 1 ? 's' : ''} outside your access were skipped.`,
-        );
       } else {
         showStatus(
           'warning',
@@ -363,7 +470,9 @@ export default function UploadPage() {
               {' '}and <strong>Remarks</strong> on every row;{' '}
               <strong>Start / End date</strong> are editable only for the
               two periodic metrics flagged in §7.3 (SCC malba and MRS road
-              coverage). All other columns are locked.
+              coverage). All other columns are locked. Rows that fail
+              data-type / range / locked-cell checks, or that fall outside
+              your jurisdiction, are silently ignored on upload.
             </p>
           </div>
         </div>

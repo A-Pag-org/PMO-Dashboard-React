@@ -18,7 +18,7 @@
 // Filters live in the SidePanel drawer and are persisted in URL
 // query params via useDetailFilters.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Truck,
@@ -50,6 +50,7 @@ import { getInitiativeConfig } from '@/lib/initiatives';
 import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/types';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
+import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
 type ViewLabel = 'State' | 'City' | 'RTO';
 
@@ -120,22 +121,7 @@ export default function DetailPage() {
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
-
-  // Auto-reset view level when area filter changes.
-  const prevAreaRef = useRef(area);
-  useEffect(() => {
-    const prev = prevAreaRef.current;
-    prevAreaRef.current = area;
-    const areaChanged =
-      prev.state !== area.state ||
-      prev.city !== area.city ||
-      prev.rto !== area.rto;
-    if (!areaChanged) return;
-
-    if (area.city) setViewLevel('rto');
-    else if (area.state) setViewLevel('city');
-    else setViewLevel('state');
-  }, [area]);
+  const role = getCurrentRole();
 
   const currentInit =
     INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
@@ -168,18 +154,46 @@ export default function DetailPage() {
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
   const supportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
 
+  // MAP_002 — Delhi-only roles (DPCC, CS – Delhi) see ONLY the RTO toggle,
+  //           and only when the area filter resolves to Delhi. Otherwise
+  //           the toggle bar is hidden entirely (handled below).
+  // MAP_003 — once the user drills into a specific RTO, hide the entire
+  //           toggle bar (there is nothing further to drill into).
+  // MAP_001 — when the toggle bar is visible, the priority order is
+  //           STATE → CITY → RTO; the highest level still applicable to
+  //           the current area filter is auto-selected.
+  const delhiOnlyRole = isDelhiOnlyRole(role);
+  const isAtIndividualRto = !!area.rto;
+
   const availableViewLevels = useMemo<readonly ViewLabel[]>(() => {
+    if (isAtIndividualRto) return [] as readonly ViewLabel[];
+    if (delhiOnlyRole) {
+      // Only show the RTO toggle, and only when the area is Delhi.
+      const isDelhiArea = area.state === 'Delhi' || area.city === 'Delhi' || (!area.state && !area.city);
+      return supportsRto && isDelhiArea ? (['RTO'] as const) : ([] as readonly ViewLabel[]);
+    }
     const rtoTail = supportsRto ? ['RTO' as const] : [];
     if (area.city) return supportsRto ? ['RTO'] : ['City'];
     if (area.state) return ['City', ...rtoTail];
     return ['State', 'City', ...rtoTail];
-  }, [area, supportsRto]);
+  }, [area, supportsRto, delhiOnlyRole, isAtIndividualRto]);
+
+  const showViewToggle = availableViewLevels.length > 0;
+
+  // MAP_001 — auto-select the highest available toggle whenever the
+  // available set changes (page load + area filter change). "Highest"
+  // means the first entry in `availableViewLevels` (STATE > CITY > RTO).
+  useEffect(() => {
+    if (availableViewLevels.length === 0) return;
+    const top = availableViewLevels[0].toLowerCase() as ViewLevel;
+    setViewLevel(top);
+  }, [availableViewLevels]);
 
   const currentViewLabel: ViewLabel =
     viewLevel === 'state' ? 'State' : viewLevel === 'city' ? 'City' : 'RTO';
   const effectiveViewLabel: ViewLabel = availableViewLevels.includes(currentViewLabel)
     ? currentViewLabel
-    : availableViewLevels[0];
+    : availableViewLevels[0] ?? 'State';
   const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
 
   // Map data — view-level + format aware. Position is handled by
@@ -370,6 +384,13 @@ export default function DetailPage() {
             </h2>
           </div>
 
+          {/* Toggle bar visibility:
+              · METRIC_003 — central metrics have no regional breakdown.
+              · MAP_002    — Delhi-only roles only see RTO + only on Delhi.
+              · MAP_003    — once an individual RTO is selected, no further
+                              drill levels exist, so hide the bar.
+              The unified gate is `showViewToggle` (empty list → hidden). */}
+          {!isCentralLevelMetric && showViewToggle ? (
           <div className="flex shrink-0 items-center gap-2 px-4 py-2">
             <span className="rounded-md bg-[var(--color-accent)] px-2 py-0.5 text-2xs font-semibold text-[var(--color-ink)]">
               View toggle
@@ -402,6 +423,7 @@ export default function DetailPage() {
               })}
             </div>
           </div>
+          ) : null}
 
           <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
             <div
@@ -476,6 +498,7 @@ export default function DetailPage() {
                   target={m.target}
                   format={m.format}
                   isInverse={m.isInverse}
+                  denominatorLabel={m.denominatorLabel}
                   prominent
                   selected={selectedMetric?.name === m.name}
                   onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
@@ -501,6 +524,7 @@ export default function DetailPage() {
                   target={m.target}
                   format={m.format}
                   isInverse={m.isInverse}
+                  denominatorLabel={m.denominatorLabel}
                   selected={selectedMetric?.name === m.name}
                   onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
                 />
@@ -523,6 +547,7 @@ export default function DetailPage() {
                   target={m.target}
                   format={m.format}
                   isInverse={m.isInverse}
+                  denominatorLabel={m.denominatorLabel}
                   selected={selectedMetric?.name === m.name}
                   onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
                 />
