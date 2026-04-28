@@ -11,7 +11,8 @@
 //   have been removed in favour of this pattern.
 
 import { useState } from 'react';
-import { Menu } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Menu, ArrowLeft } from 'lucide-react';
 import SidePanel from './SidePanel';
 import DashboardSwitcher from './DashboardSwitcher';
 import { cn } from '@/lib/utils';
@@ -23,13 +24,22 @@ interface TopBarProps {
   activePage?: ActivePage;
   /** Kept for API compatibility — no longer rendered (orange pill removed). */
   pageTitle?: string;
-  /** Kept for API compatibility — navigation lives in the SidePanel now. */
+  /**
+   * NAV_001 — kept for API compatibility but no longer authoritative;
+   * TopBar renders the Back-to-Summary button on every non-summary page.
+   */
   showBackToSummary?: boolean;
   className?: string;
 }
 
 export default function TopBar({ className }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // NAV_001 — every page except the Summary itself shows a permanent
+  // "Back to Summary" button. It is keyboard-reachable, always visible,
+  // and the label matches the spec verbatim.
+  const onSummary = location.pathname.startsWith('/dashboard/summary');
 
   return (
     <>
@@ -68,6 +78,21 @@ export default function TopBar({ className }: TopBarProps) {
                 IMPACT DASHBOARD
               </h1>
             </div>
+
+            {!onSummary ? (
+              <Link
+                to="/dashboard/summary"
+                className={cn(
+                  'ml-2 inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--color-blue-link)]',
+                  'hover:bg-[var(--color-blue-pale)]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
+                )}
+                aria-label="Back to Summary"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                <span>Back to Summary</span>
+              </Link>
+            ) : null}
           </div>
 
           {/* ── Right: Action-Plan tab (Sign out lives in the drawer) ── */}

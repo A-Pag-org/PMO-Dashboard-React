@@ -59,7 +59,7 @@ export const INITIATIVES: Initiative[] = [
       { name: 'No. of industrial units where CEMS installation completed',  type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', dataSource: 'API (CEMS CPCB portal)' },
       { name: 'No. of industrial units where APCDs installation completed', type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', dataSource: 'Manual (SPCBs)' },
       // X/Y* per §4.2 — denominator is Total Sites (500), not a target of 0.
-      { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true,                       format: 'X/Y', dataSource: 'API (CEMS CPCB)' },
+      { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', dataSource: 'API (CEMS CPCB)' },
       { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320,                                      format: 'Xx',  dataSource: 'Manual (States)' },
       { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                        format: 'X/Y', dataSource: 'Manual (CPCB/MoEFCC)' },
       { name: 'Vendors empaneled for CEMS/APCD supply and O&M',             type: 'progress', target: null, achieved: 18,                                       format: 'Xx',  dataSource: 'Manual (CPCB)' },
@@ -161,7 +161,7 @@ export const INITIATIVES: Initiative[] = [
     metrics: [
       { name: 'No. of sites registered and connected with ICCC',     type: 'outcome',  target: 100, achieved: 45,                                       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
       // X/Y* — denominator is Total Sites (200), per §4.2.
-      { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true,                       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
+      { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
       { name: 'No. of inspections of construction sites conducted',  type: 'progress', target: 300, achieved: 245, isInverse: true,                      format: 'X/Y', dataSource: 'ICCC DPCC (TBD)' },
       { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612,                                      format: 'Xx',  dataSource: 'ICCC DPCC (TBD)' },
     ],

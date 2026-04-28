@@ -83,6 +83,8 @@ export interface AggregatedMetric {
   displayText: string;
   /** Two-line subtitle (achieved/target, count + unit, etc.). */
   subtitle: string;
+  /** Display label for the X/Y denominator — defaults to "Target". */
+  denominatorLabel: string;
 }
 
 function deterministicYN(seed: string): boolean {
@@ -105,6 +107,7 @@ export function getMetricValueForArea(
   const isCentral = metric.geographyLevel === 'central';
   const w = isCentral ? 1 : getAreaWeight(area);
   const isInverse = metric.isInverse ?? false;
+  const denominatorLabel = metric.denominatorLabel ?? 'Target';
 
   if (metric.format === 'Y/N') {
     const seed = (yNSeed || area.state || 'NCR') + '::' + metric.name;
@@ -118,6 +121,7 @@ export function getMetricValueForArea(
       band: isYes ? 'GREEN' : 'RED',
       displayText: isYes ? 'Y' : 'N',
       subtitle: isYes ? 'Yes' : 'No',
+      denominatorLabel,
     };
   }
 
@@ -133,6 +137,7 @@ export function getMetricValueForArea(
       band: 'NA',
       displayText: v.toLocaleString('en-IN'),
       subtitle: metric.unit ?? 'count',
+      denominatorLabel,
     };
   }
 
@@ -150,6 +155,7 @@ export function getMetricValueForArea(
     band,
     displayText: `${pct}%`,
     subtitle: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')}`,
+    denominatorLabel,
   };
 }
 

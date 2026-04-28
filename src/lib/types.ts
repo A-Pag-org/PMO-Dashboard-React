@@ -39,6 +39,12 @@ export interface Metric {
   geographyLevel?: 'state' | 'city' | 'rto' | 'central';
   /** Free-text data source label (API / Manual / TBD etc.). */
   dataSource?: string;
+  /**
+   * Override label for the X/Y "denominator" — used by violation/inverse
+   * metrics where the denominator is "total sites" rather than a target
+   * the team is trying to hit. Defaults to "Target".
+   */
+  denominatorLabel?: string;
 }
 
 export interface SummaryCardBar {

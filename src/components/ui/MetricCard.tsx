@@ -27,6 +27,8 @@ interface MetricCardProps {
   target: number | null;
   format?: MetricFormat;
   isInverse?: boolean;
+  /** Optional override for the denominator label, e.g. "Total Sites". */
+  denominatorLabel?: string;
   selected?: boolean;
   onSelect?: () => void;
   className?: string;
@@ -42,6 +44,7 @@ export default function MetricCard({
   target,
   format = 'X/Y',
   isInverse = false,
+  denominatorLabel,
   selected = false,
   onSelect,
   className,
@@ -100,6 +103,7 @@ export default function MetricCard({
             achieved={achieved}
             target={target}
             isInverse={isInverse}
+            denominatorLabel={denominatorLabel}
           />
         </div>
 
@@ -123,11 +127,13 @@ function RightValue({
   achieved,
   target,
   isInverse,
+  denominatorLabel,
 }: {
   format: MetricFormat;
   achieved: number | null;
   target: number | null;
   isInverse: boolean;
+  denominatorLabel?: string;
 }) {
   if (format === 'Y/N') {
     const isYes = achieved === 1;
@@ -152,10 +158,12 @@ function RightValue({
   const pct = getCompletionPercentage(target, achieved);
   const band = getColorBand(pct, isInverse);
   const colors = getBandColors(band);
+  const denomTitle = denominatorLabel ? `${denominatorLabel}: ${formatNumber(target)}` : undefined;
   return (
     <span
       className="shrink-0 rounded px-1.5 py-px text-xs font-bold tabular-nums"
       style={{ color: colors.text }}
+      title={denomTitle}
     >
       {formatNumber(achieved)} / {formatNumber(target)}
     </span>

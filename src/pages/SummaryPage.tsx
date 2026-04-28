@@ -17,12 +17,24 @@ import {
   getHighlightedInitiativesForCurrentUser,
 } from '@/lib/constants';
 import type { StateName } from '@/lib/constants';
+import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
 const STATE_FILTER_OPTIONS = ['All - Delhi NCR', ...STATES] as const;
 type StateFilter = (typeof STATE_FILTER_OPTIONS)[number];
 
+/**
+ * SUMMARY_002 — every user always has a state selected. Delhi-only roles
+ * (DPCC / CS – Delhi) default to "Delhi"; everyone else defaults to the
+ * "All - Delhi NCR" sentinel. The dropdown never offers a blank value.
+ */
+function defaultStateForRole(): StateFilter {
+  return isDelhiOnlyRole(getCurrentRole()) ? 'Delhi' : 'All - Delhi NCR';
+}
+
 export default function SummaryPage() {
-  const [selectedState, setSelectedState] = useState<StateFilter>('All - Delhi NCR');
+  const [selectedState, setSelectedState] = useState<StateFilter>(() =>
+    defaultStateForRole(),
+  );
 
   // null means "All of Delhi-NCR".
   const stateForCards: StateName | null =

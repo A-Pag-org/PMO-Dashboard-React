@@ -39,6 +39,8 @@ interface NestedDataTableProps {
   rows: NestedRow[];
   format: MetricFormat;
   isInverse?: boolean;
+  /** Override label for the X/Y "Target" column. Defaults to "Target". */
+  denominatorLabel?: string;
   /** Initial expansion state — by default the NCR + state rows are expanded. */
   defaultExpandedIds?: string[];
 }
@@ -54,6 +56,7 @@ export default function NestedDataTable({
   rows,
   format,
   isInverse = false,
+  denominatorLabel,
   defaultExpandedIds,
 }: NestedDataTableProps) {
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -148,7 +151,7 @@ export default function NestedDataTable({
                 scope="col"
                 className="px-3 py-2.5 text-right text-xs font-semibold tracking-wide text-[var(--color-text-white)]"
               >
-                Target
+                {denominatorLabel ?? 'Target'}
               </th>
             ) : null}
             <th

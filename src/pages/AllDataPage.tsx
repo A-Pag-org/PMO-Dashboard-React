@@ -31,6 +31,11 @@ import { useDetailFilters } from '@/lib/useDetailFilters';
 /**
  * Build a row from the shared aggregator at a given area scope. Keeps
  * the page free of any per-state weight math.
+ *
+ * ALLDATA_001 — manual entry happens at the LOWEST geography only (city
+ * for most initiatives, RTO for Naya Safar). Every non-leaf row in this
+ * tree is purely an aggregate: target / achieved are summed up from the
+ * children, never edited in place. Y/N parents collapse via strict-AND.
  */
 function rowFor(
   metric: Metric,
@@ -240,6 +245,7 @@ export default function AllDataPage() {
               rows={tree}
               format={selectedMetric?.format ?? 'X/Y'}
               isInverse={selectedMetric?.isInverse ?? false}
+              denominatorLabel={selectedMetric?.denominatorLabel}
             />
           )}
         </div>
