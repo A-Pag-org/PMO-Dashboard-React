@@ -1,11 +1,17 @@
 // FILE: components/ui/InitiativeCard.tsx
-// PURPOSE: Summary-page initiative tile (spec §3).
+// PURPOSE: Summary-page initiative tile (spec §3 + Interim Refinement 1).
 //
 // Tile chart variant comes from the initiative's summaryCard.variant:
-//   donut         — single ring (Road Repair, SCC, ICCC, Green Contribution, Greening)
-//   two-donuts    — two side-by-side donuts (Naya Safar, CEMS/APCD)
-//   three-donuts  — three side-by-side donuts (MRS by road width)
+//   donut         — single progress bar (Road Repair, SCC, ICCC, Green Contribution, Greening)
+//   two-donuts    — two stacked progress bars (Naya Safar, CEMS/APCD)
+//   three-donuts  — three stacked progress bars (MRS by population band)
 //   dual-bar      — DEPRECATED concentric rings (kept for back-compat only)
+//
+// Refinement 1 (Interim Dashboard Improvements) — the Summary page now
+// uses horizontal progress bars instead of donuts for improved
+// readability and consistency with the Detailed View. The variant names
+// are preserved so the per-initiative config / mock data shape remain
+// unchanged; only the rendering switched from rings to bars.
 //
 // Highlighting (spec §3.1): tiles in the user's "highlighted" set
 // render at full color; other tiles are visible but greyed out.
@@ -16,11 +22,9 @@
 
 import { Hand } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import DonutProgress from './DonutProgress';
 import DualDonutProgress from './DualDonutProgress';
-import TwoDonutsProgress from './TwoDonutsProgress';
-import ThreeDonutsProgress from './ThreeDonutsProgress';
-import { cn, formatNumber, getCompletionPercentage } from '@/lib/utils';
+import SummaryProgressRow from './SummaryProgressRow';
+import { cn } from '@/lib/utils';
 import { MOCK_SUMMARY_BY_INITIATIVE } from '@/lib/constants';
 import type { Initiative, SummaryCardBar, SummaryCardConfig } from '@/lib/types';
 
@@ -127,7 +131,7 @@ export default function InitiativeCard({
         {cfg?.description ?? initiative.primaryMetric}
       </p>
 
-      <div className="mt-2 flex flex-1 items-center justify-center">
+      <div className="mt-3 flex flex-1 flex-col justify-center gap-2.5">
         <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
       </div>
 
@@ -150,21 +154,44 @@ function CardChart({
   if (!cfg) return <>{fallback}</>;
 
   if (cfg.variant === 'donut' && cfg.donut) {
-    const pct = getCompletionPercentage(cfg.donut.target, cfg.donut.achieved);
     return (
-      <div className="flex flex-col items-center">
-        <DonutProgress value={pct} size={96} thickness={12} />
-        <p className="mt-0.5 text-2xs font-semibold tabular-nums text-[var(--color-text-primary)]">
-          {formatNumber(cfg.donut.achieved)} / {formatNumber(cfg.donut.target)}
-        </p>
-      </div>
+      <SummaryProgressRow
+        label={cfg.donut.label ?? 'PROGRESS'}
+        achieved={cfg.donut.achieved}
+        target={cfg.donut.target}
+        size="md"
+      />
     );
   }
   if (cfg.variant === 'two-donuts' && cfg.bars) {
-    return <TwoDonutsProgress bars={cfg.bars} />;
+    return (
+      <>
+        {cfg.bars.map((bar) => (
+          <SummaryProgressRow
+            key={bar.label}
+            label={bar.label}
+            achieved={bar.achieved}
+            target={bar.target}
+            size="sm"
+          />
+        ))}
+      </>
+    );
   }
   if (cfg.variant === 'three-donuts' && cfg.trio) {
-    return <ThreeDonutsProgress trio={cfg.trio} />;
+    return (
+      <>
+        {cfg.trio.map((bar) => (
+          <SummaryProgressRow
+            key={bar.label}
+            label={bar.label}
+            achieved={bar.achieved}
+            target={bar.target}
+            size="sm"
+          />
+        ))}
+      </>
+    );
   }
   if (cfg.variant === 'dual-bar' && cfg.bars) {
     return <DualDonutProgress bars={cfg.bars} size={104} thickness={9} gap={3} />;
@@ -175,13 +202,12 @@ function CardChart({
 function FallbackFromMetrics({ initiative }: { initiative: Initiative }) {
   const primary = initiative.metrics[0];
   if (!primary) return null;
-  const pct = getCompletionPercentage(primary.target, primary.achieved);
   return (
-    <div className="flex flex-col items-center">
-      <DonutProgress value={pct} size={96} thickness={12} />
-      <p className="mt-0.5 text-2xs font-semibold tabular-nums text-[var(--color-text-primary)]">
-        {formatNumber(primary.achieved)} / {formatNumber(primary.target)}
-      </p>
-    </div>
+    <SummaryProgressRow
+      label={primary.name ?? 'PROGRESS'}
+      achieved={primary.achieved ?? 0}
+      target={primary.target ?? 0}
+      size="md"
+    />
   );
 }

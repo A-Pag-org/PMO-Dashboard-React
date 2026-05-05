@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import InitiativeCard from '@/components/ui/InitiativeCard';
+import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
 import {
   INITIATIVES,
   STATES,
@@ -68,18 +69,23 @@ export default function SummaryPage() {
       </div>
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-[var(--color-surface-light)] p-4">
-        <div
-          className="mx-auto grid h-full max-w-[1200px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-          style={{ gridAutoRows: 'minmax(220px, 1fr)' }}
-        >
-          {INITIATIVES.map((init) => (
-            <InitiativeCard
-              key={init.slug}
-              initiative={init}
-              selectedState={stateForCards}
-              highlighted={highlightedSet.has(init.slug)}
-            />
-          ))}
+        <div className="mx-auto flex h-full max-w-[1200px] flex-col">
+          <div
+            className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            style={{ gridAutoRows: 'minmax(220px, 1fr)' }}
+          >
+            {INITIATIVES.map((init) => (
+              <InitiativeCard
+                key={init.slug}
+                initiative={init}
+                selectedState={stateForCards}
+                highlighted={highlightedSet.has(init.slug)}
+              />
+            ))}
+          </div>
+          <div className="mt-3 flex justify-end">
+            <CompletionThresholdsLegend />
+          </div>
         </div>
       </main>
     </div>
