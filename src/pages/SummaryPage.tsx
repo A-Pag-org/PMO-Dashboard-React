@@ -2,21 +2,19 @@
 // PURPOSE: Summary page (spec §3) — landing screen, 8 initiative tiles.
 //
 // Single global filter: State. Changing it re-renders all 8 tiles.
-// Tiles in the current user's "highlighted" set render at full color;
-// other tiles are visible but greyed out (spec §3.1).
+// All 8 tiles render at full colour. (The earlier per-user "highlighted
+// set" greying behaviour from spec §3.1 was dropped per stakeholder
+// feedback during the interim refinements review — every initiative is
+// now equally prominent on the landing page.)
 // Clicking any tile navigates to the Detailed View pre-filtered for
 // that initiative (carried via the `?p=…` query param).
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import InitiativeCard from '@/components/ui/InitiativeCard';
 import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
-import {
-  INITIATIVES,
-  STATES,
-  getHighlightedInitiativesForCurrentUser,
-} from '@/lib/constants';
+import { INITIATIVES, STATES } from '@/lib/constants';
 import type { StateName } from '@/lib/constants';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
@@ -40,13 +38,6 @@ export default function SummaryPage() {
   // null means "All of Delhi-NCR".
   const stateForCards: StateName | null =
     selectedState === 'All - Delhi NCR' ? null : (selectedState as StateName);
-
-  // Spec §3.1 — user-specific highlighted set. Hard-coded to MoHUA's
-  // defaults until Section 9 wiring lands.
-  const highlightedSet = useMemo(
-    () => new Set(getHighlightedInitiativesForCurrentUser()),
-    [],
-  );
 
   const headerLabel = stateForCards
     ? `${stateForCards} — State Performance`
@@ -79,7 +70,6 @@ export default function SummaryPage() {
                 key={init.slug}
                 initiative={init}
                 selectedState={stateForCards}
-                highlighted={highlightedSet.has(init.slug)}
               />
             ))}
           </div>
