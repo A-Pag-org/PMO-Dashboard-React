@@ -13,8 +13,9 @@
 // are preserved so the per-initiative config / mock data shape remain
 // unchanged; only the rendering switched from rings to bars.
 //
-// Highlighting (spec §3.1): tiles in the user's "highlighted" set
-// render at full color; other tiles are visible but greyed out.
+// All tiles render at full colour. (The earlier per-user "highlighted
+// set" greying behaviour from spec §3.1 was dropped during the interim
+// refinements review — every initiative is equally prominent now.)
 //
 // Clicking the tile navigates to the Detailed View, pre-filtered for
 // that initiative via the `?p=<initiative-name>` query param read by
@@ -36,11 +37,6 @@ interface InitiativeCardProps {
    * state name and looked up against the per-state mock summary table.
    */
   selectedState?: string | null;
-  /**
-   * Spec §3.1 — when false, the tile renders at reduced opacity to
-   * indicate it is outside the current user's "highlighted" set.
-   */
-  highlighted?: boolean;
   className?: string;
 }
 
@@ -95,7 +91,6 @@ function deriveCardConfig(
 export default function InitiativeCard({
   initiative,
   selectedState = null,
-  highlighted = true,
   className,
 }: InitiativeCardProps) {
   const cfg = deriveCardConfig(initiative, selectedState);
@@ -110,11 +105,8 @@ export default function InitiativeCard({
       to={detailHref}
       aria-label={`${initiative.name} – open detailed view for ${geographyLabel}`}
       className={cn(
-        'group relative flex h-full flex-col rounded-md border-2 p-3 text-left transition-all',
+        'group relative flex h-full flex-col rounded-md border-2 border-[var(--color-border-blue)] bg-white p-3 text-left transition-all',
         'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
-        highlighted
-          ? 'border-[var(--color-border-blue)] bg-white'
-          : 'border-[var(--color-border-table)] bg-[var(--color-surface-light)] opacity-60 grayscale hover:opacity-90 hover:grayscale-0',
         className,
       )}
     >
