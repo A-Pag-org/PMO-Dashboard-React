@@ -74,7 +74,7 @@ export const INITIATIVES: Initiative[] = [
       // Donut chosen over the spec's "single bar" per customer override.
       description: 'Road length for which repairs completed (km)',
       variant: 'donut',
-      donut: { target: 1200, achieved: 780 },
+      donut: { label: 'Length', target: 1200, achieved: 780 },
     },
     metrics: [
       { name: 'Road length for which repairs completed (km)',     type: 'outcome',   target: 1200, achieved: 780, unit: 'km',  format: 'X/Y', dataSource: 'API (311 Apps)' },
@@ -135,7 +135,7 @@ export const INITIATIVES: Initiative[] = [
     summaryCard: {
       description: 'No. of SCCs operationalized',
       variant: 'donut',
-      donut: { target: 500, achieved: 200 },
+      donut: { label: 'SCCs operationalized', target: 500, achieved: 200 },
     },
     metrics: [
       { name: 'No. of SCCs operationalized',                           type: 'outcome',   target: 500, achieved: 200,                                  format: 'X/Y', dataSource: 'Manual (ULB C&D Dashboard)' },
@@ -156,7 +156,7 @@ export const INITIATIVES: Initiative[] = [
     summaryCard: {
       description: 'No. of sites registered and connected with ICCC',
       variant: 'donut',
-      donut: { target: 100, achieved: 45 },
+      donut: { label: 'Sites registered', target: 100, achieved: 45 },
     },
     metrics: [
       { name: 'No. of sites registered and connected with ICCC',     type: 'outcome',  target: 100, achieved: 45,                                       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
@@ -174,7 +174,7 @@ export const INITIATIVES: Initiative[] = [
     summaryCard: {
       description: 'No. of tolls where Green Contribution collection initiated',
       variant: 'donut',
-      donut: { target: 50, achieved: 32 },
+      donut: { label: 'Tolls active', target: 50, achieved: 32 },
     },
     metrics: [
       { name: 'Tolls with Green Contribution collection initiated',         type: 'outcome',  target: 50, achieved: 32, format: 'X/Y', dataSource: 'API (MoRTH / IHMCL)' },
@@ -189,7 +189,7 @@ export const INITIATIVES: Initiative[] = [
     summaryCard: {
       description: 'Area of land greened (hectares)',
       variant: 'donut',
-      donut: { target: 5000, achieved: 3120 },
+      donut: { label: 'Area greened', target: 5000, achieved: 3120 },
     },
     metrics: [
       { name: 'Area of land greened (hectares)',                          type: 'outcome',   target: 5000, achieved: 3120, unit: 'ha', format: 'X/Y', dataSource: 'Manual' },
