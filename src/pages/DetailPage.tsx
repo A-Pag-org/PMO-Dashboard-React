@@ -107,6 +107,69 @@ function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
   }));
 }
 
+/**
+ * Deterministic 0..1 hash from a string seed. Used to inject demo-only
+ * per-city variance into the city-level map so the Refinement-3
+ * choropleth shows visibly distinct bands per region rather than a
+ * single colour per state. (Real per-city data will replace this when
+ * the city-level API ships — see TODO in {@link buildMapDataForMetricByCity}.)
+ */
+function hash01(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+/**
+ * Per-city map data for the selected metric. Mirrors
+ * {@link buildMapDataForMetric} but at city granularity so the
+ * Refinement-3 city-view choropleth has a band per city to colour by.
+ *
+ * TODO: replace the per-city perturbation with real city-level data
+ * once the API exposes it. The aggregator currently treats every city
+ * inside a state identically (state weight / cities-in-state), so the
+ * raw pct would be the same for every city of a given state. We seed a
+ * deterministic ±35-point shift per (city, metric) pair for the demo
+ * so the map shows the Red/Yellow/Green mix the mockup illustrates.
+ */
+function buildMapDataForMetricByCity(metric: Metric): MapDataPoint[] {
+  return Object.entries(CITY_STATE_MAP).map(([city, state]) => {
+    const agg = getMetricValueForArea(metric, { state, city }, city);
+    if (agg.format === 'X/Y') {
+      const noise = (hash01(`${city}|${metric.name}`) - 0.5) * 70;
+      const pct = Math.max(0, Math.min(100, Math.round(agg.pct + noise)));
+      const target = agg.target ?? 0;
+      const achieved = Math.round((target * pct) / 100);
+      const band = pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN';
+      return {
+        name: city,
+        value: pct,
+        onTrack: band === 'GREEN',
+        format: 'X/Y' as const,
+        band: metric.isInverse
+          ? band === 'GREEN'
+            ? 'RED'
+            : band === 'RED'
+            ? 'GREEN'
+            : 'YELLOW'
+          : band,
+        label: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')} (${pct}%)`,
+      };
+    }
+    return {
+      name: city,
+      value: agg.achieved ?? 0,
+      onTrack: agg.band === 'GREEN',
+      format: agg.format,
+      band: agg.band,
+      label: agg.displayText,
+    };
+  });
+}
+
 export default function DetailPage() {
   const {
     area,
@@ -234,12 +297,10 @@ export default function DetailPage() {
       };
     }
 
-    // City view — use legacy MOCK_DETAIL_MAP_DATA but tag with the
-    // selected metric's format so bubbles render consistently.
-    let data: MapDataPoint[] = MOCK_DETAIL_MAP_DATA.map((d) => ({
-      ...d,
-      format: selectedMetric.format,
-    }));
+    // City view — use the shared aggregator so each city carries a
+    // band/label, which the Refinement-3 city-view choropleth uses to
+    // colour each Voronoi cell.
+    let data: MapDataPoint[] = buildMapDataForMetricByCity(selectedMetric);
     if (area.state) {
       data = data.filter((d) => CITY_STATE_MAP[d.name] === area.state);
     }
@@ -436,6 +497,7 @@ export default function DetailPage() {
                 data={mapData}
                 centerBubble={centerBubble}
                 area={area}
+                viewLevel={effectiveViewLevel}
                 supportsRto={supportsRto}
                 emptyHint={emptyHint}
                 onBubbleClick={(name) => {
