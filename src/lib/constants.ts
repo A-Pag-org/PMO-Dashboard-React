@@ -38,8 +38,8 @@ export const INITIATIVES: Initiative[] = [
       { name: 'No. of events conducted',                                type: 'outcome',  target: 300,   achieved: 81,                       format: 'X/Y', dataSource: 'API (States)' },
       { name: 'No. of events planned',                                  type: 'progress', target: 250,   achieved: 175,                      format: 'X/Y', dataSource: 'API (TBD)' },
       { name: 'No. of outlets activated for fuel voucher acceptance',   type: 'progress', target: 1500,  achieved: 285,                      format: 'X/Y', dataSource: 'API (TBD)' },
-      { name: 'EOIs and Scrapping requests from truckers/bus owners',   type: 'progress', target: null,  achieved: 4820,                     format: 'Xx',  dataSource: 'API (MoRTH)' },
-      { name: 'PSBs / NBFCs onboarded',                                 type: 'progress', target: null,  achieved: 28,    geographyLevel: 'central', format: 'Xx', dataSource: 'API (Canara Bank/MoRTH)' },
+      { name: 'EOIs and Scrapping requests from truckers/bus owners',   type: 'progress', target: null,  achieved: 4820, previousAchieved: 4480,                                format: 'Xx',  dataSource: 'API (MoRTH)' },
+      { name: 'PSBs / NBFCs onboarded',                                 type: 'progress', target: null,  achieved: 28,   previousAchieved: 26,    geographyLevel: 'central', format: 'Xx', dataSource: 'API (Canara Bank/MoRTH)' },
     ],
   },
   {
@@ -60,9 +60,9 @@ export const INITIATIVES: Initiative[] = [
       { name: 'No. of industrial units where APCDs installation completed', type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', dataSource: 'Manual (SPCBs)' },
       // X/Y* per §4.2 — denominator is Total Sites (500), not a target of 0.
       { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', dataSource: 'API (CEMS CPCB)' },
-      { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320,                                      format: 'Xx',  dataSource: 'Manual (States)' },
-      { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                        format: 'X/Y', dataSource: 'Manual (CPCB/MoEFCC)' },
-      { name: 'Vendors empaneled for CEMS/APCD supply and O&M',             type: 'progress', target: null, achieved: 18,                                       format: 'Xx',  dataSource: 'Manual (CPCB)' },
+      { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320, previousAchieved: 270,                               format: 'Xx',  dataSource: 'Manual (States)' },
+      { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                                         format: 'X/Y', dataSource: 'Manual (CPCB/MoEFCC)' },
+      { name: 'Vendors empaneled for CEMS/APCD supply and O&M',             type: 'progress', target: null, achieved: 18,  previousAchieved: 14,                                 format: 'Xx',  dataSource: 'Manual (CPCB)' },
     ],
   },
   {
@@ -81,7 +81,7 @@ export const INITIATIVES: Initiative[] = [
       { name: 'Road length for which tender published (km)',      type: 'progress',  target: 1500, achieved: 980, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
       { name: 'Road length for which work order issued (km)',     type: 'progress',  target: 1500, achieved: 820, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
       { name: 'Road length surveyed (km)',                        type: 'progress',  target: 1800, achieved: 1320, unit: 'km', format: 'X/Y', dataSource: 'API (311 Apps)' },
-      { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612,                            format: 'Xx',  dataSource: 'API (311 Apps)' },
+      { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612, previousAchieved: 540,     format: 'Xx',  dataSource: 'API (311 Apps)' },
       // Y/N — target = 1, achieved = 1 (Y) or 0 (N)
       { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', dataSource: 'Manual' },
       { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', dataSource: 'Manual' },
@@ -108,9 +108,9 @@ export const INITIATIVES: Initiative[] = [
       { name: 'Route coverage achieved (<10m)',     type: 'outcome',   target: 400, achieved: 100, unit: 'km', format: 'X/Y', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
 
       // Progress — target road length to be covered (Xx)
-      { name: 'Target road length to be covered (>15m)',   type: 'progress', target: null, achieved: 800, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'Target road length to be covered (10–15m)', type: 'progress', target: null, achieved: 600, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'Target road length to be covered (<10m)',   type: 'progress', target: null, achieved: 400, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (>15m)',   type: 'progress', target: null, achieved: 800, previousAchieved: 760, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (10–15m)', type: 'progress', target: null, achieved: 600, previousAchieved: 580, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (<10m)',   type: 'progress', target: null, achieved: 400, previousAchieved: 380, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
 
       // Progress — MRS operational, by road width
       { name: 'No. of MRS operational (>15m)',     type: 'progress', target: 60, achieved: 38, format: 'X/Y', dataSource: 'API (TBD)' },
@@ -118,9 +118,9 @@ export const INITIATIVES: Initiative[] = [
       { name: 'No. of MRS operational (<10m)',     type: 'progress', target: 30, achieved: 6,  format: 'X/Y', dataSource: 'API (TBD)' },
 
       // Readiness — MRS required (Xx)
-      { name: 'No. of MRS required (>15m)',     type: 'readiness', target: null, achieved: 60, format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS required (10–15m)',   type: 'readiness', target: null, achieved: 45, format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS required (<10m)',     type: 'readiness', target: null, achieved: 30, format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (>15m)',     type: 'readiness', target: null, achieved: 60, previousAchieved: 60, format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (10–15m)',   type: 'readiness', target: null, achieved: 45, previousAchieved: 45, format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (<10m)',     type: 'readiness', target: null, achieved: 30, previousAchieved: 30, format: 'Xx', dataSource: 'API (TBD)' },
 
       // Readiness — Y/N
       { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', dataSource: 'Manual' },
@@ -139,11 +139,11 @@ export const INITIATIVES: Initiative[] = [
     },
     metrics: [
       { name: 'No. of SCCs operationalized',                           type: 'outcome',   target: 500, achieved: 200,                                  format: 'X/Y', dataSource: 'Manual (ULB C&D Dashboard)' },
-      { name: 'Total quantum of malba received at SCC',                type: 'outcome',   target: null, achieved: 50,  unit: 'MMT',                    format: 'Xx',  dataSource: 'Manual (C&D Dashboard)' },
+      { name: 'Total quantum of malba received at SCC',                type: 'outcome',   target: null, achieved: 50,  previousAchieved: 41, unit: 'MMT',                    format: 'Xx',  dataSource: 'Manual (C&D Dashboard)' },
       { name: 'Utilization of C&D waste processed material (tonnes)',  type: 'progress',  target: 800, achieved: 420, unit: 'tonnes',                  format: 'X/Y', dataSource: 'MoHUA Malba portal (TBD)' },
       { name: 'Recycling plant capacity available (tonnes)',           type: 'progress',  target: 1000, achieved: 650, unit: 'tonnes',                 format: 'X/Y', dataSource: 'MoHUA Malba portal (TBD)' },
-      { name: 'No. of SCC identified (land parcels earmarked)',        type: 'progress',  target: null, achieved: 320,                                 format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
-      { name: 'No. of SCC required',                                   type: 'readiness', target: null, achieved: 500,                                 format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'No. of SCC identified (land parcels earmarked)',        type: 'progress',  target: null, achieved: 320, previousAchieved: 305,          format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'No. of SCC required',                                   type: 'readiness', target: null, achieved: 500, previousAchieved: 500,          format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
       { name: 'Adequate recycling plant capacity in place',            type: 'readiness', target: 1,    achieved: 0,                                   format: 'Y/N', dataSource: 'Manual' },
       { name: 'Digital tool to track intake via SCCs exists',          type: 'readiness', target: 1,    achieved: 1,                                   format: 'Y/N', dataSource: 'Manual' },
     ],
@@ -163,7 +163,7 @@ export const INITIATIVES: Initiative[] = [
       // X/Y* — denominator is Total Sites (200), per §4.2.
       { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
       { name: 'No. of inspections of construction sites conducted',  type: 'progress', target: 300, achieved: 245, isInverse: true,                      format: 'X/Y', dataSource: 'ICCC DPCC (TBD)' },
-      { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612,                                      format: 'Xx',  dataSource: 'ICCC DPCC (TBD)' },
+      { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612, previousAchieved: 588,                format: 'Xx',  dataSource: 'ICCC DPCC (TBD)' },
     ],
   },
   {

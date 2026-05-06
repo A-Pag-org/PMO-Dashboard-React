@@ -1,14 +1,16 @@
 // FILE: components/ui/MetricCard.tsx
 // PURPOSE: Right-rail metric row on the Detailed View (spec §4 + §5).
 // Layout:  [icon]  label                                X / Y
-//                  [progress bar / Y-N badge / Xx box]
+//                  [progress bar / Y-N badge / big count]
 //
 // Format-aware (spec §4.5 + §6.3):
 //   X/Y standard / inverse → progress bar tinted by traffic-light band
-//   Xx (absolute count)    → no bar / no %, "Xx" badge
+//   Xx (absolute count)    → big bold count + period-delta marker
+//                            (Refinement 4 — replaces the previous
+//                            "Absolute count" empty bar)
 //   Y/N (boolean)          → "YES" (green) or "NO" (red) pill
 
-import { Hand } from 'lucide-react';
+import { ArrowDown, ArrowUp, Hand, Minus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   cn,
@@ -25,6 +27,12 @@ interface MetricCardProps {
   label: string;
   achieved: number | null;
   target: number | null;
+  /**
+   * Refinement 4 — `achieved` value at the end of the previous
+   * reporting period. When present (only meaningful for Xx metrics),
+   * a month-on-month delta marker is rendered next to the big count.
+   */
+  previousAchieved?: number | null;
   format?: MetricFormat;
   isInverse?: boolean;
   /** Optional override for the denominator label, e.g. "Total Sites". */
@@ -42,6 +50,7 @@ export default function MetricCard({
   label,
   achieved,
   target,
+  previousAchieved,
   format = 'X/Y',
   isInverse = false,
   denominatorLabel,
@@ -98,19 +107,24 @@ export default function MetricCard({
               </span>
             ) : null}
           </p>
-          <RightValue
-            format={format}
-            achieved={achieved}
-            target={target}
-            isInverse={isInverse}
-            denominatorLabel={denominatorLabel}
-          />
+          {/* Refinement 4 — Xx metrics drop the small right-side
+              value; the count is rendered larger inside the row body. */}
+          {format !== 'Xx' ? (
+            <RightValue
+              format={format}
+              achieved={achieved}
+              target={target}
+              isInverse={isInverse}
+              denominatorLabel={denominatorLabel}
+            />
+          ) : null}
         </div>
 
         <Visual
           format={format}
           achieved={achieved}
           target={target}
+          previousAchieved={previousAchieved}
           isInverse={isInverse}
         />
       </div>
@@ -174,11 +188,13 @@ function Visual({
   format,
   achieved,
   target,
+  previousAchieved,
   isInverse,
 }: {
   format: MetricFormat;
   achieved: number | null;
   target: number | null;
+  previousAchieved?: number | null;
   isInverse: boolean;
 }) {
   if (format === 'Y/N') {
@@ -194,10 +210,11 @@ function Visual({
     );
   }
   if (format === 'Xx') {
+    // Refinement 4 — replace the empty "Absolute count" bar with a
+    // bigger, bolder count and (when previous-period data is
+    // available) a month-on-month delta marker.
     return (
-      <div className="mt-1.5 flex h-4 w-full items-center justify-center rounded-sm bg-[var(--color-surface-light)] text-[10px] font-medium text-[var(--color-text-muted)]">
-        Absolute count
-      </div>
+      <AbsoluteCount achieved={achieved} previousAchieved={previousAchieved} />
     );
   }
   // X/Y — progress bar with traffic-light band
@@ -222,6 +239,76 @@ function Visual({
       >
         {pct}%
       </span>
+    </div>
+  );
+}
+
+/**
+ * Refinement 4 — absolute-count display for Xx metrics. Renders the
+ * count itself in a larger / bolder font, and (when a previous-period
+ * value is provided) a small month-on-month delta marker below.
+ *
+ *   1,234       <- big count
+ *   ▲ 50 vs last month   <- delta (only if previousAchieved is set)
+ *
+ * Direction colours follow GREEN-up / RED-down for general metrics; an
+ * inverse interpretation is intentionally NOT applied here because the
+ * metric's own `isInverse` flag governs its X/Y banding, not the
+ * desirability of an Xx count change. The product team can layer that
+ * on later via a per-metric "increase is bad" flag if required.
+ */
+function AbsoluteCount({
+  achieved,
+  previousAchieved,
+}: {
+  achieved: number | null;
+  previousAchieved?: number | null;
+}) {
+  const hasPrevious =
+    previousAchieved !== undefined &&
+    previousAchieved !== null &&
+    achieved !== null &&
+    achieved !== undefined;
+  const delta = hasPrevious ? (achieved as number) - (previousAchieved as number) : 0;
+  const direction: 'up' | 'down' | 'flat' = !hasPrevious
+    ? 'flat'
+    : delta > 0
+    ? 'up'
+    : delta < 0
+    ? 'down'
+    : 'flat';
+  const colors = getBandColors(
+    direction === 'up' ? 'GREEN' : direction === 'down' ? 'RED' : 'YELLOW',
+  );
+  const Arrow = direction === 'up' ? ArrowUp : direction === 'down' ? ArrowDown : Minus;
+  return (
+    <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+      <span
+        className="text-2xl font-bold leading-none tabular-nums text-[var(--color-text-primary)]"
+        aria-label="Absolute count"
+      >
+        {achieved == null ? '—' : formatNumber(achieved)}
+      </span>
+      {hasPrevious ? (
+        <span
+          className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+          style={{
+            backgroundColor: colors.bg,
+            color: colors.text,
+          }}
+          title={`Previous period: ${formatNumber(previousAchieved as number)}`}
+        >
+          <Arrow className="h-3 w-3" aria-hidden style={{ color: colors.fg }} />
+          {direction === 'flat' ? (
+            <>No change vs last month</>
+          ) : (
+            <>
+              {direction === 'up' ? '+' : '−'}
+              {formatNumber(Math.abs(delta))} vs last month
+            </>
+          )}
+        </span>
+      ) : null}
     </div>
   );
 }
