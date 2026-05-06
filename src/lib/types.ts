@@ -24,6 +24,14 @@ export interface Metric {
   target: number | null;
   /** Numeric achieved (X/Y, Xx) | 1 (Y) or 0 (N) for Y/N | null if no data. */
   achieved: number | null;
+  /**
+   * Refinement 4 — value of `achieved` at the end of the previous
+   * reporting period. When present (currently only used by Xx
+   * metrics), the Detail page renders a month-on-month delta marker
+   * (▲ +N / ▼ -N / — no change) next to the big count. Leave undefined
+   * when no historical data is available; the marker is suppressed.
+   */
+  previousAchieved?: number | null;
   unit?: string;
   /** Display & logic format — see {@link MetricFormat}. */
   format: MetricFormat;

@@ -558,6 +558,7 @@ export default function DetailPage() {
                   label={m.name}
                   achieved={m.achieved}
                   target={m.target}
+                  previousAchieved={m.previousAchieved}
                   format={m.format}
                   isInverse={m.isInverse}
                   denominatorLabel={m.denominatorLabel}
@@ -584,6 +585,7 @@ export default function DetailPage() {
                   label={m.name}
                   achieved={m.achieved}
                   target={m.target}
+                  previousAchieved={m.previousAchieved}
                   format={m.format}
                   isInverse={m.isInverse}
                   denominatorLabel={m.denominatorLabel}
@@ -607,6 +609,7 @@ export default function DetailPage() {
                   label={m.name}
                   achieved={m.achieved}
                   target={m.target}
+                  previousAchieved={m.previousAchieved}
                   format={m.format}
                   isInverse={m.isInverse}
                   denominatorLabel={m.denominatorLabel}
