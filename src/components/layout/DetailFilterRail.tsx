@@ -194,11 +194,30 @@ function RailField({
   disabled,
   isSelected,
 }: RailFieldProps) {
+  const active = !!isSelected && !disabled;
   return (
-    <label className="flex flex-col gap-1">
-      <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+    <label
+      className={cn(
+        'relative flex flex-col gap-1 rounded-md transition-colors',
+        active && 'bg-[var(--color-blue-pale)] pl-2 pr-1 py-1.5 -mx-1',
+      )}
+    >
+      {active ? (
+        <span
+          className="pointer-events-none absolute inset-y-1 left-0 w-[3px] rounded-full bg-[var(--color-blue-link)]"
+          aria-hidden
+        />
+      ) : null}
+      <span
+        className={cn(
+          'flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide',
+          active
+            ? 'text-[var(--color-blue-link)]'
+            : 'text-[var(--color-text-secondary)]',
+        )}
+      >
         {label}
-        {isSelected ? (
+        {active ? (
           <span
             className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-blue-link)]"
             aria-label="filter active"
@@ -215,8 +234,8 @@ function RailField({
             'w-full appearance-none rounded-md border bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-[var(--color-text-primary)]',
             'focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-link)]',
             'disabled:cursor-not-allowed disabled:bg-[var(--color-surface-grey)] disabled:text-[var(--color-text-muted)]',
-            isSelected && !disabled
-              ? 'border-[var(--color-blue-link)] bg-[var(--color-blue-pale)] font-semibold ring-1 ring-[var(--color-blue-link)]'
+            active
+              ? 'border-[var(--color-blue-link)] font-semibold text-[var(--color-blue-link)] ring-1 ring-[var(--color-blue-link)]'
               : 'border-[var(--color-border)]',
           )}
         >
@@ -230,7 +249,12 @@ function RailField({
           ))}
         </select>
         <ChevronDown
-          className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-secondary)]"
+          className={cn(
+            'pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2',
+            active
+              ? 'text-[var(--color-blue-link)]'
+              : 'text-[var(--color-text-secondary)]',
+          )}
           aria-hidden
         />
       </div>
