@@ -1,13 +1,14 @@
 // FILE: src/pages/DetailPage.tsx
 // PURPOSE: Detailed View (spec §4) — three-column layout.
-//          · Left rail   : filters (Initiative, State, City, RTO, extras)
-//          · Centre 70%  : map with metric header, time-period dropdown
-//                          (top-left) and trend toggle (top-right)
+//          · Left rail   : filters (Initiative, State, City, RTO, extras,
+//                          time range, State/City/RTO view toggle)
+//          · Centre      : metric header + See-trend toggle + map canvas
 //          · Right rail  : single header with Ranking / Metrics tabs
 //
 // Design intent (Jony-Ive-style clarity): one filter surface, one map,
-// one inspector. No competing horizontal filter bars; the geographic
-// breadcrumb stays implicit in the rail selections.
+// one inspector. All scoping controls live in the left rail; the centre
+// column holds nothing but the metric title, the See-trend toggle, and
+// the map itself.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -26,6 +27,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterRail from '@/components/layout/DetailFilterRail';
+import type { TimeRange, ViewLabel } from '@/components/layout/DetailFilterRail';
 import MetricCard from '@/components/ui/MetricCard';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
@@ -46,11 +48,9 @@ import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
-type ViewLabel = 'State' | 'City' | 'RTO';
 type RightTab = 'ranking' | 'metrics';
-type TimeRange = '1M' | '3M' | '6M' | '12M' | 'All';
 
-const TIME_RANGES: TimeRange[] = ['1M', '3M', '6M', '12M', 'All'];
+const TIME_RANGES: readonly TimeRange[] = ['1M', '3M', '6M', '12M', 'All'] as const;
 
 function iconForMetric(m: Metric): LucideIcon {
   const n = m.name.toLowerCase();
@@ -201,8 +201,6 @@ export default function DetailPage() {
     return ['State', 'City', ...rtoTail];
   }, [area, supportsRto, delhiOnlyRole, isAtIndividualRto]);
 
-  const showViewToggle = availableViewLevels.length > 0;
-
   useEffect(() => {
     if (availableViewLevels.length === 0) return;
     const top = availableViewLevels[0].toLowerCase() as ViewLevel;
@@ -306,7 +304,7 @@ export default function DetailPage() {
         </div>
       </div>
 
-      <main className="grid min-h-0 flex-1 grid-cols-[165px_minmax(0,1fr)_420px]">
+      <main className="grid min-h-0 flex-1 grid-cols-[200px_minmax(0,1fr)_420px]">
         {/* ── LEFT: filter rail ─────────────────────────────────────── */}
         <DetailFilterRail
           area={area}
@@ -315,6 +313,12 @@ export default function DetailPage() {
           onAreaChange={setArea}
           onInitiativeChange={setInitiativeName}
           onExtraChange={setExtra}
+          timeRange={timeRange}
+          timeRanges={TIME_RANGES}
+          onTimeRangeChange={setTimeRange}
+          availableViewLevels={!isCentralLevelMetric ? availableViewLevels : []}
+          viewLabel={effectiveViewLabel}
+          onViewLevelChange={setViewLevel}
         />
 
         {/* ── CENTRE: map (≈70% of viewport) ────────────────────────── */}
@@ -322,7 +326,7 @@ export default function DetailPage() {
           className="relative flex min-h-0 flex-col bg-white"
           aria-label="Map view"
         >
-          {/* Metric header */}
+          {/* Metric header — title on the left, See-trend toggle on the right. */}
           <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border-table)] px-4 py-2">
             <span
               className="inline-block h-2 w-2 shrink-0 rounded-full"
@@ -347,35 +351,6 @@ export default function DetailPage() {
                 </span>
               ) : null}
             </h2>
-          </div>
-
-          {/* Top control row — time period (left) + trend toggle (right) */}
-          <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
-            <label className="flex items-center gap-1.5 text-xs">
-              <span className="font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
-                Last
-              </span>
-              <div className="relative">
-                <select
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value as TimeRange)}
-                  aria-label="Time period"
-                  className="appearance-none rounded-md border border-[var(--color-border)] bg-white px-2.5 py-1 pr-7 text-xs font-medium text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-link)]"
-                >
-                  {TIME_RANGES.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-                <span
-                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-text-secondary)]"
-                  aria-hidden
-                >
-                  ▾
-                </span>
-              </div>
-            </label>
 
             <button
               type="button"
@@ -383,7 +358,7 @@ export default function DetailPage() {
               aria-checked={showTrend}
               onClick={() => setShowTrend((v) => !v)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
+                'ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
                 showTrend
                   ? 'border-[var(--color-blue-link)] bg-[var(--color-blue-pale)] text-[var(--color-blue-link)]'
@@ -410,42 +385,6 @@ export default function DetailPage() {
               </span>
             </button>
           </div>
-
-          {/* View toggle (State / City / RTO) */}
-          {!isCentralLevelMetric && showViewToggle ? (
-            <div className="flex shrink-0 items-center gap-2 px-4 pb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                View
-              </span>
-              <div
-                className="inline-flex rounded-full bg-[var(--color-surface-light)] p-0.5"
-                role="radiogroup"
-                aria-label="Map view level"
-              >
-                {availableViewLevels.map((v) => {
-                  const isActive = v === effectiveViewLabel;
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      role="radio"
-                      aria-checked={isActive}
-                      onClick={() => setViewLevel(v.toLowerCase() as ViewLevel)}
-                      className={cn(
-                        'min-h-[26px] rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
-                        isActive
-                          ? 'bg-[var(--color-text-muted)] text-white'
-                          : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-                      )}
-                    >
-                      {v}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
 
           {/* Map canvas */}
           <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
