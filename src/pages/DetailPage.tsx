@@ -306,7 +306,7 @@ export default function DetailPage() {
         </div>
       </div>
 
-      <main className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_280px]">
+      <main className="grid min-h-0 flex-1 grid-cols-[165px_minmax(0,1fr)_420px]">
         {/* ── LEFT: filter rail ─────────────────────────────────────── */}
         <DetailFilterRail
           area={area}
