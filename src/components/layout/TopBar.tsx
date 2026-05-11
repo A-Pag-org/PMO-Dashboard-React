@@ -56,15 +56,19 @@ export default function TopBar({ className }: TopBarProps) {
               type="button"
               onClick={() => setMenuOpen(true)}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-md text-[var(--color-text-primary)] transition-colors',
+                'relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--color-text-primary)] transition-colors',
                 'hover:bg-[var(--color-surface-grey)]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
               )}
-              aria-label="Open navigation menu"
+              aria-label="Open navigation menu (7 unread notifications)"
               aria-haspopup="dialog"
               aria-expanded={menuOpen}
             >
               <Menu className="h-5 w-5" />
+              <span
+                className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"
+                aria-hidden
+              />
             </button>
 
             <div className="flex items-center gap-2.5">

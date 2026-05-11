@@ -1,22 +1,13 @@
 // FILE: src/pages/DetailPage.tsx
-// PURPOSE: Detailed View (spec §4) — split panel with map (LHS) and
-//          Outcome / Progress / Readiness metric lists (RHS).
+// PURPOSE: Detailed View (spec §4) — three-column layout.
+//          · Left rail   : filters (Initiative, State, City, RTO, extras)
+//          · Centre 70%  : map with metric header, time-period dropdown
+//                          (top-left) and trend toggle (top-right)
+//          · Right rail  : single header with Ranking / Metrics tabs
 //
-// Spec rules implemented here:
-//   §4.1  — initiative pre-selected via ?p=, switching the metric on
-//           the right re-renders the map.
-//   §4.3  — map geography & boundary rules tied to area filter.
-//   §4.4  — view-toggle availability by area level.
-//   §4.5  — map display by metric format:
-//             X/Y standard     → bubbles tinted Red/Yellow/Green by band
-//             X/Y inverse      → bubbles tinted with reversed bands
-//             Xx               → raw value bubbles, no color
-//             Y/N              → big Y (green) / N (red) bubbles
-//             Central-level    → map greyed; only the centre bubble +
-//                                an explanatory banner are shown
-//
-// Filters live in the SidePanel drawer and are persisted in URL
-// query params via useDetailFilters.
+// Design intent (Jony-Ive-style clarity): one filter surface, one map,
+// one inspector. No competing horizontal filter bars; the geographic
+// breadcrumb stays implicit in the rail selections.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -28,10 +19,13 @@ import {
   Landmark,
   Database,
   Info,
+  TrendingUp,
+  Trophy,
+  LayoutGrid,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
-import DetailFilterStrip from '@/components/layout/DetailFilterStrip';
+import DetailFilterRail from '@/components/layout/DetailFilterRail';
 import MetricCard from '@/components/ui/MetricCard';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
@@ -53,6 +47,10 @@ import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
 type ViewLabel = 'State' | 'City' | 'RTO';
+type RightTab = 'ranking' | 'metrics';
+type TimeRange = '1M' | '3M' | '6M' | '12M' | 'All';
+
+const TIME_RANGES: TimeRange[] = ['1M', '3M', '6M', '12M', 'All'];
 
 function iconForMetric(m: Metric): LucideIcon {
   const n = m.name.toLowerCase();
@@ -71,14 +69,11 @@ function areaLabel(area: AreaFilterValue): string {
   return 'Delhi-NCR';
 }
 
-/** Centre-bubble payload — delegates to the shared aggregation helper. */
 function buildCenterBubble(
   metric: Metric | undefined,
   area: AreaFilterValue,
 ): MapCenterBubble {
-  if (!metric) {
-    return { value: 0, label: '—', subtitle: '' };
-  }
+  if (!metric) return { value: 0, label: '—', subtitle: '' };
   const isCentral = metric.geographyLevel === 'central';
   const label = isCentral ? 'Delhi-NCR (central)' : areaLabel(area);
   const agg = getMetricValueForArea(metric, isCentral ? {} : area, label);
@@ -90,10 +85,6 @@ function buildCenterBubble(
   };
 }
 
-/**
- * Per-state map data for the selected metric. Returns one bubble per
- * state with format/band already filled in by the shared helper.
- */
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
   return getMetricByState(metric).map(({ name, agg }) => ({
     name,
@@ -107,13 +98,6 @@ function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
   }));
 }
 
-/**
- * Deterministic 0..1 hash from a string seed. Used to inject demo-only
- * per-city variance into the city-level map so the Refinement-3
- * choropleth shows visibly distinct bands per region rather than a
- * single colour per state. (Real per-city data will replace this when
- * the city-level API ships — see TODO in {@link buildMapDataForMetricByCity}.)
- */
 function hash01(seed: string): number {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) {
@@ -123,18 +107,6 @@ function hash01(seed: string): number {
   return ((h >>> 0) % 1000) / 1000;
 }
 
-/**
- * Per-city map data for the selected metric. Mirrors
- * {@link buildMapDataForMetric} but at city granularity so the
- * Refinement-3 city-view choropleth has a band per city to colour by.
- *
- * TODO: replace the per-city perturbation with real city-level data
- * once the API exposes it. The aggregator currently treats every city
- * inside a state identically (state weight / cities-in-state), so the
- * raw pct would be the same for every city of a given state. We seed a
- * deterministic ±35-point shift per (city, metric) pair for the demo
- * so the map shows the Red/Yellow/Green mix the mockup illustrates.
- */
 function buildMapDataForMetricByCity(metric: Metric): MapDataPoint[] {
   return Object.entries(CITY_STATE_MAP).map(([city, state]) => {
     const agg = getMetricValueForArea(metric, { state, city }, city);
@@ -184,6 +156,9 @@ export default function DetailPage() {
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
+  const [rightTab, setRightTab] = useState<RightTab>('metrics');
+  const [timeRange, setTimeRange] = useState<TimeRange>('6M');
+  const [showTrend, setShowTrend] = useState(false);
   const role = getCurrentRole();
 
   const currentInit =
@@ -203,35 +178,20 @@ export default function DetailPage() {
 
   const isCentralLevelMetric = selectedMetric?.geographyLevel === 'central';
 
-  // Spec §4.3: centre bubble shows the aggregate for the FILTERED
-  // geography (not always NCR), and reflects the SELECTED metric (not
-  // just the initiative's primary).
   const centerBubble = useMemo(
     () => buildCenterBubble(selectedMetric, area),
     [selectedMetric, area],
   );
 
-  // Spec §7 + §10: RTO only for Naya Safar, Toll only for Green
-  // Contribution, ULB only for C&D-SCC. Other initiatives stop the
-  // map drill-down at city level.
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
   const supportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
 
-  // MAP_002 — Delhi-only roles (DPCC, CS – Delhi) see ONLY the RTO toggle,
-  //           and only when the area filter resolves to Delhi. Otherwise
-  //           the toggle bar is hidden entirely (handled below).
-  // MAP_003 — once the user drills into a specific RTO, hide the entire
-  //           toggle bar (there is nothing further to drill into).
-  // MAP_001 — when the toggle bar is visible, the priority order is
-  //           STATE → CITY → RTO; the highest level still applicable to
-  //           the current area filter is auto-selected.
   const delhiOnlyRole = isDelhiOnlyRole(role);
   const isAtIndividualRto = !!area.rto;
 
   const availableViewLevels = useMemo<readonly ViewLabel[]>(() => {
     if (isAtIndividualRto) return [] as readonly ViewLabel[];
     if (delhiOnlyRole) {
-      // Only show the RTO toggle, and only when the area is Delhi.
       const isDelhiArea = area.state === 'Delhi' || area.city === 'Delhi' || (!area.state && !area.city);
       return supportsRto && isDelhiArea ? (['RTO'] as const) : ([] as readonly ViewLabel[]);
     }
@@ -243,9 +203,6 @@ export default function DetailPage() {
 
   const showViewToggle = availableViewLevels.length > 0;
 
-  // MAP_001 — auto-select the highest available toggle whenever the
-  // available set changes (page load + area filter change). "Highest"
-  // means the first entry in `availableViewLevels` (STATE > CITY > RTO).
   useEffect(() => {
     if (availableViewLevels.length === 0) return;
     const top = availableViewLevels[0].toLowerCase() as ViewLevel;
@@ -259,8 +216,6 @@ export default function DetailPage() {
     : availableViewLevels[0] ?? 'State';
   const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
 
-  // Map data — view-level + format aware. Position is handled by
-  // DelhiNCRMap based on the live projection (refits to area filter).
   const { mapData, emptyHint } = useMemo(() => {
     if (isCentralLevelMetric || !selectedMetric) {
       return { mapData: [] as MapDataPoint[], emptyHint: undefined };
@@ -297,9 +252,6 @@ export default function DetailPage() {
       };
     }
 
-    // City view — use the shared aggregator so each city carries a
-    // band/label, which the Refinement-3 city-view choropleth uses to
-    // colour each Voronoi cell.
     let data: MapDataPoint[] = buildMapDataForMetricByCity(selectedMetric);
     if (area.state) {
       data = data.filter((d) => CITY_STATE_MAP[d.name] === area.state);
@@ -314,88 +266,37 @@ export default function DetailPage() {
     setSelectedMetricByInitiative((prev) => ({ ...prev, [slug]: name }));
   }
 
-  // Breadcrumb trail — every segment except the deepest one is a
-  // button that resets the area filter to that level. Lets users
-  // drill back up after they've drilled into a state / city / RTO,
-  // which the SidePanel-only flow doesn't expose anywhere on the page.
-  const breadcrumb: { label: string; onClick?: () => void }[] = [
-    {
-      label: 'All Delhi-NCR',
-      onClick:
-        area.state || area.city || area.rto ? () => setArea({}) : undefined,
-    },
-  ];
-  // RTO segment is only meaningful when the active initiative supports
-  // it (spec §10). Same gating will apply when toll/ulb segments are
-  // added in future.
-  const showRtoSegment = !!area.rto && supportsRto;
-  if (area.state) {
-    breadcrumb.push({
-      label: area.state,
-      onClick:
-        area.city || showRtoSegment
-          ? () => setArea({ state: area.state })
-          : undefined,
-    });
-  }
-  if (area.city) {
-    breadcrumb.push({
-      label: area.city,
-      onClick: showRtoSegment
-        ? () => setArea({ state: area.state, city: area.city })
-        : undefined,
-    });
-  }
-  if (showRtoSegment) {
-    breadcrumb.push({ label: area.rto! });
-  }
-
-  // "See all data" button — carries the initiative forward (spec §4.1).
   const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
+
+  // Ranking — derive a per-state/per-city sorted list for the active
+  // metric so the right rail's "Ranking" tab has real data without a
+  // separate API call.
+  const ranking = useMemo(() => {
+    if (!selectedMetric || isCentralLevelMetric) return [];
+    const rows =
+      effectiveViewLevel === 'city'
+        ? buildMapDataForMetricByCity(selectedMetric)
+        : buildMapDataForMetric(selectedMetric);
+    return [...rows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+  }, [selectedMetric, isCentralLevelMetric, effectiveViewLevel]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
       <TopBar activePage="detail" />
 
+      {/* 2nd bar — breadcrumb + utility actions (filter bar removed; */}
+      {/* filters now live in the left rail). */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-[var(--color-border)] bg-[var(--color-surface-light)] px-5 py-2 text-xs">
-        <nav
-          aria-label="Geography breadcrumb"
-          className="flex flex-wrap items-center gap-1"
-        >
-          <span className="text-[var(--color-text-secondary)]">Showing:</span>
-          {breadcrumb.map((seg, i) => (
-            <span key={`${i}-${seg.label}`} className="flex items-center gap-1">
-              {i > 0 ? (
-                <span className="text-[var(--color-text-muted)]" aria-hidden>
-                  ›
-                </span>
-              ) : null}
-              {seg.onClick ? (
-                <button
-                  type="button"
-                  onClick={seg.onClick}
-                  className="rounded px-1 py-0.5 font-semibold text-[var(--color-blue-link)] hover:bg-[var(--color-blue-pale)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                >
-                  {seg.label}
-                </button>
-              ) : (
-                <span
-                  className="px-1 font-semibold text-[var(--color-text-primary)]"
-                  aria-current="page"
-                >
-                  {seg.label}
-                </span>
-              )}
-            </span>
-          ))}
-          <span className="ml-2 text-[var(--color-text-muted)]" aria-hidden>
-            ·
-          </span>
+        <nav aria-label="Context" className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-[var(--color-text-primary)]">
             {currentInit.name}
           </span>
+          <span className="text-[var(--color-text-muted)]" aria-hidden>·</span>
+          <span className="text-[var(--color-text-secondary)]">
+            {areaLabel(area)}
+          </span>
         </nav>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto">
           <Link
             to={seeAllHref}
             className="rounded-md bg-[var(--color-blue-link)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-blue-header)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
@@ -405,21 +306,24 @@ export default function DetailPage() {
         </div>
       </div>
 
-      <DetailFilterStrip
-        area={area}
-        initiativeName={initiativeName}
-        extras={extras}
-        onAreaChange={setArea}
-        onInitiativeChange={setInitiativeName}
-        onExtraChange={setExtra}
-      />
+      <main className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_280px]">
+        {/* ── LEFT: filter rail ─────────────────────────────────────── */}
+        <DetailFilterRail
+          area={area}
+          initiativeName={initiativeName}
+          extras={extras}
+          onAreaChange={setArea}
+          onInitiativeChange={setInitiativeName}
+          onExtraChange={setExtra}
+        />
 
-      <main className="flex min-h-0 flex-1">
+        {/* ── CENTRE: map (≈70% of viewport) ────────────────────────── */}
         <section
-          className="relative flex min-h-0 w-1/2 flex-col border-r border-[var(--color-divider-dashed)] bg-white"
+          className="relative flex min-h-0 flex-col bg-white"
           aria-label="Map view"
         >
-          <div className="flex shrink-0 items-center justify-center gap-2 border-b border-[var(--color-border-table)] px-4 py-2">
+          {/* Metric header */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border-table)] px-4 py-2">
             <span
               className="inline-block h-2 w-2 shrink-0 rounded-full"
               style={{
@@ -445,47 +349,105 @@ export default function DetailPage() {
             </h2>
           </div>
 
-          {/* Toggle bar visibility:
-              · METRIC_003 — central metrics have no regional breakdown.
-              · MAP_002    — Delhi-only roles only see RTO + only on Delhi.
-              · MAP_003    — once an individual RTO is selected, no further
-                              drill levels exist, so hide the bar.
-              The unified gate is `showViewToggle` (empty list → hidden). */}
-          {!isCentralLevelMetric && showViewToggle ? (
-          <div className="flex shrink-0 items-center gap-2 px-4 py-2">
-            <span className="rounded-md bg-[var(--color-accent)] px-2 py-0.5 text-2xs font-semibold text-[var(--color-ink)]">
-              View toggle
-            </span>
-            <div
-              className="inline-flex rounded-full bg-[var(--color-surface-light)] p-0.5"
-              role="radiogroup"
-              aria-label="Map view level"
+          {/* Top control row — time period (left) + trend toggle (right) */}
+          <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
+            <label className="flex items-center gap-1.5 text-xs">
+              <span className="font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                Last
+              </span>
+              <div className="relative">
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+                  aria-label="Time period"
+                  className="appearance-none rounded-md border border-[var(--color-border)] bg-white px-2.5 py-1 pr-7 text-xs font-medium text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-link)]"
+                >
+                  {TIME_RANGES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-text-secondary)]"
+                  aria-hidden
+                >
+                  ▾
+                </span>
+              </div>
+            </label>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showTrend}
+              onClick={() => setShowTrend((v) => !v)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
+                showTrend
+                  ? 'border-[var(--color-blue-link)] bg-[var(--color-blue-pale)] text-[var(--color-blue-link)]'
+                  : 'border-[var(--color-border)] bg-white text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+              )}
             >
-              {availableViewLevels.map((v) => {
-                const isActive = v === effectiveViewLabel;
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    onClick={() => setViewLevel(v.toLowerCase() as ViewLevel)}
-                    className={cn(
-                      'min-h-[28px] rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
-                      isActive
-                        ? 'bg-[var(--color-text-muted)] text-white'
-                        : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-                    )}
-                  >
-                    {v}
-                  </button>
-                );
-              })}
-            </div>
+              <TrendingUp className="h-3.5 w-3.5" aria-hidden />
+              See trend
+              <span
+                className={cn(
+                  'ml-1 inline-block h-3.5 w-6 rounded-full border transition-colors',
+                  showTrend
+                    ? 'border-[var(--color-blue-link)] bg-[var(--color-blue-link)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-surface-grey)]',
+                )}
+                aria-hidden
+              >
+                <span
+                  className={cn(
+                    'block h-2.5 w-2.5 translate-y-px rounded-full bg-white transition-transform',
+                    showTrend ? 'translate-x-3' : 'translate-x-px',
+                  )}
+                />
+              </span>
+            </button>
           </div>
+
+          {/* View toggle (State / City / RTO) */}
+          {!isCentralLevelMetric && showViewToggle ? (
+            <div className="flex shrink-0 items-center gap-2 px-4 pb-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                View
+              </span>
+              <div
+                className="inline-flex rounded-full bg-[var(--color-surface-light)] p-0.5"
+                role="radiogroup"
+                aria-label="Map view level"
+              >
+                {availableViewLevels.map((v) => {
+                  const isActive = v === effectiveViewLabel;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      role="radio"
+                      aria-checked={isActive}
+                      onClick={() => setViewLevel(v.toLowerCase() as ViewLevel)}
+                      className={cn(
+                        'min-h-[26px] rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
+                        isActive
+                          ? 'bg-[var(--color-text-muted)] text-white'
+                          : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                      )}
+                    >
+                      {v}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ) : null}
 
+          {/* Map canvas */}
           <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
             <div
               className={cn(
@@ -512,9 +474,6 @@ export default function DetailPage() {
                     setArea({ state: mappedState, city: name });
                     return;
                   }
-                  // Sub-city click — only valid when the initiative
-                  // supports the RTO level (spec §10: RTO only for
-                  // Naya Safar). Other initiatives stop at city.
                   if (area.city && supportsRto) {
                     setArea({ state: area.state, city: area.city, rto: name });
                   }
@@ -522,7 +481,6 @@ export default function DetailPage() {
               />
             </div>
 
-            {/* Central-metric banner overlay */}
             {isCentralLevelMetric ? (
               <div className="pointer-events-none absolute inset-x-4 top-2 flex items-start justify-center">
                 <div className="pointer-events-auto flex max-w-[460px] items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2 shadow-sm">
@@ -540,96 +498,216 @@ export default function DetailPage() {
           </div>
         </section>
 
-        <section
-          className="flex min-h-0 w-1/2 flex-col overflow-y-auto bg-white"
-          aria-label="Metrics panel"
+        {/* ── RIGHT: single-header Ranking / Metrics inspector ──────── */}
+        <aside
+          className="flex min-h-0 flex-col overflow-hidden border-l border-[var(--color-border)] bg-white"
+          aria-label="Inspector"
         >
-          <MetricGroup
-            title="Outcome metrics"
-            count={outcomeMetrics.length}
-            emphasis
-            defaultOpen
+          <div
+            className="flex shrink-0 items-stretch border-b border-[var(--color-border)]"
+            role="tablist"
+            aria-label="Inspector view"
           >
-            {outcomeMetrics.length > 0 ? (
-              outcomeMetrics.map((m) => (
-                <MetricCard
-                  key={m.name}
-                  icon={iconForMetric(m)}
-                  label={m.name}
-                  achieved={m.achieved}
-                  target={m.target}
-                  previousAchieved={m.previousAchieved}
-                  format={m.format}
-                  isInverse={m.isInverse}
-                  denominatorLabel={m.denominatorLabel}
-                  prominent
-                  selected={selectedMetric?.name === m.name}
-                  onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                />
-              ))
+            <RightTabButton
+              icon={Trophy}
+              label="Ranking"
+              active={rightTab === 'ranking'}
+              onClick={() => setRightTab('ranking')}
+            />
+            <RightTabButton
+              icon={LayoutGrid}
+              label="Metrics"
+              active={rightTab === 'metrics'}
+              onClick={() => setRightTab('metrics')}
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {rightTab === 'ranking' ? (
+              <RankingPanel rows={ranking} level={effectiveViewLabel} />
             ) : (
-              <EmptyRow label="No outcome metrics for this initiative" />
+              <MetricsPanel
+                outcomeMetrics={outcomeMetrics}
+                progressMetrics={progressMetrics}
+                readinessMetrics={readinessMetrics}
+                selectedMetricName={selectedMetric?.name}
+                onSelect={(name) => handleSelectMetric(currentInit.slug, name)}
+              />
             )}
-          </MetricGroup>
-
-          {progressMetrics.length > 0 ? (
-            <MetricGroup
-              title="Progress metrics"
-              count={progressMetrics.length}
-              defaultOpen
-            >
-              {progressMetrics.map((m) => (
-                <MetricCard
-                  key={m.name}
-                  icon={iconForMetric(m)}
-                  label={m.name}
-                  achieved={m.achieved}
-                  target={m.target}
-                  previousAchieved={m.previousAchieved}
-                  format={m.format}
-                  isInverse={m.isInverse}
-                  denominatorLabel={m.denominatorLabel}
-                  selected={selectedMetric?.name === m.name}
-                  onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                />
-              ))}
-            </MetricGroup>
-          ) : null}
-
-          {readinessMetrics.length > 0 ? (
-            <MetricGroup
-              title="Readiness metrics"
-              count={readinessMetrics.length}
-              defaultOpen={false}
-            >
-              {readinessMetrics.map((m) => (
-                <MetricCard
-                  key={m.name}
-                  icon={iconForMetric(m)}
-                  label={m.name}
-                  achieved={m.achieved}
-                  target={m.target}
-                  previousAchieved={m.previousAchieved}
-                  format={m.format}
-                  isInverse={m.isInverse}
-                  denominatorLabel={m.denominatorLabel}
-                  selected={selectedMetric?.name === m.name}
-                  onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                />
-              ))}
-            </MetricGroup>
-          ) : null}
-        </section>
+          </div>
+        </aside>
       </main>
     </div>
   );
 }
 
-/**
- * Collapsible metric-group section. Spec §4.1 implies Outcome is the
- * headline (default-selected first row); Progress is supporting; Readiness
- * is the lowest-density (mostly Y/N setup flags) — collapsed by default.
- */
+function RightTabButton({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-semibold transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-blue-link)]',
+        active
+          ? 'border-b-2 border-[var(--color-accent)] bg-white text-[var(--color-text-primary)]'
+          : 'border-b-2 border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {label}
+    </button>
+  );
+}
+
+function RankingPanel({
+  rows,
+  level,
+}: {
+  rows: MapDataPoint[];
+  level: ViewLabel;
+}) {
+  if (rows.length === 0) {
+    return (
+      <p className="px-3 py-6 text-center text-xs text-[var(--color-text-muted)]">
+        No ranking available for this metric.
+      </p>
+    );
+  }
+  return (
+    <ol className="flex flex-col">
+      <li className="flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+        <span>{level}</span>
+        <span>Value</span>
+      </li>
+      {rows.map((r, i) => (
+        <li
+          key={r.name}
+          className="flex items-center justify-between gap-2 border-t border-[var(--color-border-table)] px-3 py-2 text-xs"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-light)] text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
+              {i + 1}
+            </span>
+            <span className="truncate font-medium text-[var(--color-text-primary)]">
+              {r.name}
+            </span>
+          </span>
+          <span className="shrink-0 font-semibold tabular-nums text-[var(--color-text-primary)]">
+            {r.label ?? r.value}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function MetricsPanel({
+  outcomeMetrics,
+  progressMetrics,
+  readinessMetrics,
+  selectedMetricName,
+  onSelect,
+}: {
+  outcomeMetrics: Metric[];
+  progressMetrics: Metric[];
+  readinessMetrics: Metric[];
+  selectedMetricName?: string;
+  onSelect: (name: string) => void;
+}) {
+  return (
+    <div className="flex flex-col">
+      <MetricGroup
+        title="Outcome metrics"
+        count={outcomeMetrics.length}
+        emphasis
+        defaultOpen
+      >
+        {outcomeMetrics.length > 0 ? (
+          outcomeMetrics.map((m) => (
+            <MetricCard
+              key={m.name}
+              icon={iconForMetric(m)}
+              label={m.name}
+              achieved={m.achieved}
+              target={m.target}
+              previousAchieved={m.previousAchieved}
+              format={m.format}
+              isInverse={m.isInverse}
+              denominatorLabel={m.denominatorLabel}
+              prominent
+              selected={selectedMetricName === m.name}
+              onSelect={() => onSelect(m.name)}
+            />
+          ))
+        ) : (
+          <EmptyRow label="No outcome metrics for this initiative" />
+        )}
+      </MetricGroup>
+
+      {progressMetrics.length > 0 ? (
+        <MetricGroup
+          title="Progress metrics"
+          count={progressMetrics.length}
+          defaultOpen
+        >
+          {progressMetrics.map((m) => (
+            <MetricCard
+              key={m.name}
+              icon={iconForMetric(m)}
+              label={m.name}
+              achieved={m.achieved}
+              target={m.target}
+              previousAchieved={m.previousAchieved}
+              format={m.format}
+              isInverse={m.isInverse}
+              denominatorLabel={m.denominatorLabel}
+              selected={selectedMetricName === m.name}
+              onSelect={() => onSelect(m.name)}
+            />
+          ))}
+        </MetricGroup>
+      ) : null}
+
+      {readinessMetrics.length > 0 ? (
+        <MetricGroup
+          title="Readiness metrics"
+          count={readinessMetrics.length}
+          defaultOpen={false}
+        >
+          {readinessMetrics.map((m) => (
+            <MetricCard
+              key={m.name}
+              icon={iconForMetric(m)}
+              label={m.name}
+              achieved={m.achieved}
+              target={m.target}
+              previousAchieved={m.previousAchieved}
+              format={m.format}
+              isInverse={m.isInverse}
+              denominatorLabel={m.denominatorLabel}
+              selected={selectedMetricName === m.name}
+              onSelect={() => onSelect(m.name)}
+            />
+          ))}
+        </MetricGroup>
+      ) : null}
+    </div>
+  );
+}
+
 function MetricGroup({
   title,
   count,
@@ -640,7 +718,6 @@ function MetricGroup({
   title: string;
   count: number;
   defaultOpen?: boolean;
-  /** Outcome group gets a thin accent rule above for visual prominence. */
   emphasis?: boolean;
   children: React.ReactNode;
 }) {
@@ -658,7 +735,7 @@ function MetricGroup({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls={headingId}
-        className="flex w-full items-center justify-between bg-[var(--color-navy)] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-inset"
+        className="flex w-full items-center justify-between bg-[var(--color-navy)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-inset"
       >
         <span className="inline-flex items-center gap-2">
           <span
@@ -677,7 +754,7 @@ function MetricGroup({
         </span>
       </button>
       {open ? (
-        <div id={headingId} className="flex flex-col gap-2 px-3 py-2">
+        <div id={headingId} className="flex flex-col gap-2 px-2 py-2">
           {children}
         </div>
       ) : null}
