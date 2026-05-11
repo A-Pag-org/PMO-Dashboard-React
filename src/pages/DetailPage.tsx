@@ -31,6 +31,7 @@ import type { TimeRange, ViewLabel } from '@/components/layout/DetailFilterRail'
 import MetricCard from '@/components/ui/MetricCard';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
+import { getBandColors } from '@/lib/utils';
 import {
   INITIATIVES,
   STATES,
@@ -527,31 +528,94 @@ function RankingPanel({
   }
   return (
     <ol className="flex flex-col">
-      <li className="flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+      <li className="grid grid-cols-[18px_minmax(0,1fr)_minmax(120px,1.2fr)] items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+        <span>#</span>
         <span>{level}</span>
-        <span>Value</span>
+        <span>Completion</span>
       </li>
       {rows.map((r, i) => (
         <li
           key={r.name}
-          className="flex items-center justify-between gap-2 border-t border-[var(--color-border-table)] px-3 py-2 text-xs"
+          className="grid grid-cols-[18px_minmax(0,1fr)_minmax(120px,1.2fr)] items-center gap-2 border-t border-[var(--color-border-table)] px-3 py-2 text-xs"
         >
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-light)] text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
-              {i + 1}
-            </span>
-            <span className="truncate font-medium text-[var(--color-text-primary)]">
-              {r.name}
-            </span>
+          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-light)] text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
+            {i + 1}
           </span>
-          <span className="shrink-0 font-semibold tabular-nums text-[var(--color-text-primary)]">
-            {r.label ?? r.value}
+          <span
+            className="truncate font-medium text-[var(--color-text-primary)]"
+            title={r.name}
+          >
+            {r.name}
           </span>
+          <RankingValueBar row={r} />
         </li>
       ))}
     </ol>
   );
 }
+
+/**
+ * Right-side cell of a ranking row. Renders one of:
+ *   · X/Y / %  → band-coloured bar with the % inside (matches the map
+ *                legend: <30 red · 30-60 yellow · >60 green).
+ *   · Xx       → raw count text (no fake bar).
+ *   · Y/N      → small Y/N pill in band colour.
+ *   · fallback → whatever label the row carries.
+ */
+function RankingValueBar({ row }: { row: MapDataPoint }) {
+  const fmt = row.format;
+
+  if (fmt === 'X/Y') {
+    const pct = Math.max(0, Math.min(100, Math.round(row.value ?? 0)));
+    const band = row.band ?? (pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN');
+    const colors = getBandColors(band === 'NA' ? 'GREEN' : band);
+    return (
+      <div
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${pct} percent complete`}
+        className="relative h-4 w-full overflow-hidden rounded-full"
+        style={{ backgroundColor: colors.bg }}
+        title={row.label ?? `${pct}%`}
+      >
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${pct}%`, backgroundColor: colors.fg }}
+        />
+        <span
+          className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums"
+          style={{ color: pct >= 55 ? '#fff' : colors.text }}
+        >
+          {pct}%
+        </span>
+      </div>
+    );
+  }
+
+  if (fmt === 'Y/N') {
+    const labelText = (row.label ?? '').trim().toUpperCase();
+    const isYes = labelText.startsWith('Y') || (row.value ?? 0) >= 1;
+    const colors = getBandColors(isYes ? 'GREEN' : 'RED');
+    return (
+      <span
+        className="inline-flex h-5 w-9 items-center justify-center rounded-full text-[10px] font-bold"
+        style={{ backgroundColor: colors.bg, color: colors.text }}
+      >
+        {isYes ? 'YES' : 'NO'}
+      </span>
+    );
+  }
+
+  // Xx and anything else — just the value (matches MetricCard / map labels).
+  return (
+    <span className="text-right text-xs font-semibold tabular-nums text-[var(--color-text-primary)]">
+      {row.label ?? row.value.toLocaleString('en-IN')}
+    </span>
+  );
+}
+
 
 function MetricsPanel({
   outcomeMetrics,
