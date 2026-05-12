@@ -1,56 +1,59 @@
 // FILE: components/ui/SummaryProgressRow.tsx
-// PURPOSE: Summary-card metric row — label + value on the top line,
-//          full-width progress bar with the % placed at the end of the
-//          bar (per Refinement 1 of the interim dashboard improvements).
-// DESIGN REF: Spec §3.2 + Refinement 1 (replace donuts with progress bars).
+// PURPOSE: Summary-card progress row — short label + value on the left,
+//          16px coloured progress bar with the % rendered to the right of
+//          the filled segment, and the achieved/target shown at the far
+//          right of the row.
+// DESIGN REF: Figma "Air-Pollution / Final for review" (Frame 45-12763).
 
-import CompletionBar from './CompletionBar';
-import { formatNumber, getCompletionPercentage } from '@/lib/utils';
+import { formatNumber, getBarColour, getCompletionPercentage } from '@/lib/utils';
 
 interface SummaryProgressRowProps {
   label: string;
   achieved: number;
   target: number;
-  /**
-   * Visual size — `md` (default) is used for single-metric cards;
-   * `sm` is used when 2–3 rows are stacked inside one tile.
-   */
-  size?: 'sm' | 'md';
 }
 
 export default function SummaryProgressRow({
   label,
   achieved,
   target,
-  size = 'md',
 }: SummaryProgressRowProps) {
   const pct = getCompletionPercentage(target, achieved);
-  const labelClass =
-    size === 'sm'
-      ? 'text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]'
-      : 'text-2xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]';
-  const valueClass =
-    size === 'sm'
-      ? 'text-[10px] font-semibold tabular-nums text-[var(--color-text-primary)]'
-      : 'text-2xs font-semibold tabular-nums text-[var(--color-text-primary)]';
-  const pctClass =
-    size === 'sm'
-      ? 'text-[10px] font-bold tabular-nums text-[var(--color-text-primary)]'
-      : 'text-xs font-bold tabular-nums text-[var(--color-text-primary)]';
+  const { filled, remainder } = getBarColour(pct);
 
   return (
     <div className="w-full">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className={labelClass}>{label}</span>
-        <span className={valueClass}>
+      <div className="flex items-center gap-3">
+        <span className="w-10 shrink-0 text-[10px] font-medium uppercase tracking-wide text-[#44444F]">
+          {label}
+        </span>
+        <div
+          className="relative h-4 flex-1 overflow-hidden rounded-full"
+          style={{ backgroundColor: remainder }}
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${label}: ${pct}% complete`}
+        >
+          <div
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{ width: `${pct}%`, backgroundColor: filled }}
+          />
+          <span
+            className="absolute top-1/2 -translate-y-1/2 text-[10px] font-semibold tabular-nums text-[#111827]"
+            style={{
+              // Place the label just after the filled section, with a sensible
+              // clamp so it stays inside the bar even at low/high percentages.
+              left: `calc(${Math.min(Math.max(pct, 0), 90)}% + 4px)`,
+            }}
+          >
+            {pct}%
+          </span>
+        </div>
+        <span className="shrink-0 text-[10px] font-medium tabular-nums text-[#44444F]">
           {formatNumber(achieved)} / {formatNumber(target)}
         </span>
-      </div>
-      <div className="mt-1 flex items-center gap-2">
-        <div className="flex-1">
-          <CompletionBar value={pct} size={size} />
-        </div>
-        <span className={pctClass}>{pct}%</span>
       </div>
     </div>
   );
