@@ -1,13 +1,12 @@
 // FILE: src/pages/SummaryPage.tsx
-// PURPOSE: Summary page (spec §3) — landing screen, 8 initiative tiles.
+// PURPOSE: Summary (landing) page — initiative tiles in a 3-column grid.
+// DESIGN REF: Figma "Air-Pollution / Final for review" (Frame 45-12763).
 //
-// Single global filter: State. Changing it re-renders all 8 tiles.
-// All 8 tiles render at full colour. (The earlier per-user "highlighted
-// set" greying behaviour from spec §3.1 was dropped per stakeholder
-// feedback during the interim refinements review — every initiative is
-// now equally prominent on the landing page.)
-// Clicking any tile navigates to the Detailed View pre-filtered for
-// that initiative (carried via the `?p=…` query param).
+// Layout:
+//   - Top app bar (TopBar).
+//   - Blue sub-header bar with the state selector pill.
+//   - Main grid of initiative tiles (3 cols on lg, 2 on md, 1 on sm).
+//   - Footer with the completion-threshold legend on the right.
 
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
@@ -21,11 +20,6 @@ import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 const STATE_FILTER_OPTIONS = ['All - Delhi NCR', ...STATES] as const;
 type StateFilter = (typeof STATE_FILTER_OPTIONS)[number];
 
-/**
- * SUMMARY_002 — every user always has a state selected. Delhi-only roles
- * (DPCC / CS – Delhi) default to "Delhi"; everyone else defaults to the
- * "All - Delhi NCR" sentinel. The dropdown never offers a blank value.
- */
 function defaultStateForRole(): StateFilter {
   return isDelhiOnlyRole(getCurrentRole()) ? 'Delhi' : 'All - Delhi NCR';
 }
@@ -35,7 +29,6 @@ export default function SummaryPage() {
     defaultStateForRole(),
   );
 
-  // null means "All of Delhi-NCR".
   const stateForCards: StateName | null =
     selectedState === 'All - Delhi NCR' ? null : (selectedState as StateName);
 
@@ -44,13 +37,11 @@ export default function SummaryPage() {
     : 'Overall Delhi-NCR Performance';
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-white">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#F7F7F7]">
       <TopBar activePage="summary" pageTitle="SUMMARY PAGE" />
 
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-[var(--color-blue-header)] px-5 py-2">
-        <h1 className="text-base font-bold text-[var(--color-text-white)]">
-          {headerLabel}
-        </h1>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-[#2E4B8F] px-8 py-3">
+        <h1 className="text-sm font-bold text-white">{headerLabel}</h1>
         <FilterDropdown
           label="State"
           value={selectedState}
@@ -59,12 +50,9 @@ export default function SummaryPage() {
         />
       </div>
 
-      <main className="min-h-0 flex-1 overflow-y-auto bg-[var(--color-surface-light)] p-4">
-        <div className="mx-auto flex h-full max-w-[1200px] flex-col">
-          <div
-            className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            style={{ gridAutoRows: 'minmax(220px, 1fr)' }}
-          >
+      <main className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+        <div className="mx-auto max-w-[1380px]">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {INITIATIVES.map((init) => (
               <InitiativeCard
                 key={init.slug}
@@ -73,11 +61,12 @@ export default function SummaryPage() {
               />
             ))}
           </div>
-          <div className="mt-3 flex justify-end">
-            <CompletionThresholdsLegend />
-          </div>
         </div>
       </main>
+
+      <footer className="flex shrink-0 items-center justify-end border-t border-[#E2E2EA] bg-white px-8 py-3">
+        <CompletionThresholdsLegend />
+      </footer>
     </div>
   );
 }
@@ -104,7 +93,7 @@ function FilterDropdown<T extends string>({
         <select
           value={value}
           onChange={(e) => onChange(e.target.value as T)}
-          className="appearance-none rounded border border-white/30 bg-white px-3 py-1 pr-7 text-xs font-medium text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="appearance-none rounded-full border border-white/30 bg-white/95 px-4 py-1.5 pr-8 text-xs font-semibold text-[#2E4B8F] shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60"
           aria-label={`${label} filter`}
         >
           {options.map((opt) => (
@@ -114,7 +103,7 @@ function FilterDropdown<T extends string>({
           ))}
         </select>
         <ChevronDown
-          className="pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-secondary)]"
+          className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#2E4B8F]"
           aria-hidden
         />
       </div>
