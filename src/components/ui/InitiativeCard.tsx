@@ -86,15 +86,19 @@ export default function InitiativeCard({
         {initiative.name}
       </h3>
 
-      <div className="mt-5 flex flex-col gap-3">
+      {/* Bars take whatever vertical space is left between title and
+          description and center themselves inside it — so a single-bar
+          tile reads as a centered hero stat instead of leaving an empty
+          gap below the bar, while 2/3-bar tiles still pack tightly. */}
+      <div className="mt-4 flex flex-1 flex-col justify-center gap-3">
         <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
       </div>
 
-      <p className="mt-5 line-clamp-2 text-xs leading-snug text-[#92929D]">
+      <p className="mt-4 line-clamp-2 text-xs leading-snug text-[#92929D]">
         {cfg?.description ?? initiative.primaryMetric}
       </p>
 
-      <div className="mt-auto flex items-center justify-between pt-4">
+      <div className="mt-4 flex items-center justify-between">
         <span
           aria-hidden
           className="flex h-5 w-5 items-center justify-center rounded-full bg-[#DBEAFE] text-[#0062FF]"
@@ -125,6 +129,7 @@ function CardChart({
         label={cfg.donut.label ?? 'PROGRESS'}
         achieved={cfg.donut.achieved}
         target={cfg.donut.target}
+        size="md"
       />
     );
   }
@@ -170,6 +175,7 @@ function FallbackFromMetrics({ initiative }: { initiative: Initiative }) {
       label={primary.name ?? 'PROGRESS'}
       achieved={primary.achieved ?? 0}
       target={primary.target ?? 0}
+      size="md"
     />
   );
 }

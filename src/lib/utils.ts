@@ -95,6 +95,25 @@ export function formatNumber(value: number | null | undefined): string {
 }
 
 /**
+ * Compact human-readable number for tile-level summaries.
+ * Uses Indian-context suffixes (k / L / Cr) and at most one decimal.
+ * Examples: 38248 → "38.2k" · 191239 → "1.9L" · 32 → "32" · 250000 → "2.5L"
+ */
+export function formatCompact(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '-';
+  if (value < 0) return `-${formatCompact(-value)}`;
+
+  const abs = Math.abs(value);
+  const trim = (n: number) =>
+    Number.isInteger(n) ? n.toString() : n.toFixed(1).replace(/\.0$/, '');
+
+  if (abs < 1000) return formatNumber(value);
+  if (abs < 100000) return `${trim(value / 1000)}k`;
+  if (abs < 10000000) return `${trim(value / 100000)}L`;
+  return `${trim(value / 10000000)}Cr`;
+}
+
+/**
  * Calculates completion percentage from target and achieved values.
  * Returns 0 if target is null/zero/undefined.
  * Returns 0 if achieved is null/undefined (treats missing data as no progress).
