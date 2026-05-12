@@ -2,17 +2,9 @@
 // PURPOSE: Summary-page initiative tile.
 // DESIGN REF: Figma "Air-Pollution / Final for review" (Frame 45-12763).
 //
-// Visual:
-//   - White card, 1px #E2E2EA border, 12px radius, 24px padding.
-//   - Title (Poppins 14/600, #44444F) at the top.
-//   - One or more progress bars (16px tall, rounded). The variant comes
-//     from the initiative's summaryCard.variant — donut → 1 bar,
-//     two-donuts → 2 bars, three-donuts → 3 bars, dual-bar (legacy) → 2 bars.
-//   - Description text under the bars (Open Sans 12/400, #92929D).
-//   - Bottom-right: "See Projection" affordance — small blue circle icon
-//     + label + chevron. The whole card is the clickable target (an <a>
-//     wrapping everything) so the user can land on the detailed view
-//     pre-filtered for this initiative.
+// Spacing inside the card is intentionally explicit and uniform:
+//   24px padding · 20px between title→bars · 12px between stacked bars
+//   · 20px between bars→description · footer pinned to bottom with mt-auto.
 
 import { TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -24,11 +16,6 @@ import type { Initiative, SummaryCardBar, SummaryCardConfig } from '@/lib/types'
 
 interface InitiativeCardProps {
   initiative: Initiative;
-  /**
-   * Geography the card should present. `null` → All of Delhi-NCR
-   * (the default NCR-wide aggregate). Any other value is treated as a
-   * state name and looked up against the per-state mock summary table.
-   */
   selectedState?: string | null;
   className?: string;
 }
@@ -90,7 +77,7 @@ export default function InitiativeCard({
       to={detailHref}
       aria-label={`${initiative.name} – open detailed view for ${geographyLabel}`}
       className={cn(
-        'group relative flex h-full min-h-[220px] flex-col rounded-xl border border-[#E2E2EA] bg-white p-6 text-left transition-shadow',
+        'group relative flex h-full min-h-[240px] flex-col rounded-xl border border-[#E2E2EA] bg-white p-6 text-left transition-shadow',
         'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
         className,
       )}
@@ -103,11 +90,11 @@ export default function InitiativeCard({
         <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
       </div>
 
-      <p className="mt-auto pt-3 text-xs leading-snug text-[#92929D] line-clamp-2">
+      <p className="mt-5 line-clamp-2 text-xs leading-snug text-[#92929D]">
         {cfg?.description ?? initiative.primaryMetric}
       </p>
 
-      <div className="mt-3 flex items-center justify-between">
+      <div className="mt-auto flex items-center justify-between pt-4">
         <span
           aria-hidden
           className="flex h-5 w-5 items-center justify-center rounded-full bg-[#DBEAFE] text-[#0062FF]"
