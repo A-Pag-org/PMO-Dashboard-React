@@ -13,7 +13,6 @@ import TopBar from '@/components/layout/TopBar';
 import InitiativeCard from '@/components/ui/InitiativeCard';
 import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
 import FilterPill from '@/components/ui/FilterPill';
-import HeaderStatusChip from '@/components/ui/HeaderStatusChip';
 import { INITIATIVES, STATES } from '@/lib/constants';
 import type { StateName } from '@/lib/constants';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
@@ -41,17 +40,14 @@ export default function SummaryPage() {
     <div className="flex h-screen flex-col overflow-hidden bg-[#F7F7F7]">
       <TopBar activePage="summary" pageTitle="SUMMARY PAGE" />
 
-      <div className="flex shrink-0 flex-wrap items-center gap-x-[8px] gap-y-[10px] bg-[#2E4B8F] px-[30px] py-[10px]">
-        <HeaderStatusChip />
+      <div className="flex shrink-0 flex-nowrap items-center gap-[8px] overflow-x-auto bg-[#2E4B8F] px-[24px] py-[10px]">
         <h1 className="sr-only">{headerLabel}</h1>
-        <div className="ml-auto flex flex-wrap items-center gap-[8px]">
-          <FilterPill
-            label="State"
-            value={selectedState}
-            options={STATE_FILTER_OPTIONS}
-            onChange={(v) => setSelectedState(v as StateFilter)}
-          />
-        </div>
+        <FilterPill
+          label="State"
+          value={selectedState}
+          options={STATE_FILTER_OPTIONS}
+          onChange={(v) => setSelectedState(v as StateFilter)}
+        />
       </div>
 
       <main className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
