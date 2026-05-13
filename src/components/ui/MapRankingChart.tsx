@@ -47,10 +47,10 @@ export default function MapRankingChart({
   return (
     <section
       aria-label={`Ranking graph by ${level}`}
-      className="pointer-events-auto w-[240px] rounded-md border border-[var(--color-border)] bg-white/95 p-2 shadow-md backdrop-blur-sm"
+      className="pointer-events-auto w-[176px] rounded-md border border-[var(--color-border)] bg-white/95 p-1.5 shadow-md backdrop-blur-sm"
     >
       <header className="flex items-center justify-between gap-2">
-        <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+        <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
           Top {top.length} · {level}
         </span>
         <button
@@ -63,9 +63,9 @@ export default function MapRankingChart({
         </button>
       </header>
 
-      <ChartBody rows={top} plotHeight={110} barMinHeight={6} />
+      <ChartBody rows={top} plotHeight={96} barMinHeight={6} compact />
 
-      <p className="mt-1 text-center text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-secondary)]">
+      <p className="mt-0.5 text-center text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-secondary)]">
         Ranking graph
       </p>
     </section>
@@ -80,23 +80,35 @@ interface ChartBodyProps {
   rows: MapDataPoint[];
   plotHeight: number;
   barMinHeight?: number;
+  /** Compact mode: thinner y-axis, smaller bars (for the in-map widget). */
+  compact?: boolean;
 }
 
-export function ChartBody({ rows, plotHeight, barMinHeight = 6 }: ChartBodyProps) {
+export function ChartBody({
+  rows,
+  plotHeight,
+  barMinHeight = 6,
+  compact = false,
+}: ChartBodyProps) {
+  const yAxisWidth = compact ? 20 : 28;
+  const barMinWidth = compact ? 20 : 22;
+  const gap = compact ? 2 : 4;
   return (
-    <div className="mt-1 flex items-stretch gap-1">
+    <div className="mt-1 flex items-stretch" style={{ gap }}>
       {/* Y-axis: "Percentage" label + ticks (0, 50, 100) */}
       <div
         className="relative flex shrink-0 flex-col items-end pr-1"
-        style={{ width: 28 }}
+        style={{ width: yAxisWidth }}
       >
-        <span
-          aria-hidden
-          className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]"
-          style={{ transformOrigin: 'center' }}
-        >
-          Percentage
-        </span>
+        {!compact ? (
+          <span
+            aria-hidden
+            className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]"
+            style={{ transformOrigin: 'center' }}
+          >
+            Percentage
+          </span>
+        ) : null}
         <div
           className="ml-auto flex flex-col justify-between text-[8px] font-medium tabular-nums text-[var(--color-text-muted)]"
           style={{ height: plotHeight }}
@@ -110,8 +122,8 @@ export function ChartBody({ rows, plotHeight, barMinHeight = 6 }: ChartBodyProps
       {/* Plot area: bars + X-axis label */}
       <div className="flex flex-1 flex-col">
         <div
-          className="flex items-end gap-1 border-b border-[var(--color-border)]"
-          style={{ height: plotHeight }}
+          className="flex items-end border-b border-[var(--color-border)]"
+          style={{ height: plotHeight, gap }}
         >
           {rows.map((r, i) => (
             <Bar
@@ -120,10 +132,11 @@ export function ChartBody({ rows, plotHeight, barMinHeight = 6 }: ChartBodyProps
               rank={i + 1}
               plotHeight={plotHeight}
               minHeight={barMinHeight}
+              minWidth={barMinWidth}
             />
           ))}
         </div>
-        <div className="mt-1 flex items-baseline justify-between text-[8px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
+        <div className="mt-0.5 flex items-baseline justify-between text-[8px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
           <span aria-hidden>&nbsp;</span>
           <span>Rank →</span>
         </div>
@@ -137,11 +150,13 @@ function Bar({
   rank,
   plotHeight,
   minHeight,
+  minWidth,
 }: {
   row: MapDataPoint;
   rank: number;
   plotHeight: number;
   minHeight: number;
+  minWidth: number;
 }) {
   const pct = Math.max(0, Math.min(100, Math.round(row.value ?? 0)));
   const band = bandFor(row, pct);
@@ -155,7 +170,7 @@ function Bar({
   return (
     <div
       className="flex h-full flex-1 flex-col items-center justify-end"
-      style={{ minWidth: 22 }}
+      style={{ minWidth }}
       title={`#${rank} ${row.name} — ${pct}%`}
     >
       <span className="text-[9px] font-bold leading-none tabular-nums text-[var(--color-text-primary)]">
