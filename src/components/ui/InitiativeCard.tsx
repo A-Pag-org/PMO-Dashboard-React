@@ -111,7 +111,7 @@ export default function InitiativeCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-bold leading-tight text-[var(--color-blue-link)]">
+        <h3 className="text-base font-bold leading-tight text-[var(--color-blue-link)]">
           {initiative.name}
         </h3>
         <span className="shrink-0 rounded-full bg-[var(--color-blue-pale)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-blue-link)]">
@@ -123,7 +123,12 @@ export default function InitiativeCard({
         {cfg?.description ?? initiative.primaryMetric}
       </p>
 
-      <div className="mt-3 flex flex-1 flex-col justify-center gap-2.5">
+      <div
+        className={cn(
+          'mt-3 flex flex-1 flex-col justify-center gap-2.5',
+          cfg?.variant === 'donut' && 'mb-3',
+        )}
+      >
         <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
       </div>
 
