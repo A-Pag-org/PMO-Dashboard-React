@@ -128,17 +128,28 @@ export function useDetailFilters(): UseDetailFiltersReturn {
         if (name && name !== INITIATIVES[0].name) p.set('initiative', name);
         else p.delete('initiative');
 
-        // Wipe any extras that don't belong to the new initiative,
-        // so URLs stay tidy when switching programmes.
-        const validKeys = new Set(
+        const cfg =
           INITIATIVE_CONFIGS[
             INITIATIVES.find((i) => i.name === name)?.slug ?? ''
-          ]?.extraFilters.map((f) => f.key) ?? [],
-        );
+          ];
+
+        // Wipe any extras that don't belong to the new initiative,
+        // so URLs stay tidy when switching programmes.
+        const validKeys = new Set(cfg?.extraFilters.map((f) => f.key) ?? []);
         for (const key of Array.from(p.keys())) {
           if (RESERVED_KEYS.has(key)) continue;
           if (!validKeys.has(key)) p.delete(key);
         }
+
+        // Wipe geography fields the new initiative doesn't support, so
+        // a stale city / RTO / toll / ULB from a previous initiative
+        // doesn't keep filtering invisibly.
+        const levels = new Set(cfg?.geographyLevels ?? ['state', 'city']);
+        if (!levels.has('state')) p.delete('state');
+        if (!levels.has('city')) p.delete('city');
+        if (!levels.has('rto')) p.delete('rto');
+        if (!levels.has('toll')) p.delete('toll');
+        if (!levels.has('ulb')) p.delete('ulb');
       });
     },
     [writeParams],

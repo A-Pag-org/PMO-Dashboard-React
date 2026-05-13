@@ -184,6 +184,7 @@ export default function DetailPage() {
   );
 
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
+  const supportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
   const supportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
 
   const delhiOnlyRole = isDelhiOnlyRole(role);
@@ -195,11 +196,12 @@ export default function DetailPage() {
       const isDelhiArea = area.state === 'Delhi' || area.city === 'Delhi' || (!area.state && !area.city);
       return supportsRto && isDelhiArea ? (['RTO'] as const) : ([] as readonly ViewLabel[]);
     }
+    const cityTail = supportsCity ? ['City' as const] : [];
     const rtoTail = supportsRto ? ['RTO' as const] : [];
     if (area.city) return supportsRto ? ['RTO'] : ['City'];
-    if (area.state) return ['City', ...rtoTail];
-    return ['State', 'City', ...rtoTail];
-  }, [area, supportsRto, delhiOnlyRole, isAtIndividualRto]);
+    if (area.state) return [...cityTail, ...rtoTail];
+    return ['State', ...cityTail, ...rtoTail];
+  }, [area, supportsCity, supportsRto, delhiOnlyRole, isAtIndividualRto]);
 
   useEffect(() => {
     if (availableViewLevels.length === 0) return;

@@ -66,7 +66,13 @@ export default function DetailFilterBar({
   const slug = INITIATIVES.find((i) => i.name === initiativeName)?.slug ?? '';
   const config = INITIATIVE_CONFIGS[slug];
   const extraFilters = config?.extraFilters ?? [];
+  // Geography support — when no config is found, default to state + city
+  // (matches the spec for most initiatives) so the bar never collapses
+  // to just "Initiative".
+  const supportsState = config?.geographyLevels.includes('state') ?? true;
+  const supportsCity = config?.geographyLevels.includes('city') ?? true;
   const supportsRto = config?.geographyLevels.includes('rto') ?? false;
+  const hasGeographyFilters = supportsState || supportsCity || supportsRto;
 
   const initiativeIsSelected = initiativeName !== INITIATIVES[0]?.name;
 
@@ -85,50 +91,52 @@ export default function DetailFilterBar({
         width="11rem"
       />
 
-      <Divider />
+      {hasGeographyFilters ? <Divider /> : null}
 
-      <BarField
-        label="State"
-        value={area.state ?? ''}
-        onChange={(v) => onAreaChange(v ? { state: v } : {})}
-        options={STATES.map((s) => ({ value: s, label: s }))}
-        placeholder="All — Delhi NCR"
-        isSelected={!!area.state}
-      />
+      {supportsState ? (
+        <BarField
+          label="State"
+          value={area.state ?? ''}
+          onChange={(v) => onAreaChange(v ? { state: v } : {})}
+          options={STATES.map((s) => ({ value: s, label: s }))}
+          placeholder="All — Delhi NCR"
+          isSelected={!!area.state}
+        />
+      ) : null}
 
-      <BarField
-        label="City"
-        value={area.city ?? ''}
-        onChange={(v) =>
-          onAreaChange({ state: area.state, city: v || undefined })
-        }
-        options={cityOptions.map((c) => ({ value: c, label: c }))}
-        placeholder={area.state ? `All of ${area.state}` : 'Pick a state first'}
-        disabled={!area.state}
-        isSelected={!!area.city}
-      />
+      {supportsCity ? (
+        <BarField
+          label="City"
+          value={area.city ?? ''}
+          onChange={(v) =>
+            onAreaChange({ state: area.state, city: v || undefined })
+          }
+          options={cityOptions.map((c) => ({ value: c, label: c }))}
+          placeholder={area.state ? `All of ${area.state}` : 'Pick a state first'}
+          disabled={!area.state}
+          isSelected={!!area.city}
+        />
+      ) : null}
 
-      <BarField
-        label="RTO"
-        value={area.rto ?? ''}
-        onChange={(v) =>
-          onAreaChange({
-            state: area.state,
-            city: area.city,
-            rto: v || undefined,
-          })
-        }
-        options={rtoOptions.map((r) => ({ value: r, label: r }))}
-        placeholder={
-          !supportsRto
-            ? 'Not applicable'
-            : !area.city
-            ? 'Pick a city first'
-            : `All RTOs in ${area.city}`
-        }
-        disabled={!supportsRto || !area.city}
-        isSelected={!!area.rto}
-      />
+      {supportsRto ? (
+        <BarField
+          label="RTO"
+          value={area.rto ?? ''}
+          onChange={(v) =>
+            onAreaChange({
+              state: area.state,
+              city: area.city,
+              rto: v || undefined,
+            })
+          }
+          options={rtoOptions.map((r) => ({ value: r, label: r }))}
+          placeholder={
+            !area.city ? 'Pick a city first' : `All RTOs in ${area.city}`
+          }
+          disabled={!area.city}
+          isSelected={!!area.rto}
+        />
+      ) : null}
 
       {extraFilters.length > 0 ? (
         <>
