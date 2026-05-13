@@ -167,6 +167,16 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
       'No. of trees planted',
     ],
   },
+
+  'stubble-burning': {
+    slug: 'stubble-burning',
+    geographyLevels: ['state'],
+    extraFilters: [],
+    headlineMetricNames: [
+      'Reduction in farm fires vs baseline',
+      'Paddy area covered by mechanized harvesting',
+    ],
+  },
 };
 
 export function getInitiativeConfig(slug: string): InitiativeConfig | undefined {
