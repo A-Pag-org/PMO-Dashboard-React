@@ -3,11 +3,14 @@
 //          · 2nd bar     : horizontal filter strip (Initiative, State,
 //                          City, RTO, extras, time range, View toggle)
 //                          plus the "See all data" CTA on the right.
-//          · Centre      : metric header + See-trend toggle + map canvas
-//                          (with a small Ranking-graph widget pinned to
-//                           the map's top-left; maximise opens a popup
-//                           containing the full chart and the ranking
-//                           table.)
+//          · Centre      : metric header + map canvas with two stacked
+//                          widgets pinned to the top-left:
+//                            1. Ranking graph — top-5 bars; maximise
+//                               opens a popup with the full chart and
+//                               the ranking table.
+//                            2. Trend graph   — all-NCR sparkline;
+//                               maximise opens a popup with a multi-
+//                               region line chart and a legend table.
 //          · Right rail  : Metrics inspector (Outcome · Progress ·
 //                          Readiness groups).
 
@@ -20,7 +23,6 @@ import {
   Landmark,
   Database,
   Info,
-  TrendingUp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
@@ -29,6 +31,8 @@ import type { TimeRange, ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricCard from '@/components/ui/MetricCard';
 import MapRankingChart from '@/components/ui/MapRankingChart';
 import RankingPopup from '@/components/ui/RankingPopup';
+import MapTrendChart from '@/components/ui/MapTrendChart';
+import TrendPopup from '@/components/ui/TrendPopup';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
 import {
@@ -155,8 +159,8 @@ export default function DetailPage() {
     Record<string, string>
   >({});
   const [timeRange, setTimeRange] = useState<TimeRange>('6M');
-  const [showTrend, setShowTrend] = useState(false);
   const [rankingOpen, setRankingOpen] = useState(false);
+  const [trendOpen, setTrendOpen] = useState(false);
   const role = getCurrentRole();
 
   const currentInit =
@@ -278,6 +282,21 @@ export default function DetailPage() {
     return [...rows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
   }, [selectedMetric, isCentralLevelMetric, effectiveViewLevel]);
 
+  // Trend widget needs a single "current overall" number + a unit hint.
+  // X/Y → 0-100 percentage of the all-NCR aggregate. Xx → raw count.
+  // Y/N is suppressed at the call site (no meaningful trend to draw).
+  const trendUnit: 'pct' | 'count' =
+    selectedMetric?.format === 'Xx' ? 'count' : 'pct';
+  const trendCurrentValue = useMemo(() => {
+    if (!selectedMetric) return 0;
+    if (selectedMetric.format === 'X/Y') {
+      const t = selectedMetric.target ?? 0;
+      const a = selectedMetric.achieved ?? 0;
+      return t > 0 ? Math.max(0, Math.min(100, (a / t) * 100)) : 0;
+    }
+    return selectedMetric.achieved ?? 0;
+  }, [selectedMetric]);
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-white">
       <TopBar activePage="detail" />
@@ -306,7 +325,7 @@ export default function DetailPage() {
           className="relative flex min-h-0 flex-col bg-white"
           aria-label="Map view"
         >
-          {/* Metric header — title on the left, See-trend toggle on the right. */}
+          {/* Metric header — title + type tag. Trend lives on the map. */}
           <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border-table)] px-4 py-2">
             <span
               className="inline-block h-2 w-2 shrink-0 rounded-full"
@@ -331,39 +350,6 @@ export default function DetailPage() {
                 </span>
               ) : null}
             </h2>
-
-            <button
-              type="button"
-              role="switch"
-              aria-checked={showTrend}
-              onClick={() => setShowTrend((v) => !v)}
-              className={cn(
-                'ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
-                showTrend
-                  ? 'border-[var(--color-blue-link)] bg-[var(--color-blue-pale)] text-[var(--color-blue-link)]'
-                  : 'border-[var(--color-border)] bg-white text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-              )}
-            >
-              <TrendingUp className="h-3.5 w-3.5" aria-hidden />
-              See trend
-              <span
-                className={cn(
-                  'ml-1 inline-block h-3.5 w-6 rounded-full border transition-colors',
-                  showTrend
-                    ? 'border-[var(--color-blue-link)] bg-[var(--color-blue-link)]'
-                    : 'border-[var(--color-border)] bg-[var(--color-surface-grey)]',
-                )}
-                aria-hidden
-              >
-                <span
-                  className={cn(
-                    'block h-2.5 w-2.5 translate-y-px rounded-full bg-white transition-transform',
-                    showTrend ? 'translate-x-3' : 'translate-x-px',
-                  )}
-                />
-              </span>
-            </button>
           </div>
 
           {/* Map canvas */}
@@ -416,12 +402,21 @@ export default function DetailPage() {
             ) : null}
 
             {!isCentralLevelMetric && ranking.length > 0 ? (
-              <div className="pointer-events-none absolute left-3 top-3">
+              <div className="pointer-events-none absolute left-3 top-3 flex flex-col gap-2">
                 <MapRankingChart
                   rows={ranking}
                   level={effectiveViewLabel}
                   onMaximise={() => setRankingOpen(true)}
                 />
+                {selectedMetric && selectedMetric.format !== 'Y/N' ? (
+                  <MapTrendChart
+                    metricName={selectedMetric.name}
+                    currentValue={trendCurrentValue}
+                    unit={trendUnit}
+                    isInverse={selectedMetric.isInverse}
+                    onMaximise={() => setTrendOpen(true)}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -460,6 +455,19 @@ export default function DetailPage() {
         metricName={selectedMetric?.name}
         onClose={() => setRankingOpen(false)}
       />
+
+      {selectedMetric && selectedMetric.format !== 'Y/N' ? (
+        <TrendPopup
+          open={trendOpen}
+          metricName={selectedMetric.name}
+          rows={ranking}
+          overallValue={trendCurrentValue}
+          unit={trendUnit}
+          isInverse={selectedMetric.isInverse}
+          level={effectiveViewLabel}
+          onClose={() => setTrendOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
