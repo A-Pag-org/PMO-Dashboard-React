@@ -27,7 +27,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
-import type { TimeRange, ViewLabel } from '@/components/layout/DetailFilterBar';
+import type { TimeRange, CustomRange, ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricCard from '@/components/ui/MetricCard';
 import MapRankingChart from '@/components/ui/MapRankingChart';
 import RankingPopup from '@/components/ui/RankingPopup';
@@ -51,8 +51,6 @@ import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/typ
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
-
-const TIME_RANGES: readonly TimeRange[] = ['1M', '3M', '6M', '12M', 'All'] as const;
 
 function iconForMetric(m: Metric): LucideIcon {
   const n = m.name.toLowerCase();
@@ -158,7 +156,8 @@ export default function DetailPage() {
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
-  const [timeRange, setTimeRange] = useState<TimeRange>('6M');
+  const [timeRange, setTimeRange] = useState<TimeRange>('Last 6M');
+  const [customRange, setCustomRange] = useState<CustomRange | undefined>(undefined);
   const [rankingOpen, setRankingOpen] = useState(false);
   const [trendOpen, setTrendOpen] = useState(false);
   const role = getCurrentRole();
@@ -311,8 +310,9 @@ export default function DetailPage() {
         onInitiativeChange={setInitiativeName}
         onExtraChange={setExtra}
         timeRange={timeRange}
-        timeRanges={TIME_RANGES}
         onTimeRangeChange={setTimeRange}
+        customRange={customRange}
+        onCustomRangeChange={setCustomRange}
         availableViewLevels={!isCentralLevelMetric ? availableViewLevels : []}
         viewLabel={effectiveViewLabel}
         onViewLevelChange={setViewLevel}

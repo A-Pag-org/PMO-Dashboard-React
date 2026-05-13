@@ -71,14 +71,16 @@ export default function TopBar({ className }: TopBarProps) {
               />
             </button>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-[18px]">
               <span
-                className="hidden h-8 w-8 items-center justify-center rounded bg-[var(--color-ink)] text-[var(--color-accent)] sm:flex"
+                className="hidden h-[34px] w-[34px] items-center justify-center rounded-[4px] bg-[#111111] sm:flex"
                 aria-hidden
               >
-                <span className="text-sm font-black">A</span>
+                <span className="font-['Poppins',sans-serif] text-[16px] font-semibold leading-[24px] text-[#DDE624]">
+                  A
+                </span>
               </span>
-              <h1 className="text-base font-bold tracking-wide text-[var(--color-blue-header)] sm:text-lg">
+              <h1 className="font-['Poppins',sans-serif] text-[14px] font-semibold leading-[21px] tracking-wide text-[#2E4B8F]">
                 IMPACT DASHBOARD
               </h1>
             </div>

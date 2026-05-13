@@ -1,9 +1,11 @@
-// FILE: components/ui/FilterPill.tsx
-// PURPOSE: Dark navy dropdown filter pill with label prefix
-// DESIGN REF: Wireframe page 9 (State/City/RTO/Initiative filters), page 11 (upload filters)
+// FILE: src/components/ui/FilterPill.tsx
+// PURPOSE: Glassy pill-shaped dropdown for the navy filter bar. Matches
+//          the Figma recipe — translucent outer capsule + label + 1px
+//          separator + white-gradient inner value chip + chevron. A
+//          native <select> is layered invisibly on top so keyboard and
+//          screen-reader users get the full OS-native dropdown
+//          experience for free.
 
-
-import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +14,16 @@ interface FilterPillProps {
   options: readonly string[] | string[];
   value: string;
   onChange: (value: string) => void;
+  /**
+   * Shown as the value chip text when `value` is empty, and rendered as
+   * the leading `<option value="">` in the dropdown. Letting the caller
+   * pass it keeps the empty-state copy meaningful ("All Delhi NCR")
+   * rather than a literal blank.
+   */
+  placeholder?: string;
+  /** Override the visible chip text without changing the dropdown options. */
+  displayValue?: string;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -20,80 +32,66 @@ export default function FilterPill({
   options,
   value,
   onChange,
+  placeholder,
+  displayValue,
+  disabled,
   className,
 }: FilterPillProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const displayText = value && value !== 'All' ? value : label;
-  const isFiltered = value && value !== 'All';
+  const visibleText =
+    displayValue ?? (value === '' && placeholder ? placeholder : value);
 
   return (
-    <div ref={ref} className={cn('relative', className)}>
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          'flex min-h-[40px] items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
-          isFiltered
-            ? 'bg-[var(--color-blue-panel)] text-white'
-            : 'bg-[var(--color-navy)] text-[var(--color-text-white)]',
-          'hover:opacity-90',
-        )}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        aria-label={`${label} filter: ${displayText}`}
-      >
-        {isFiltered && (
-          <span className="text-xs font-normal opacity-70">{label}:</span>
-        )}
-        <span className="max-w-[150px] truncate">{displayText}</span>
-        <ChevronDown
-          className={cn(
-            'h-4 w-4 shrink-0 transition-transform',
-            open && 'rotate-180',
-          )}
-        />
-      </button>
-
-      {open && (
-        <ul
-          role="listbox"
-          aria-label={`${label} options`}
-          className="absolute left-0 top-full z-50 mt-1 max-h-[280px] min-w-[200px] overflow-y-auto rounded-md border border-[var(--color-border-table)] bg-white shadow-lg"
-        >
-          {(options as string[]).map((option) => (
-            <li key={option} role="option" aria-selected={option === value}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(option);
-                  setOpen(false);
-                }}
-                className={cn(
-                  'flex w-full min-h-[40px] items-center px-4 py-2 text-left text-sm transition-colors',
-                  option === value
-                    ? 'bg-[var(--color-blue-pale)] font-semibold text-[var(--color-blue-link)]'
-                    : 'text-[var(--color-text-primary)] hover:bg-[var(--color-surface-light)]',
-                )}
-              >
-                {option}
-              </button>
-            </li>
-          ))}
-        </ul>
+    <label
+      className={cn(
+        'relative inline-flex h-[38px] items-center rounded-full pl-[9px] pr-[6px]',
+        '[background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)]',
+        disabled ? 'opacity-60' : 'cursor-pointer',
+        className,
       )}
-    </div>
+      aria-label={label}
+    >
+      <span className="select-none whitespace-nowrap font-['Roboto',sans-serif] text-[12px] font-normal leading-[14px] tracking-[0.1px] text-white">
+        {label}:
+      </span>
+      <span
+        aria-hidden
+        className="mx-[5px] h-[38px] w-px shrink-0 bg-[#F1F1F5]"
+      />
+      <span
+        className={cn(
+          'inline-flex h-[28px] max-w-[180px] items-center rounded-full px-3 font-["Roboto",sans-serif] text-[12px] font-semibold leading-[18px] text-[#2E4B8F]',
+          '[background:linear-gradient(180deg,#ECECEC_20.59%,#FFFFFF_85.35%)]',
+        )}
+      >
+        <span className="truncate">{visibleText}</span>
+      </span>
+      <span
+        aria-hidden
+        className="ml-[6px] mr-[2px] h-[38px] w-px shrink-0 bg-[#F1F1F5]"
+      />
+      <ChevronDown
+        className="ml-[4px] h-4 w-4 shrink-0 text-white/95"
+        aria-hidden
+      />
+
+      <select
+        aria-label={label}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+      >
+        {placeholder !== undefined ? (
+          <option value="">{placeholder}</option>
+        ) : null}
+        {(options as string[])
+          .filter((o) => o !== '')
+          .map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+      </select>
+    </label>
   );
 }
