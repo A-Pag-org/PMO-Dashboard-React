@@ -3,11 +3,12 @@
 //          below TopBar. Carries every page-scoping filter on a single
 //          line:
 //            Initiative · State · City · RTO · <extras> · Select date
-//            · View toggle · See all data
+//            · See all data
 //
 //          State / City / RTO render in compact mode (label + chevron
-//          only) so they stay narrow; a tiny accent dot appears next to
-//          the label when a value is actually selected.
+//          only) when no value is selected; once the user picks a
+//          value, the pill expands to the full label + value chip
+//          treatment used by Initiative so the selection is visible.
 
 import { Link } from 'react-router-dom';
 import {
@@ -18,11 +19,9 @@ import {
 } from '@/lib/constants';
 import { INITIATIVE_CONFIGS } from '@/lib/initiatives';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
-import type { ViewLevel } from '@/lib/types';
 import FilterPill from '@/components/ui/FilterPill';
 import TimeRangePill from '@/components/ui/TimeRangePill';
 import type { CustomRange } from '@/components/ui/TimeRangePill';
-import ViewLevelPill from '@/components/ui/ViewLevelPill';
 
 export type ViewLabel = 'State' | 'City' | 'RTO';
 export type { CustomRange };
@@ -38,10 +37,6 @@ interface DetailFilterBarProps {
   customRange?: CustomRange;
   onCustomRangeChange?: (r: CustomRange) => void;
 
-  availableViewLevels: readonly ViewLabel[];
-  viewLabel: ViewLabel;
-  onViewLevelChange: (v: ViewLevel) => void;
-
   seeAllHref: string;
 }
 
@@ -54,9 +49,6 @@ export default function DetailFilterBar({
   onExtraChange,
   customRange,
   onCustomRangeChange,
-  availableViewLevels,
-  viewLabel,
-  onViewLevelChange,
   seeAllHref,
 }: DetailFilterBarProps) {
   const slug = INITIATIVES.find((i) => i.name === initiativeName)?.slug ?? '';
@@ -87,7 +79,7 @@ export default function DetailFilterBar({
       {supportsState ? (
         <FilterPill
           label="State"
-          compact
+          compact={!area.state}
           value={area.state ?? ''}
           placeholder="All Delhi NCR"
           options={STATES}
@@ -98,7 +90,7 @@ export default function DetailFilterBar({
       {supportsCity ? (
         <FilterPill
           label="City"
-          compact
+          compact={!area.city}
           value={area.city ?? ''}
           placeholder={area.state ? `All of ${area.state}` : 'Pick a state first'}
           options={cityOptions}
@@ -112,7 +104,7 @@ export default function DetailFilterBar({
       {supportsRto ? (
         <FilterPill
           label="RTO"
-          compact
+          compact={!area.rto}
           value={area.rto ?? ''}
           placeholder={area.city ? `All RTOs in ${area.city}` : 'Pick a city first'}
           options={rtoOptions}
@@ -142,14 +134,6 @@ export default function DetailFilterBar({
         customRange={customRange}
         onCustomRangeChange={onCustomRangeChange}
       />
-
-      {availableViewLevels.length > 0 ? (
-        <ViewLevelPill
-          options={availableViewLevels}
-          value={viewLabel}
-          onChange={(v) => onViewLevelChange(v.toLowerCase() as ViewLevel)}
-        />
-      ) : null}
 
       <Link
         to={seeAllHref}
