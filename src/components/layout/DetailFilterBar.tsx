@@ -1,13 +1,21 @@
 // FILE: src/components/layout/DetailFilterBar.tsx
 // PURPOSE: Detail-page filter strip — the navy band that sits directly
-//          below TopBar. Carries Initiative, initiative-specific
-//          extras, the Select-date pill, the View toggle, and the
-//          "See all data" CTA, all on a single line. Geography
-//          dropdowns (State / City / RTO) have moved out of the bar
-//          and now live below the map's Trend widget — see DetailPage.
+//          below TopBar. Carries every page-scoping filter on a single
+//          line:
+//            Initiative · State · City · RTO · <extras> · Select date
+//            · View toggle · See all data
+//
+//          State / City / RTO render in compact mode (label + chevron
+//          only) so they stay narrow; a tiny accent dot appears next to
+//          the label when a value is actually selected.
 
 import { Link } from 'react-router-dom';
-import { INITIATIVES } from '@/lib/constants';
+import {
+  INITIATIVES,
+  STATES,
+  UPLOAD_CITY_OPTIONS_BY_STATE,
+  RTO_OPTIONS_BY_CITY,
+} from '@/lib/constants';
 import { INITIATIVE_CONFIGS } from '@/lib/initiatives';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import type { ViewLevel } from '@/lib/types';
@@ -23,6 +31,7 @@ interface DetailFilterBarProps {
   area: AreaFilterValue;
   initiativeName: string;
   extras: Record<string, string>;
+  onAreaChange: (area: AreaFilterValue) => void;
   onInitiativeChange: (name: string) => void;
   onExtraChange: (key: string, value: string) => void;
 
@@ -37,8 +46,10 @@ interface DetailFilterBarProps {
 }
 
 export default function DetailFilterBar({
+  area,
   initiativeName,
   extras,
+  onAreaChange,
   onInitiativeChange,
   onExtraChange,
   customRange,
@@ -51,6 +62,14 @@ export default function DetailFilterBar({
   const slug = INITIATIVES.find((i) => i.name === initiativeName)?.slug ?? '';
   const config = INITIATIVE_CONFIGS[slug];
   const extraFilters = config?.extraFilters ?? [];
+  const supportsState = config?.geographyLevels.includes('state') ?? true;
+  const supportsCity = config?.geographyLevels.includes('city') ?? true;
+  const supportsRto = config?.geographyLevels.includes('rto') ?? false;
+
+  const cityOptions = area.state
+    ? UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? []
+    : [];
+  const rtoOptions = area.city ? RTO_OPTIONS_BY_CITY[area.city] ?? [] : [];
 
   return (
     <div
@@ -64,6 +83,49 @@ export default function DetailFilterBar({
         options={INITIATIVES.map((i) => i.name)}
         onChange={onInitiativeChange}
       />
+
+      {supportsState ? (
+        <FilterPill
+          label="State"
+          compact
+          value={area.state ?? ''}
+          placeholder="All Delhi NCR"
+          options={STATES}
+          onChange={(v) => onAreaChange(v ? { state: v } : {})}
+        />
+      ) : null}
+
+      {supportsCity ? (
+        <FilterPill
+          label="City"
+          compact
+          value={area.city ?? ''}
+          placeholder={area.state ? `All of ${area.state}` : 'Pick a state first'}
+          options={cityOptions}
+          disabled={!area.state}
+          onChange={(v) =>
+            onAreaChange({ state: area.state, city: v || undefined })
+          }
+        />
+      ) : null}
+
+      {supportsRto ? (
+        <FilterPill
+          label="RTO"
+          compact
+          value={area.rto ?? ''}
+          placeholder={area.city ? `All RTOs in ${area.city}` : 'Pick a city first'}
+          options={rtoOptions}
+          disabled={!area.city}
+          onChange={(v) =>
+            onAreaChange({
+              state: area.state,
+              city: area.city,
+              rto: v || undefined,
+            })
+          }
+        />
+      ) : null}
 
       {extraFilters.map((f) => (
         <FilterPill
