@@ -199,6 +199,28 @@ export const INITIATIVES: Initiative[] = [
       { name: 'Phase 1 implementation of greening action plan initiated', type: 'progress',  target: 1, achieved: 0,                  format: 'Y/N', dataSource: 'Manual (Forest/Horticulture dept)' },
     ],
   },
+  {
+    // ─── Stubble Burning (added per Figma final design) ─────────────────
+    name: 'Stubble Burning',
+    slug: 'stubble-burning',
+    primaryMetric: 'Reduction in farm fires & area under mechanized harvesting',
+    summaryCard: {
+      description: 'Farm fires reduced & paddy area covered by mechanized harvesting',
+      variant: 'two-donuts',
+      bars: [
+        { label: 'Fires',    target: 50000,  achieved: 32000 },
+        { label: 'Area',     target: 100000, achieved: 45000 },
+      ],
+    },
+    metrics: [
+      { name: 'Reduction in farm fires vs baseline',           type: 'outcome',  target: 50000,  achieved: 32000, isInverse: true, format: 'X/Y', dataSource: 'API (ISRO / CREAMS)' },
+      { name: 'Paddy area covered by mechanized harvesting',   type: 'outcome',  target: 100000, achieved: 45000, unit: 'ha',      format: 'X/Y', dataSource: 'API (State Agri. Dept)' },
+      { name: 'Happy/Super Seeders distributed to farmers',    type: 'progress', target: 12000,  achieved: 7800,                   format: 'X/Y', dataSource: 'Manual (State Agri. Dept)' },
+      { name: 'Pusa decomposer sprays conducted (acres)',      type: 'progress', target: 80000,  achieved: 52000, unit: 'acres',   format: 'X/Y', dataSource: 'Manual (IARI / States)' },
+      { name: 'Farmers sensitized via outreach',               type: 'progress', target: null,   achieved: 26500, previousAchieved: 21000, format: 'Xx', dataSource: 'Manual (KVKs)' },
+      { name: 'State stubble-burning action plan published',   type: 'readiness', target: 1, achieved: 1,                          format: 'Y/N', dataSource: 'Manual' },
+    ],
+  },
 ];
 
 // ─── 9 Cities ───────────────────────────────────────────────────────────
@@ -390,6 +412,21 @@ export const MOCK_SUMMARY_BY_INITIATIVE: Record<string, InitiativeSummaryData> =
       { name: 'Rajasthan',      value: 21, onTrack: true, label: '21 routes' },
     ],
     center: { value: 140, label: 'Route Coverage Achieved', subtitle: '140 / 200 routes' },
+  },
+  'stubble-burning': {
+    table: [
+      { state: 'Delhi',         target: 2000,  achieved: 1600, completion: 80 },
+      { state: 'Uttar Pradesh', target: 18000, achieved: 10800, completion: 60 },
+      { state: 'Haryana',       target: 20000, achieved: 12000, completion: 60 },
+      { state: 'Rajasthan',     target: 10000, achieved: 7600,  completion: 76 },
+    ],
+    map: [
+      { name: 'Delhi',          value: 1600,  onTrack: true,  label: '1.6k fires reduced' },
+      { name: 'Uttar Pradesh',  value: 10800, onTrack: true,  label: '10.8k fires reduced' },
+      { name: 'Haryana',        value: 12000, onTrack: true,  label: '12k fires reduced' },
+      { name: 'Rajasthan',      value: 7600,  onTrack: true,  label: '7.6k fires reduced' },
+    ],
+    center: { value: 32000, label: 'Farm Fires Reduced', subtitle: '32,000 / 50,000 fires' },
   },
 };
 

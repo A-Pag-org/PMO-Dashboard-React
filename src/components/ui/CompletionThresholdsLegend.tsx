@@ -1,15 +1,15 @@
 // FILE: components/ui/CompletionThresholdsLegend.tsx
 // PURPOSE: Inline legend showing the traffic-light thresholds used by all
-//          progress bars / donuts on the dashboard.
-// DESIGN REF: Refinement 1 (Interim Dashboard Improvements) — "Add legend
-//             for completion thresholds" callout on the Summary page.
+//          progress bars on the dashboard.
+// DESIGN REF: Figma "Air-Pollution / Final for review" — bottom-right
+//             footer chip (Frame 69).
 
 import { getBandColors } from '@/lib/utils';
 
 const ITEMS: Array<{ band: 'RED' | 'YELLOW' | 'GREEN'; label: string }> = [
-  { band: 'RED', label: 'Red < 30%' },
-  { band: 'YELLOW', label: 'Yellow 30–60%' },
-  { band: 'GREEN', label: 'Green ≥ 60%' },
+  { band: 'RED', label: '<30%' },
+  { band: 'YELLOW', label: '30–60%' },
+  { band: 'GREEN', label: '≥60%' },
 ];
 
 interface CompletionThresholdsLegendProps {
@@ -21,13 +21,10 @@ export default function CompletionThresholdsLegend({
 }: CompletionThresholdsLegendProps) {
   return (
     <div
-      className={`inline-flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-[var(--color-border-table)] bg-white px-3 py-1.5 text-2xs text-[var(--color-text-secondary)] shadow-sm ${className ?? ''}`}
+      className={`inline-flex items-center gap-4 text-[11px] font-medium text-[#44444F] ${className ?? ''}`}
       role="note"
       aria-label="Completion threshold legend"
     >
-      <span className="font-semibold uppercase tracking-wide text-[var(--color-text-primary)]">
-        Completion thresholds
-      </span>
       {ITEMS.map(({ band, label }) => {
         const { fg } = getBandColors(band);
         return (
@@ -37,9 +34,7 @@ export default function CompletionThresholdsLegend({
               className="inline-block h-2.5 w-2.5 rounded-full"
               style={{ backgroundColor: fg }}
             />
-            <span className="font-medium text-[var(--color-text-primary)]">
-              {label}
-            </span>
+            {label}
           </span>
         );
       })}
