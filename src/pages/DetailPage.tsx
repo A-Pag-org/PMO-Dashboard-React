@@ -4,11 +4,12 @@
 //                          City, RTO, extras, time range, View toggle)
 //                          plus the "See all data" CTA on the right.
 //          · Centre      : metric header + See-trend toggle + map canvas
-//          · Right rail  : single header with Ranking / Metrics tabs
-//
-// All scoping controls live in the filter bar above the workspace, so
-// the workspace itself is just one map + one inspector — nothing
-// competing for attention with the data.
+//                          (with a small Ranking-graph widget pinned to
+//                           the map's top-left; maximise opens a popup
+//                           containing the full chart and the ranking
+//                           table.)
+//          · Right rail  : Metrics inspector (Outcome · Progress ·
+//                          Readiness groups).
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -20,17 +21,16 @@ import {
   Database,
   Info,
   TrendingUp,
-  Trophy,
-  LayoutGrid,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
 import type { TimeRange, ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricCard from '@/components/ui/MetricCard';
+import MapRankingChart from '@/components/ui/MapRankingChart';
+import RankingPopup from '@/components/ui/RankingPopup';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
-import { getBandColors } from '@/lib/utils';
 import {
   INITIATIVES,
   STATES,
@@ -47,8 +47,6 @@ import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/typ
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
-
-type RightTab = 'ranking' | 'metrics';
 
 const TIME_RANGES: readonly TimeRange[] = ['1M', '3M', '6M', '12M', 'All'] as const;
 
@@ -156,9 +154,9 @@ export default function DetailPage() {
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
-  const [rightTab, setRightTab] = useState<RightTab>('metrics');
   const [timeRange, setTimeRange] = useState<TimeRange>('6M');
   const [showTrend, setShowTrend] = useState(false);
+  const [rankingOpen, setRankingOpen] = useState(false);
   const role = getCurrentRole();
 
   const currentInit =
@@ -416,187 +414,55 @@ export default function DetailPage() {
                 </div>
               </div>
             ) : null}
+
+            {!isCentralLevelMetric && ranking.length > 0 ? (
+              <div className="pointer-events-none absolute left-3 top-3">
+                <MapRankingChart
+                  rows={ranking}
+                  level={effectiveViewLabel}
+                  onMaximise={() => setRankingOpen(true)}
+                />
+              </div>
+            ) : null}
           </div>
         </section>
 
-        {/* ── RIGHT: single-header Ranking / Metrics inspector ──────── */}
+        {/* ── RIGHT: metrics inspector ─────────────────────────────── */}
         <aside
           className="flex min-h-0 flex-col overflow-hidden border-l border-[var(--color-border)] bg-white"
-          aria-label="Inspector"
+          aria-label="Metrics inspector"
         >
-          <div
-            className="flex shrink-0 items-stretch border-b border-[var(--color-border)]"
-            role="tablist"
-            aria-label="Inspector view"
-          >
-            <RightTabButton
-              icon={Trophy}
-              label="Ranking"
-              active={rightTab === 'ranking'}
-              onClick={() => setRightTab('ranking')}
-            />
-            <RightTabButton
-              icon={LayoutGrid}
-              label="Metrics"
-              active={rightTab === 'metrics'}
-              onClick={() => setRightTab('metrics')}
-            />
-          </div>
+          <header className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
+            <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--color-text-primary)]">
+              Metrics
+            </h2>
+            <span className="text-[10px] font-semibold text-[var(--color-text-muted)]">
+              {outcomeMetrics.length + progressMetrics.length + readinessMetrics.length} total
+            </span>
+          </header>
 
           <div className="flex-1 overflow-y-auto">
-            {rightTab === 'ranking' ? (
-              <RankingPanel rows={ranking} level={effectiveViewLabel} />
-            ) : (
-              <MetricsPanel
-                outcomeMetrics={outcomeMetrics}
-                progressMetrics={progressMetrics}
-                readinessMetrics={readinessMetrics}
-                selectedMetricName={selectedMetric?.name}
-                onSelect={(name) => handleSelectMetric(currentInit.slug, name)}
-              />
-            )}
+            <MetricsPanel
+              outcomeMetrics={outcomeMetrics}
+              progressMetrics={progressMetrics}
+              readinessMetrics={readinessMetrics}
+              selectedMetricName={selectedMetric?.name}
+              onSelect={(name) => handleSelectMetric(currentInit.slug, name)}
+            />
           </div>
         </aside>
       </main>
+
+      <RankingPopup
+        open={rankingOpen}
+        rows={ranking}
+        level={effectiveViewLabel}
+        metricName={selectedMetric?.name}
+        onClose={() => setRankingOpen(false)}
+      />
     </div>
   );
 }
-
-function RightTabButton({
-  icon: Icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: LucideIcon;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={cn(
-        'flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-semibold transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-blue-link)]',
-        active
-          ? 'border-b-2 border-[var(--color-accent)] bg-white text-[var(--color-text-primary)]'
-          : 'border-b-2 border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" aria-hidden />
-      {label}
-    </button>
-  );
-}
-
-function RankingPanel({
-  rows,
-  level,
-}: {
-  rows: MapDataPoint[];
-  level: ViewLabel;
-}) {
-  if (rows.length === 0) {
-    return (
-      <p className="px-3 py-6 text-center text-xs text-[var(--color-text-muted)]">
-        No ranking available for this metric.
-      </p>
-    );
-  }
-  return (
-    <ol className="flex flex-col">
-      <li className="grid grid-cols-[18px_minmax(0,1fr)_minmax(120px,1.2fr)] items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-        <span>#</span>
-        <span>{level}</span>
-        <span>Completion</span>
-      </li>
-      {rows.map((r, i) => (
-        <li
-          key={r.name}
-          className="grid grid-cols-[18px_minmax(0,1fr)_minmax(120px,1.2fr)] items-center gap-2 border-t border-[var(--color-border-table)] px-3 py-2 text-xs"
-        >
-          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-surface-light)] text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
-            {i + 1}
-          </span>
-          <span
-            className="truncate font-medium text-[var(--color-text-primary)]"
-            title={r.name}
-          >
-            {r.name}
-          </span>
-          <RankingValueBar row={r} />
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-/**
- * Right-side cell of a ranking row. Renders one of:
- *   · X/Y / %  → band-coloured bar with the % inside (matches the map
- *                legend: <30 red · 30-60 yellow · >60 green).
- *   · Xx       → raw count text (no fake bar).
- *   · Y/N      → small Y/N pill in band colour.
- *   · fallback → whatever label the row carries.
- */
-function RankingValueBar({ row }: { row: MapDataPoint }) {
-  const fmt = row.format;
-
-  if (fmt === 'X/Y') {
-    const pct = Math.max(0, Math.min(100, Math.round(row.value ?? 0)));
-    const band = row.band ?? (pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN');
-    const colors = getBandColors(band === 'NA' ? 'GREEN' : band);
-    return (
-      <div
-        role="progressbar"
-        aria-valuenow={pct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label={`${pct} percent complete`}
-        className="relative h-4 w-full overflow-hidden rounded-full"
-        style={{ backgroundColor: colors.bg }}
-        title={row.label ?? `${pct}%`}
-      >
-        <div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${pct}%`, backgroundColor: colors.fg }}
-        />
-        <span
-          className="absolute inset-0 flex items-center justify-center text-[10px] font-bold tabular-nums"
-          style={{ color: pct >= 55 ? '#fff' : colors.text }}
-        >
-          {pct}%
-        </span>
-      </div>
-    );
-  }
-
-  if (fmt === 'Y/N') {
-    const labelText = (row.label ?? '').trim().toUpperCase();
-    const isYes = labelText.startsWith('Y') || (row.value ?? 0) >= 1;
-    const colors = getBandColors(isYes ? 'GREEN' : 'RED');
-    return (
-      <span
-        className="inline-flex h-5 w-9 items-center justify-center rounded-full text-[10px] font-bold"
-        style={{ backgroundColor: colors.bg, color: colors.text }}
-      >
-        {isYes ? 'YES' : 'NO'}
-      </span>
-    );
-  }
-
-  // Xx and anything else — just the value (matches MetricCard / map labels).
-  return (
-    <span className="text-right text-xs font-semibold tabular-nums text-[var(--color-text-primary)]">
-      {row.label ?? row.value.toLocaleString('en-IN')}
-    </span>
-  );
-}
-
 
 function MetricsPanel({
   outcomeMetrics,
