@@ -1,17 +1,16 @@
 // FILE: src/pages/DetailPage.tsx
-// PURPOSE: Detailed View (spec §4) — three-column layout.
-//          · Left rail   : filters (Initiative, State, City, RTO, extras,
-//                          time range, State/City/RTO view toggle)
+// PURPOSE: Detailed View (spec §4) — two-column layout.
+//          · 2nd bar     : horizontal filter strip (Initiative, State,
+//                          City, RTO, extras, time range, View toggle)
+//                          plus the "See all data" CTA on the right.
 //          · Centre      : metric header + See-trend toggle + map canvas
 //          · Right rail  : single header with Ranking / Metrics tabs
 //
-// Design intent (Jony-Ive-style clarity): one filter surface, one map,
-// one inspector. All scoping controls live in the left rail; the centre
-// column holds nothing but the metric title, the See-trend toggle, and
-// the map itself.
+// All scoping controls live in the filter bar above the workspace, so
+// the workspace itself is just one map + one inspector — nothing
+// competing for attention with the data.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   Truck,
   Bus,
@@ -26,8 +25,8 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
-import DetailFilterRail from '@/components/layout/DetailFilterRail';
-import type { TimeRange, ViewLabel } from '@/components/layout/DetailFilterRail';
+import DetailFilterBar from '@/components/layout/DetailFilterBar';
+import type { TimeRange, ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricCard from '@/components/ui/MetricCard';
 import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
 import { cn } from '@/lib/utils';
@@ -283,45 +282,25 @@ export default function DetailPage() {
     <div className="flex h-screen flex-col overflow-hidden bg-white">
       <TopBar activePage="detail" />
 
-      {/* 2nd bar — breadcrumb + utility actions (filter bar removed; */}
-      {/* filters now live in the left rail). */}
-      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-[var(--color-border)] bg-[var(--color-surface-light)] px-5 py-2 text-xs">
-        <nav aria-label="Context" className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-[var(--color-text-primary)]">
-            {currentInit.name}
-          </span>
-          <span className="text-[var(--color-text-muted)]" aria-hidden>·</span>
-          <span className="text-[var(--color-text-secondary)]">
-            {areaLabel(area)}
-          </span>
-        </nav>
-        <div className="ml-auto">
-          <Link
-            to={seeAllHref}
-            className="rounded-md bg-[var(--color-blue-link)] px-3 py-1 text-xs font-semibold text-white hover:bg-[var(--color-blue-header)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-          >
-            See all data →
-          </Link>
-        </div>
-      </div>
+      {/* 2nd bar — horizontal filter strip (replaces the old left rail */}
+      {/* and breadcrumb; "See all data" pinned to the right). */}
+      <DetailFilterBar
+        area={area}
+        initiativeName={initiativeName}
+        extras={extras}
+        onAreaChange={setArea}
+        onInitiativeChange={setInitiativeName}
+        onExtraChange={setExtra}
+        timeRange={timeRange}
+        timeRanges={TIME_RANGES}
+        onTimeRangeChange={setTimeRange}
+        availableViewLevels={!isCentralLevelMetric ? availableViewLevels : []}
+        viewLabel={effectiveViewLabel}
+        onViewLevelChange={setViewLevel}
+        seeAllHref={seeAllHref}
+      />
 
-      <main className="grid min-h-0 flex-1 grid-cols-[200px_minmax(0,1fr)_420px]">
-        {/* ── LEFT: filter rail ─────────────────────────────────────── */}
-        <DetailFilterRail
-          area={area}
-          initiativeName={initiativeName}
-          extras={extras}
-          onAreaChange={setArea}
-          onInitiativeChange={setInitiativeName}
-          onExtraChange={setExtra}
-          timeRange={timeRange}
-          timeRanges={TIME_RANGES}
-          onTimeRangeChange={setTimeRange}
-          availableViewLevels={!isCentralLevelMetric ? availableViewLevels : []}
-          viewLabel={effectiveViewLabel}
-          onViewLevelChange={setViewLevel}
-        />
-
+      <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px]">
         {/* ── CENTRE: map (≈70% of viewport) ────────────────────────── */}
         <section
           className="relative flex min-h-0 flex-col bg-white"

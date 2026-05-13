@@ -1,12 +1,15 @@
-// FILE: src/components/layout/DetailFilterRail.tsx
-// PURPOSE: Vertical filter rail for the Detailed Report page (left column
-//          of the three-column layout). Holds Initiative, State, City,
-//          RTO, time range, view level (State/City/RTO) and any
-//          initiative-specific extras as one stacked, quietly-styled list
-//          — a Jony-Ive-style minimal control surface that gets out of
-//          the map's way.
+// FILE: src/components/layout/DetailFilterBar.tsx
+// PURPOSE: Horizontal filter strip for the Detailed Report page. Replaces
+//          the old vertical left rail + breadcrumb bar — every scoping
+//          control (Initiative, State, City, RTO, initiative-specific
+//          extras, Time period, View) lives inline in the page's 2nd
+//          bar, with the "See all data" CTA pushed to the right.
+//
+// Selected state is loud on purpose: blue chip, blue label, blue dot.
+// One glance tells the user which filters they've narrowed.
 
 import { ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   INITIATIVES,
   STATES,
@@ -21,7 +24,7 @@ import { cn } from '@/lib/utils';
 export type ViewLabel = 'State' | 'City' | 'RTO';
 export type TimeRange = '1M' | '3M' | '6M' | '12M' | 'All';
 
-interface DetailFilterRailProps {
+interface DetailFilterBarProps {
   area: AreaFilterValue;
   initiativeName: string;
   extras: Record<string, string>;
@@ -36,9 +39,11 @@ interface DetailFilterRailProps {
   availableViewLevels: readonly ViewLabel[];
   viewLabel: ViewLabel;
   onViewLevelChange: (v: ViewLevel) => void;
+
+  seeAllHref: string;
 }
 
-export default function DetailFilterRail({
+export default function DetailFilterBar({
   area,
   initiativeName,
   extras,
@@ -51,40 +56,38 @@ export default function DetailFilterRail({
   availableViewLevels,
   viewLabel,
   onViewLevelChange,
-}: DetailFilterRailProps) {
+  seeAllHref,
+}: DetailFilterBarProps) {
   const cityOptions = area.state
     ? UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? []
     : [];
   const rtoOptions = area.city ? RTO_OPTIONS_BY_CITY[area.city] ?? [] : [];
 
-  const slug =
-    INITIATIVES.find((i) => i.name === initiativeName)?.slug ?? '';
+  const slug = INITIATIVES.find((i) => i.name === initiativeName)?.slug ?? '';
   const config = INITIATIVE_CONFIGS[slug];
   const extraFilters = config?.extraFilters ?? [];
   const supportsRto = config?.geographyLevels.includes('rto') ?? false;
 
-  // A non-default initiative is one not equal to the first entry; it
-  // counts as a "user selection" for the highlight rule.
   const initiativeIsSelected = initiativeName !== INITIATIVES[0]?.name;
 
   return (
-    <aside
+    <div
+      role="region"
       aria-label="Filters"
-      className="flex h-full w-full flex-col gap-3 overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-surface-light)] px-3 py-4"
+      className="flex shrink-0 flex-wrap items-end gap-x-3 gap-y-2 border-b border-[var(--color-border)] bg-white px-5 py-2.5"
     >
-      <h2 className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
-        Filters
-      </h2>
-
-      <RailField
+      <BarField
         label="Initiative"
         value={initiativeName}
         onChange={onInitiativeChange}
         options={INITIATIVES.map((i) => ({ value: i.name, label: i.name }))}
         isSelected={initiativeIsSelected}
+        width="11rem"
       />
 
-      <RailField
+      <Divider />
+
+      <BarField
         label="State"
         value={area.state ?? ''}
         onChange={(v) => onAreaChange(v ? { state: v } : {})}
@@ -93,14 +96,11 @@ export default function DetailFilterRail({
         isSelected={!!area.state}
       />
 
-      <RailField
+      <BarField
         label="City"
         value={area.city ?? ''}
         onChange={(v) =>
-          onAreaChange({
-            state: area.state,
-            city: v || undefined,
-          })
+          onAreaChange({ state: area.state, city: v || undefined })
         }
         options={cityOptions.map((c) => ({ value: c, label: c }))}
         placeholder={area.state ? `All of ${area.state}` : 'Pick a state first'}
@@ -108,7 +108,7 @@ export default function DetailFilterRail({
         isSelected={!!area.city}
       />
 
-      <RailField
+      <BarField
         label="RTO"
         value={area.rto ?? ''}
         onChange={(v) =>
@@ -132,9 +132,9 @@ export default function DetailFilterRail({
 
       {extraFilters.length > 0 ? (
         <>
-          <div className="my-1 h-px bg-[var(--color-border)]" aria-hidden />
+          <Divider />
           {extraFilters.map((f) => (
-            <RailField
+            <BarField
               key={f.key}
               label={f.label}
               value={extras[f.key] ?? ''}
@@ -147,9 +147,9 @@ export default function DetailFilterRail({
         </>
       ) : null}
 
-      <div className="my-1 h-px bg-[var(--color-border)]" aria-hidden />
+      <Divider />
 
-      <RailField
+      <BarField
         label="Time period"
         value={timeRange}
         onChange={(v) => onTimeRangeChange(v as TimeRange)}
@@ -161,31 +161,39 @@ export default function DetailFilterRail({
       />
 
       {availableViewLevels.length > 0 ? (
-        <SegmentedControl
+        <SegmentedView
           label="View"
           options={availableViewLevels}
           value={viewLabel}
           onChange={(v) => onViewLevelChange(v.toLowerCase() as ViewLevel)}
         />
       ) : null}
-    </aside>
+
+      <div className="ml-auto self-end pb-0.5">
+        <Link
+          to={seeAllHref}
+          className="inline-flex items-center rounded-md bg-[var(--color-blue-link)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[var(--color-blue-header)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2"
+        >
+          See all data →
+        </Link>
+      </div>
+    </div>
   );
 }
 
-interface RailFieldProps {
+interface BarFieldProps {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
   disabled?: boolean;
-  /** When true, the field is shown in the "selected" state — accent ring
-   *  and a small dot beside the label. Lets the user spot which filters
-   *  they've narrowed without reading every value. */
   isSelected?: boolean;
+  /** Optional fixed width — Initiative needs more space than the others. */
+  width?: string;
 }
 
-function RailField({
+function BarField({
   label,
   value,
   onChange,
@@ -193,27 +201,17 @@ function RailField({
   placeholder,
   disabled,
   isSelected,
-}: RailFieldProps) {
+  width,
+}: BarFieldProps) {
   const active = !!isSelected && !disabled;
   return (
-    <label
-      className={cn(
-        'relative flex flex-col gap-1 rounded-md transition-colors',
-        active && 'bg-[var(--color-blue-pale)] pl-2 pr-1 py-1.5 -mx-1',
-      )}
-    >
-      {active ? (
-        <span
-          className="pointer-events-none absolute inset-y-1 left-0 w-[3px] rounded-full bg-[var(--color-blue-link)]"
-          aria-hidden
-        />
-      ) : null}
+    <label className="flex min-w-[7rem] flex-col gap-1" style={width ? { width } : undefined}>
       <span
         className={cn(
-          'flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide',
+          'flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.08em]',
           active
             ? 'text-[var(--color-blue-link)]'
-            : 'text-[var(--color-text-secondary)]',
+            : 'text-[var(--color-text-muted)]',
         )}
       >
         {label}
@@ -231,12 +229,12 @@ function RailField({
           disabled={disabled}
           aria-label={label}
           className={cn(
-            'w-full appearance-none rounded-md border bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-[var(--color-text-primary)]',
+            'h-8 w-full appearance-none rounded-md border px-2.5 pr-7 text-xs',
             'focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-link)]',
             'disabled:cursor-not-allowed disabled:bg-[var(--color-surface-grey)] disabled:text-[var(--color-text-muted)]',
             active
-              ? 'border-[var(--color-blue-link)] font-semibold text-[var(--color-blue-link)] ring-1 ring-[var(--color-blue-link)]'
-              : 'border-[var(--color-border)]',
+              ? 'border-[var(--color-blue-link)] bg-[var(--color-blue-pale)] font-semibold text-[var(--color-blue-link)] ring-1 ring-[var(--color-blue-link)]'
+              : 'border-[var(--color-border)] bg-white font-medium text-[var(--color-text-primary)]',
           )}
         >
           {placeholder !== undefined ? (
@@ -262,7 +260,7 @@ function RailField({
   );
 }
 
-function SegmentedControl({
+function SegmentedView({
   label,
   options,
   value,
@@ -275,13 +273,13 @@ function SegmentedControl({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+      <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
         {label}
       </span>
       <div
         role="radiogroup"
         aria-label={label}
-        className="inline-flex w-full rounded-md border border-[var(--color-border)] bg-white p-0.5"
+        className="inline-flex h-8 rounded-md border border-[var(--color-border)] bg-white p-0.5"
       >
         {options.map((opt) => {
           const isActive = opt === value;
@@ -293,7 +291,7 @@ function SegmentedControl({
               aria-checked={isActive}
               onClick={() => onChange(opt)}
               className={cn(
-                'min-h-[26px] flex-1 rounded-[5px] px-2 py-1 text-[11px] font-semibold transition-colors',
+                'min-w-[40px] rounded-[5px] px-2.5 text-[11px] font-semibold transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]',
                 isActive
                   ? 'bg-[var(--color-blue-link)] text-white shadow-sm'
@@ -306,5 +304,14 @@ function SegmentedControl({
         })}
       </div>
     </div>
+  );
+}
+
+function Divider() {
+  return (
+    <span
+      aria-hidden
+      className="self-stretch border-l border-[var(--color-border)] my-1"
+    />
   );
 }
