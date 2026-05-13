@@ -94,11 +94,10 @@ export const INITIATIVES: Initiative[] = [
     primaryMetric: 'Route coverage achieved',
     summaryCard: {
       description: 'Route coverage achieved (km)',
-      variant: 'three-donuts',
-      trio: [
+      variant: 'two-donuts',
+      bars: [
         { label: '>15m',     target: 800, achieved: 560 },
         { label: '10–15m',   target: 600, achieved: 300 },
-        { label: '<10m',     target: 400, achieved: 100 },
       ],
     },
     metrics: [

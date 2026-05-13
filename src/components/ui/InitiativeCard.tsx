@@ -82,7 +82,7 @@ export default function InitiativeCard({
         className,
       )}
     >
-      <h3 className="text-sm font-semibold leading-tight text-[#44444F]">
+      <h3 className="text-base font-semibold leading-tight text-[#44444F]">
         {initiative.name}
       </h3>
 
