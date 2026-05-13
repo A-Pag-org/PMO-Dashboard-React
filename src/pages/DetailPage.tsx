@@ -426,6 +426,7 @@ export default function DetailPage() {
                     <FilterPill
                       label="State"
                       variant="onLight"
+                      className="w-[176px]"
                       value={area.state ?? ''}
                       placeholder="All Delhi NCR"
                       options={STATES}
@@ -436,6 +437,7 @@ export default function DetailPage() {
                     <FilterPill
                       label="City"
                       variant="onLight"
+                      className="w-[176px]"
                       value={area.city ?? ''}
                       placeholder={
                         area.state ? `All of ${area.state}` : 'Pick a state first'
@@ -455,6 +457,7 @@ export default function DetailPage() {
                     <FilterPill
                       label="RTO"
                       variant="onLight"
+                      className="w-[176px]"
                       value={area.rto ?? ''}
                       placeholder={
                         area.city
