@@ -519,7 +519,7 @@ function MetricsPanel({
         <MetricGroup
           title="Progress metrics"
           count={progressMetrics.length}
-          defaultOpen
+          defaultOpen={false}
         >
           {progressMetrics.map((m) => (
             <MetricCard
