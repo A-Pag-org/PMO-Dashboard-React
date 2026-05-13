@@ -49,7 +49,7 @@ export default function FilterPill({
   return (
     <label
       className={cn(
-        'relative inline-flex h-[38px] items-center rounded-full pl-[9px] pr-[6px]',
+        'relative flex h-[38px] w-fit items-center rounded-full pl-[9px] pr-[6px]',
         isLight
           ? 'border border-[var(--color-border)] bg-white shadow-sm'
           : '[background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)]',
@@ -75,7 +75,7 @@ export default function FilterPill({
       />
       <span
         className={cn(
-          'inline-flex h-[28px] max-w-[180px] items-center rounded-full px-3 font-["Roboto",sans-serif] text-[12px] font-semibold leading-[18px] text-[#2E4B8F]',
+          'flex h-[28px] min-w-0 flex-1 items-center rounded-full px-3 font-["Roboto",sans-serif] text-[12px] font-semibold leading-[18px] text-[#2E4B8F]',
           '[background:linear-gradient(180deg,#ECECEC_20.59%,#FFFFFF_85.35%)]',
         )}
       >
