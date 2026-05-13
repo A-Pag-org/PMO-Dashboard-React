@@ -1,15 +1,13 @@
 // FILE: src/components/ui/TimeRangePill.tsx
-// PURPOSE: Glassy pill containing the time-range segmented control —
-//          Last 3M · Last 6M · Till Date · Custom. The selected tab
-//          renders as a white-gradient chip in #2E4B8F text; the others
-//          sit on the translucent background. Picking "Custom" opens a
-//          popover with two native date pickers (From / To) so the user
-//          chooses year, month and day before applying.
+// PURPOSE: Glassy "Select date" pill for the navy filter bar. Click
+//          opens an anchored popover with two native date inputs
+//          (From / To) so the user can pick year, month and day for
+//          both ends of a custom range. Once applied, the pill's value
+//          chip compacts to "DD Mon → DD Mon".
 
 import { useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-export type TimePreset = 'Last 3M' | 'Last 6M' | 'Till Date' | 'Custom';
 
 export interface CustomRange {
   /** ISO YYYY-MM-DD. */
@@ -18,14 +16,10 @@ export interface CustomRange {
 }
 
 interface TimeRangePillProps {
-  value: TimePreset;
-  onChange: (preset: TimePreset) => void;
   customRange?: CustomRange;
   onCustomRangeChange?: (range: CustomRange) => void;
   className?: string;
 }
-
-const PRESETS: TimePreset[] = ['Last 3M', 'Last 6M', 'Till Date', 'Custom'];
 
 function todayISO(): string {
   const d = new Date();
@@ -50,13 +44,11 @@ function formatRangeShort(range: CustomRange): string {
       `${d.getDate()} ${d.toLocaleString('en-IN', { month: 'short' })}`;
     return `${fmt(f)} → ${fmt(t)}`;
   } catch {
-    return 'Custom';
+    return 'Select date';
   }
 }
 
 export default function TimeRangePill({
-  value,
-  onChange,
   customRange,
   onCustomRangeChange,
   className,
@@ -91,57 +83,50 @@ export default function TimeRangePill({
     }
   }, [customRange]);
 
-  function selectPreset(p: TimePreset) {
-    if (p === 'Custom') {
-      onChange('Custom');
-      setPopoverOpen(true);
-      return;
-    }
-    onChange(p);
-    setPopoverOpen(false);
-  }
-
   function applyCustom() {
     if (draftFrom && draftTo && onCustomRangeChange) {
       onCustomRangeChange({ from: draftFrom, to: draftTo });
     }
-    onChange('Custom');
     setPopoverOpen(false);
   }
 
+  const hasRange = !!customRange;
+  const chipText = hasRange ? formatRangeShort(customRange) : 'Select date';
+
   return (
     <div ref={rootRef} className={cn('relative', className)}>
-      <div
-        role="radiogroup"
-        aria-label="Time range"
-        className="inline-flex h-[38px] items-center gap-[4px] rounded-full px-[5px] [background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)]"
+      <button
+        type="button"
+        onClick={() => setPopoverOpen((v) => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={popoverOpen}
+        aria-label="Select date range"
+        className="relative inline-flex h-[38px] cursor-pointer items-center rounded-full pl-[9px] pr-[6px] [background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       >
-        {PRESETS.map((p) => {
-          const isActive = p === value;
-          const displayText =
-            p === 'Custom' && isActive && customRange
-              ? formatRangeShort(customRange)
-              : p;
-          return (
-            <button
-              key={p}
-              type="button"
-              role="radio"
-              aria-checked={isActive}
-              onClick={() => selectPreset(p)}
-              className={cn(
-                'inline-flex h-[28px] items-center justify-center whitespace-nowrap rounded-full px-3 font-["Roboto",sans-serif] text-[12px] leading-[18px] transition-all',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60',
-                isActive
-                  ? 'font-semibold text-[#2E4B8F] [background:linear-gradient(180deg,#ECECEC_20.59%,#FFFFFF_85.35%)]'
-                  : 'font-medium text-[#FFF6E8] hover:bg-white/10 [text-shadow:0_0_3px_rgba(0,0,0,0.15)]',
-              )}
-            >
-              {displayText}
-            </button>
-          );
-        })}
-      </div>
+        <span className="select-none whitespace-nowrap font-['Roboto',sans-serif] text-[12px] font-normal leading-[14px] tracking-[0.1px] text-white">
+          Date:
+        </span>
+        <span
+          aria-hidden
+          className="mx-[5px] h-[38px] w-px shrink-0 bg-[#F1F1F5]"
+        />
+        <span
+          className={cn(
+            'inline-flex h-[28px] max-w-[200px] items-center rounded-full px-3 font-["Roboto",sans-serif] text-[12px] font-semibold leading-[18px] text-[#2E4B8F]',
+            '[background:linear-gradient(180deg,#ECECEC_20.59%,#FFFFFF_85.35%)]',
+          )}
+        >
+          <span className="truncate">{chipText}</span>
+        </span>
+        <span
+          aria-hidden
+          className="ml-[6px] mr-[2px] h-[38px] w-px shrink-0 bg-[#F1F1F5]"
+        />
+        <ChevronDown
+          className="ml-[4px] h-4 w-4 shrink-0 text-white/95"
+          aria-hidden
+        />
+      </button>
 
       {popoverOpen ? (
         <div
@@ -150,7 +135,7 @@ export default function TimeRangePill({
           className="absolute right-0 top-[44px] z-50 w-[300px] rounded-lg border border-[var(--color-border)] bg-white p-4 shadow-xl"
         >
           <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-            Custom range
+            Select date
           </h3>
           <div className="mt-3 flex flex-col gap-3">
             <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--color-text-secondary)]">

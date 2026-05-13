@@ -27,7 +27,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
-import type { TimeRange, CustomRange, ViewLabel } from '@/components/layout/DetailFilterBar';
+import type { CustomRange, ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricCard from '@/components/ui/MetricCard';
 import MapRankingChart from '@/components/ui/MapRankingChart';
 import RankingPopup from '@/components/ui/RankingPopup';
@@ -40,8 +40,10 @@ import {
   STATES,
   CITY_STATE_MAP,
   RTO_OPTIONS_BY_CITY,
+  UPLOAD_CITY_OPTIONS_BY_STATE,
   MOCK_DETAIL_MAP_DATA,
 } from '@/lib/constants';
+import FilterPill from '@/components/ui/FilterPill';
 import {
   getMetricByState,
   getMetricValueForArea,
@@ -156,7 +158,6 @@ export default function DetailPage() {
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
-  const [timeRange, setTimeRange] = useState<TimeRange>('Last 6M');
   const [customRange, setCustomRange] = useState<CustomRange | undefined>(undefined);
   const [rankingOpen, setRankingOpen] = useState(false);
   const [trendOpen, setTrendOpen] = useState(false);
@@ -185,6 +186,7 @@ export default function DetailPage() {
   );
 
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
+  const supportsState = initiativeConfig?.geographyLevels.includes('state') ?? true;
   const supportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
   const supportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
 
@@ -306,11 +308,8 @@ export default function DetailPage() {
         area={area}
         initiativeName={initiativeName}
         extras={extras}
-        onAreaChange={setArea}
         onInitiativeChange={setInitiativeName}
         onExtraChange={setExtra}
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
         customRange={customRange}
         onCustomRangeChange={setCustomRange}
         availableViewLevels={!isCentralLevelMetric ? availableViewLevels : []}
@@ -402,7 +401,7 @@ export default function DetailPage() {
             ) : null}
 
             {!isCentralLevelMetric && ranking.length > 0 ? (
-              <div className="pointer-events-none absolute left-3 top-3 flex flex-col gap-2">
+              <div className="pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-2">
                 <MapRankingChart
                   rows={ranking}
                   level={effectiveViewLabel}
@@ -417,6 +416,65 @@ export default function DetailPage() {
                     onMaximise={() => setTrendOpen(true)}
                   />
                 ) : null}
+
+                {/* Geography scoping — moved out of the navy filter bar
+                    to keep the bar slim. Sits stacked under the trend
+                    widget on the white map area so it stays close to
+                    what it actually filters. */}
+                <div className="pointer-events-auto flex flex-col gap-1.5">
+                  {supportsState ? (
+                    <FilterPill
+                      label="State"
+                      variant="onLight"
+                      value={area.state ?? ''}
+                      placeholder="All Delhi NCR"
+                      options={STATES}
+                      onChange={(v) => setArea(v ? { state: v } : {})}
+                    />
+                  ) : null}
+                  {supportsCity ? (
+                    <FilterPill
+                      label="City"
+                      variant="onLight"
+                      value={area.city ?? ''}
+                      placeholder={
+                        area.state ? `All of ${area.state}` : 'Pick a state first'
+                      }
+                      options={
+                        area.state
+                          ? UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? []
+                          : []
+                      }
+                      disabled={!area.state}
+                      onChange={(v) =>
+                        setArea({ state: area.state, city: v || undefined })
+                      }
+                    />
+                  ) : null}
+                  {supportsRto ? (
+                    <FilterPill
+                      label="RTO"
+                      variant="onLight"
+                      value={area.rto ?? ''}
+                      placeholder={
+                        area.city
+                          ? `All RTOs in ${area.city}`
+                          : 'Pick a city first'
+                      }
+                      options={
+                        area.city ? RTO_OPTIONS_BY_CITY[area.city] ?? [] : []
+                      }
+                      disabled={!area.city}
+                      onChange={(v) =>
+                        setArea({
+                          state: area.state,
+                          city: area.city,
+                          rto: v || undefined,
+                        })
+                      }
+                    />
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
