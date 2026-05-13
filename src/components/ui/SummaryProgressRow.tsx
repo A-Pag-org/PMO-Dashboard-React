@@ -58,7 +58,7 @@ export default function SummaryProgressRow({
         </span>
       </div>
 
-      <span className="w-16 shrink-0 text-right text-[10px] font-semibold tabular-nums text-[#1F2937]">
+      <span className="w-24 shrink-0 whitespace-nowrap text-right text-[10px] font-semibold tabular-nums text-[#1F2937]">
         {hasTarget
           ? `${formatNumber(achieved)} / ${formatNumber(target)}`
           : formatNumber(achieved)}
