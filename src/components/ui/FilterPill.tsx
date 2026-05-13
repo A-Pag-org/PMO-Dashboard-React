@@ -5,15 +5,19 @@
 //          <select> is layered invisibly on top so keyboard and screen-
 //          reader users get the full OS-native dropdown experience.
 //
-// Variant:
+// Variants:
 //   · "onNavy"  (default) — drops onto the dark filter bar; label is
 //                            white, chevron white.
-//   · "onLight"            — for white-area placements (e.g. stacked
-//                            under the trend graph on the map). The
-//                            outer capsule keeps its glassy feel via
-//                            a subtle white tint + border instead of
-//                            the translucent grey, and the label /
-//                            chevron switch to muted navy.
+//   · "onLight"            — for white-area placements. Subtle border
+//                            + white background instead of the glassy
+//                            grey; label and chevron switch to muted
+//                            navy.
+//
+// Compact mode (`compact={true}`) collapses the pill to just the
+// label and the chevron — no colon, no separator, no value chip.
+// A small accent dot appears next to the label when a value is
+// actually selected so the user can tell at a glance whether the
+// filter is in use.
 
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -27,6 +31,8 @@ interface FilterPillProps {
   displayValue?: string;
   disabled?: boolean;
   variant?: 'onNavy' | 'onLight';
+  /** Label-only mode: render just the label + chevron. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -39,12 +45,76 @@ export default function FilterPill({
   displayValue,
   disabled,
   variant = 'onNavy',
+  compact = false,
   className,
 }: FilterPillProps) {
   const visibleText =
     displayValue ?? (value === '' && placeholder ? placeholder : value);
 
   const isLight = variant === 'onLight';
+  const hasValue = value !== '';
+
+  if (compact) {
+    return (
+      <label
+        className={cn(
+          'relative flex h-[38px] w-fit items-center gap-[6px] rounded-full px-[14px]',
+          isLight
+            ? 'border border-[var(--color-border)] bg-white shadow-sm'
+            : '[background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)]',
+          disabled ? 'opacity-60' : 'cursor-pointer',
+          className,
+        )}
+        aria-label={label}
+        title={hasValue ? `${label}: ${visibleText}` : label}
+      >
+        <span
+          className={cn(
+            "select-none whitespace-nowrap font-['Roboto',sans-serif] text-[12px] font-semibold leading-[18px]",
+            isLight ? 'text-[var(--color-text-secondary)]' : 'text-white',
+          )}
+        >
+          {label}
+        </span>
+        {hasValue ? (
+          <span
+            aria-hidden
+            className={cn(
+              'inline-block h-[6px] w-[6px] shrink-0 rounded-full',
+              isLight ? 'bg-[var(--color-blue-link)]' : 'bg-[#DDE624]',
+            )}
+            title={visibleText}
+          />
+        ) : null}
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 shrink-0',
+            isLight ? 'text-[var(--color-text-secondary)]' : 'text-white/95',
+          )}
+          aria-hidden
+        />
+
+        <select
+          aria-label={label}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        >
+          {placeholder !== undefined ? (
+            <option value="">{placeholder}</option>
+          ) : null}
+          {(options as string[])
+            .filter((o) => o !== '')
+            .map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+        </select>
+      </label>
+    );
+  }
 
   return (
     <label

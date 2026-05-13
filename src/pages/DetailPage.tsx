@@ -40,10 +40,8 @@ import {
   STATES,
   CITY_STATE_MAP,
   RTO_OPTIONS_BY_CITY,
-  UPLOAD_CITY_OPTIONS_BY_STATE,
   MOCK_DETAIL_MAP_DATA,
 } from '@/lib/constants';
-import FilterPill from '@/components/ui/FilterPill';
 import {
   getMetricByState,
   getMetricValueForArea,
@@ -186,7 +184,6 @@ export default function DetailPage() {
   );
 
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
-  const supportsState = initiativeConfig?.geographyLevels.includes('state') ?? true;
   const supportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
   const supportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
 
@@ -308,6 +305,7 @@ export default function DetailPage() {
         area={area}
         initiativeName={initiativeName}
         extras={extras}
+        onAreaChange={setArea}
         onInitiativeChange={setInitiativeName}
         onExtraChange={setExtra}
         customRange={customRange}
@@ -416,68 +414,6 @@ export default function DetailPage() {
                     onMaximise={() => setTrendOpen(true)}
                   />
                 ) : null}
-
-                {/* Geography scoping — moved out of the navy filter bar
-                    to keep the bar slim. Sits stacked under the trend
-                    widget on the white map area so it stays close to
-                    what it actually filters. */}
-                <div className="pointer-events-auto flex flex-col gap-1.5">
-                  {supportsState ? (
-                    <FilterPill
-                      label="State"
-                      variant="onLight"
-                      className="w-[176px]"
-                      value={area.state ?? ''}
-                      placeholder="All Delhi NCR"
-                      options={STATES}
-                      onChange={(v) => setArea(v ? { state: v } : {})}
-                    />
-                  ) : null}
-                  {supportsCity ? (
-                    <FilterPill
-                      label="City"
-                      variant="onLight"
-                      className="w-[176px]"
-                      value={area.city ?? ''}
-                      placeholder={
-                        area.state ? `All of ${area.state}` : 'Pick a state first'
-                      }
-                      options={
-                        area.state
-                          ? UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? []
-                          : []
-                      }
-                      disabled={!area.state}
-                      onChange={(v) =>
-                        setArea({ state: area.state, city: v || undefined })
-                      }
-                    />
-                  ) : null}
-                  {supportsRto ? (
-                    <FilterPill
-                      label="RTO"
-                      variant="onLight"
-                      className="w-[176px]"
-                      value={area.rto ?? ''}
-                      placeholder={
-                        area.city
-                          ? `All RTOs in ${area.city}`
-                          : 'Pick a city first'
-                      }
-                      options={
-                        area.city ? RTO_OPTIONS_BY_CITY[area.city] ?? [] : []
-                      }
-                      disabled={!area.city}
-                      onChange={(v) =>
-                        setArea({
-                          state: area.state,
-                          city: area.city,
-                          rto: v || undefined,
-                        })
-                      }
-                    />
-                  ) : null}
-                </div>
               </div>
             ) : null}
           </div>
