@@ -31,15 +31,15 @@ export default function DashboardSwitcher({
     <a
       href={actionPlanHref}
       className={cn(
-        'inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-[var(--color-blue-header)] bg-[var(--color-blue-header)] px-3 py-1.5 text-xs font-semibold tracking-wide text-white transition-colors sm:text-sm',
-        'hover:bg-[var(--color-navy-mid)] hover:border-[var(--color-navy-mid)]',
+        "inline-flex h-9 items-center gap-[6px] rounded-[4px] bg-[#2E4B8F] px-4 py-[9px] font-['Poppins',sans-serif] text-[12px] font-medium leading-[18px] text-white transition-colors",
+        'hover:bg-[var(--color-navy-mid)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
         className,
       )}
       aria-label="Go to Action-plan Dashboard"
     >
       <span>Go to Action-plan Dashboard</span>
-      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      <ExternalLink className="h-3 w-3" aria-hidden />
     </a>
   );
 }

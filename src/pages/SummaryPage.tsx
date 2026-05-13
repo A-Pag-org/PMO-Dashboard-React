@@ -9,10 +9,11 @@
 //   - Footer with the completion-threshold legend on the right.
 
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import InitiativeCard from '@/components/ui/InitiativeCard';
 import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
+import FilterPill from '@/components/ui/FilterPill';
+import HeaderStatusChip from '@/components/ui/HeaderStatusChip';
 import { INITIATIVES, STATES } from '@/lib/constants';
 import type { StateName } from '@/lib/constants';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
@@ -40,14 +41,17 @@ export default function SummaryPage() {
     <div className="flex h-screen flex-col overflow-hidden bg-[#F7F7F7]">
       <TopBar activePage="summary" pageTitle="SUMMARY PAGE" />
 
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-[#2E4B8F] px-8 py-3">
-        <h1 className="text-sm font-bold text-white">{headerLabel}</h1>
-        <FilterDropdown
-          label="State"
-          value={selectedState}
-          onChange={(v) => setSelectedState(v as StateFilter)}
-          options={STATE_FILTER_OPTIONS}
-        />
+      <div className="flex shrink-0 flex-wrap items-center gap-x-[8px] gap-y-[10px] bg-[#2E4B8F] px-[30px] py-[10px]">
+        <HeaderStatusChip />
+        <h1 className="sr-only">{headerLabel}</h1>
+        <div className="ml-auto flex flex-wrap items-center gap-[8px]">
+          <FilterPill
+            label="State"
+            value={selectedState}
+            options={STATE_FILTER_OPTIONS}
+            onChange={(v) => setSelectedState(v as StateFilter)}
+          />
+        </div>
       </div>
 
       <main className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
@@ -71,42 +75,3 @@ export default function SummaryPage() {
   );
 }
 
-interface FilterDropdownProps<T extends string> {
-  label: string;
-  value: T;
-  onChange: (v: T) => void;
-  options: readonly T[];
-}
-
-function FilterDropdown<T extends string>({
-  label,
-  value,
-  onChange,
-  options,
-}: FilterDropdownProps<T>) {
-  return (
-    <label className="flex items-center gap-2 text-xs font-medium text-white/90">
-      <span className="hidden uppercase tracking-wide text-white/70 sm:inline">
-        {label}
-      </span>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value as T)}
-          className="appearance-none rounded-full border border-white/30 bg-white/95 px-4 py-1.5 pr-8 text-xs font-semibold text-[#2E4B8F] shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60"
-          aria-label={`${label} filter`}
-        >
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#2E4B8F]"
-          aria-hidden
-        />
-      </div>
-    </label>
-  );
-}
