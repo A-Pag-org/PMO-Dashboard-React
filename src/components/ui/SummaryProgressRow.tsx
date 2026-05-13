@@ -31,12 +31,12 @@ export default function SummaryProgressRow({
     <div className="flex items-center gap-3">
       <span
         title={label}
-        className="w-14 shrink-0 truncate text-[10px] font-semibold uppercase tracking-wide text-[#44444F]"
+        className="w-12 shrink-0 truncate text-[10px] font-semibold uppercase tracking-wide text-[#6B7280]"
       >
         {label}
       </span>
 
-      <div className="relative h-4 flex-1">
+      <div className="relative h-3 flex-1">
         <div
           className="absolute inset-0 rounded-full"
           style={{ backgroundColor: remainder }}
@@ -51,14 +51,14 @@ export default function SummaryProgressRow({
           style={{ width: `${pct}%`, backgroundColor: filled }}
         />
         <span
-          className="pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[10px] font-semibold leading-none text-[#111827]"
+          className="pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[9px] font-semibold leading-none text-[#111827]"
           style={{ left: `calc(${labelLeft}% + 6px)` }}
         >
           {pct}%
         </span>
       </div>
 
-      <span className="w-16 shrink-0 text-right text-[10px] font-medium tabular-nums text-[#44444F]">
+      <span className="w-16 shrink-0 text-right text-[10px] font-semibold tabular-nums text-[#1F2937]">
         {hasTarget
           ? `${formatNumber(achieved)} / ${formatNumber(target)}`
           : formatNumber(achieved)}
