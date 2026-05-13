@@ -10,7 +10,8 @@
 //   - Footer pinned to bottom with mt-auto
 //
 // Spacing rhythm: p-6 outer · mt-5 title→chart · gap-2.5 between
-// stacked bars · mt-6 chart→description · mt-auto + pt-4 to footer.
+// stacked bars · mt-3 chart→description (tight, so the description
+// reads as a caption to the bars) · mt-auto + pt-4 to footer.
 
 import { TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -96,7 +97,7 @@ export default function InitiativeCard({
         <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
       </div>
 
-      <p className="mt-6 line-clamp-2 min-h-[2rem] text-xs leading-snug text-[#6B7280]">
+      <p className="mt-3 line-clamp-2 min-h-[2rem] text-xs leading-snug text-[#6B7280]">
         {cfg?.description ?? initiative.primaryMetric}
       </p>
 
