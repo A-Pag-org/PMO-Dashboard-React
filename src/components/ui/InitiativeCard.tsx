@@ -1,15 +1,16 @@
 // FILE: components/ui/InitiativeCard.tsx
 // PURPOSE: Summary-page initiative tile.
 //
-// Layout grammar (designed for grid coherence):
-//   - Heading block: title + 2-line clamped description (min-h reserved
-//     so every tile's chart starts at the same y across the row).
-//   - Chart block: min-h reserved + flex-1 + justify-center, so 1-bar
-//     and 2-bar tiles carry the same visual weight.
-//   - Footer pinned to bottom with mt-auto.
+// Layout (top → bottom):
+//   - Title
+//   - Chart block (min-h reserved + justify-center → 1-bar and 2-bar
+//     tiles carry the same visual weight)
+//   - Description (sits below the bars; min-h reserved so the footer
+//     lines up across tiles whether the description is 1 or 2 lines)
+//   - Footer pinned to bottom with mt-auto
 //
-// Spacing rhythm: p-6 outer · mt-1 title→desc · mt-5 desc→chart ·
-// gap-2.5 between stacked bars · mt-auto + pt-4 to footer.
+// Spacing rhythm: p-6 outer · mt-5 title→chart · gap-2.5 between
+// stacked bars · mt-6 chart→description · mt-auto + pt-4 to footer.
 
 import { TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -91,13 +92,13 @@ export default function InitiativeCard({
         {initiative.name}
       </h3>
 
-      <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs leading-snug text-[#6B7280]">
-        {cfg?.description ?? initiative.primaryMetric}
-      </p>
-
-      <div className="mt-5 flex min-h-[5rem] flex-1 flex-col justify-center gap-2.5">
+      <div className="mt-5 flex min-h-[5rem] flex-col justify-center gap-2.5">
         <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
       </div>
+
+      <p className="mt-6 line-clamp-2 min-h-[2rem] text-xs leading-snug text-[#6B7280]">
+        {cfg?.description ?? initiative.primaryMetric}
+      </p>
 
       <div className="mt-auto flex items-center justify-between pt-4">
         <span
