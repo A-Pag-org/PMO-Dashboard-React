@@ -1,10 +1,15 @@
 // FILE: components/ui/InitiativeCard.tsx
 // PURPOSE: Summary-page initiative tile.
-// DESIGN REF: Figma "Air-Pollution / Final for review" (Frame 45-12763).
 //
-// Spacing inside the card is intentionally explicit and uniform:
-//   24px padding · 20px between title→bars · 12px between stacked bars
-//   · 20px between bars→description · footer pinned to bottom with mt-auto.
+// Layout grammar (designed for grid coherence):
+//   - Heading block: title + 2-line clamped description (min-h reserved
+//     so every tile's chart starts at the same y across the row).
+//   - Chart block: min-h reserved + flex-1 + justify-center, so 1-bar
+//     and 2-bar tiles carry the same visual weight.
+//   - Footer pinned to bottom with mt-auto.
+//
+// Spacing rhythm: p-6 outer · mt-1 title→desc · mt-5 desc→chart ·
+// gap-2.5 between stacked bars · mt-auto + pt-4 to footer.
 
 import { TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -77,22 +82,22 @@ export default function InitiativeCard({
       to={detailHref}
       aria-label={`${initiative.name} – open detailed view for ${geographyLabel}`}
       className={cn(
-        'group relative flex h-full min-h-[240px] flex-col rounded-xl border border-[#E2E2EA] bg-white p-6 text-left transition-shadow',
+        'group relative flex h-full min-h-[260px] flex-col rounded-xl border border-[#E2E2EA] bg-white p-6 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)] transition-shadow',
         'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
         className,
       )}
     >
-      <h3 className="text-base font-semibold leading-tight text-[#44444F]">
+      <h3 className="text-base font-bold leading-tight text-[#1F2937]">
         {initiative.name}
       </h3>
 
-      <div className="mt-5 flex flex-col gap-3">
-        <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
-      </div>
-
-      <p className="mt-5 line-clamp-2 text-xs leading-snug text-[#92929D]">
+      <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs leading-snug text-[#6B7280]">
         {cfg?.description ?? initiative.primaryMetric}
       </p>
+
+      <div className="mt-5 flex min-h-[5rem] flex-1 flex-col justify-center gap-2.5">
+        <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
+      </div>
 
       <div className="mt-auto flex items-center justify-between pt-4">
         <span
