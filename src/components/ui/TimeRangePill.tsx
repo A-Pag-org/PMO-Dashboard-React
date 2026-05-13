@@ -4,8 +4,18 @@
 //          (From / To) so the user can pick year, month and day for
 //          both ends of a custom range. Once applied, the pill's value
 //          chip compacts to "DD Mon → DD Mon".
+//
+// The popover is rendered through a React portal directly into
+// document.body so it can escape ancestor clipping. The Detail-page
+// filter bar uses `overflow-x-auto` (which implicitly clips the Y
+// axis) and the page's outer shell is `overflow-hidden`, so an
+// inline-absolute popover would be cropped before the user ever saw
+// the date inputs. Positioning is recomputed against the trigger
+// button's bounding rect on open / window resize so the popover
+// stays anchored under the pill.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +30,9 @@ interface TimeRangePillProps {
   onCustomRangeChange?: (range: CustomRange) => void;
   className?: string;
 }
+
+const POPOVER_WIDTH = 300;
+const POPOVER_GAP = 6;
 
 function todayISO(): string {
   const d = new Date();
@@ -54,16 +67,46 @@ export default function TimeRangePill({
   className,
 }: TimeRangePillProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [draftFrom, setDraftFrom] = useState(
     customRange?.from ?? monthsAgoISO(1),
   );
   const [draftTo, setDraftTo] = useState(customRange?.to ?? todayISO());
-  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Recompute popover position whenever it opens, the user scrolls or
+  // the window resizes, so it tracks the trigger exactly.
+  useLayoutEffect(() => {
+    if (!popoverOpen) return;
+    function place() {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      // Anchor right edge of popover to right edge of trigger so it
+      // doesn't fall off-screen on narrow viewports.
+      const left = Math.max(8, rect.right - POPOVER_WIDTH);
+      const top = rect.bottom + POPOVER_GAP;
+      setPopoverPos({ top, left });
+    }
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [popoverOpen]);
 
   useEffect(() => {
     if (!popoverOpen) return;
     function handleDocClick(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setPopoverOpen(false);
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t)) return;
+      if (popoverRef.current?.contains(t)) return;
+      setPopoverOpen(false);
     }
     function handleEsc(e: KeyboardEvent) {
       if (e.key === 'Escape') setPopoverOpen(false);
@@ -94,14 +137,18 @@ export default function TimeRangePill({
   const chipText = hasRange ? formatRangeShort(customRange) : 'Select date';
 
   return (
-    <div ref={rootRef} className={cn('relative', className)}>
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setPopoverOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={popoverOpen}
         aria-label="Select date range"
-        className="relative inline-flex h-[38px] cursor-pointer items-center rounded-full pl-[9px] pr-[6px] [background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        className={cn(
+          'relative inline-flex h-[38px] cursor-pointer items-center rounded-full pl-[9px] pr-[6px] [background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60',
+          className,
+        )}
       >
         <span className="select-none whitespace-nowrap font-['Roboto',sans-serif] text-[12px] font-normal leading-[14px] tracking-[0.1px] text-white">
           Date:
@@ -128,57 +175,68 @@ export default function TimeRangePill({
         />
       </button>
 
-      {popoverOpen ? (
-        <div
-          role="dialog"
-          aria-label="Pick a custom date range"
-          className="absolute right-0 top-[44px] z-50 w-[300px] rounded-lg border border-[var(--color-border)] bg-white p-4 shadow-xl"
-        >
-          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-            Select date
-          </h3>
-          <div className="mt-3 flex flex-col gap-3">
-            <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--color-text-secondary)]">
-              From
-              <input
-                type="date"
-                value={draftFrom}
-                max={draftTo || undefined}
-                onChange={(e) => setDraftFrom(e.target.value)}
-                className="h-9 rounded-md border border-[var(--color-border)] px-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-blue-link)] focus:outline-none focus:ring-1 focus:ring-[var(--color-blue-link)]"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--color-text-secondary)]">
-              To
-              <input
-                type="date"
-                value={draftTo}
-                min={draftFrom || undefined}
-                max={todayISO()}
-                onChange={(e) => setDraftTo(e.target.value)}
-                className="h-9 rounded-md border border-[var(--color-border)] px-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-blue-link)] focus:outline-none focus:ring-1 focus:ring-[var(--color-blue-link)]"
-              />
-            </label>
-          </div>
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setPopoverOpen(false)}
-              className="rounded-md px-3 py-1.5 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)]"
+      {popoverOpen
+        ? createPortal(
+            <div
+              ref={popoverRef}
+              role="dialog"
+              aria-label="Pick a custom date range"
+              style={{
+                position: 'fixed',
+                top: popoverPos.top,
+                left: popoverPos.left,
+                width: POPOVER_WIDTH,
+                zIndex: 1000,
+              }}
+              className="rounded-lg border border-[var(--color-border)] bg-white p-4 shadow-xl"
             >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={applyCustom}
-              disabled={!draftFrom || !draftTo || draftFrom > draftTo}
-              className="rounded-md bg-[#2E4B8F] px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[var(--color-navy-mid)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </div>
+              <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+                Select date
+              </h3>
+              <div className="mt-3 flex flex-col gap-3">
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+                  From
+                  <input
+                    type="date"
+                    value={draftFrom}
+                    max={draftTo || undefined}
+                    onChange={(e) => setDraftFrom(e.target.value)}
+                    className="h-9 rounded-md border border-[var(--color-border)] px-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-blue-link)] focus:outline-none focus:ring-1 focus:ring-[var(--color-blue-link)]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+                  To
+                  <input
+                    type="date"
+                    value={draftTo}
+                    min={draftFrom || undefined}
+                    max={todayISO()}
+                    onChange={(e) => setDraftTo(e.target.value)}
+                    className="h-9 rounded-md border border-[var(--color-border)] px-2 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-blue-link)] focus:outline-none focus:ring-1 focus:ring-[var(--color-blue-link)]"
+                  />
+                </label>
+              </div>
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPopoverOpen(false)}
+                  className="rounded-md px-3 py-1.5 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={applyCustom}
+                  disabled={!draftFrom || !draftTo || draftFrom > draftTo}
+                  className="rounded-md bg-[#2E4B8F] px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[var(--color-navy-mid)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
