@@ -90,13 +90,14 @@ export default function MapTrendChart({
         type="button"
         onClick={onMaximise}
         aria-label="Maximise trend graph"
-        className="absolute right-1 top-1 z-10 rounded bg-white/85 p-0.5 text-[var(--color-text-primary)] shadow-sm ring-1 ring-[var(--color-border)] hover:bg-white hover:text-[var(--color-blue-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]"
+        className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-white px-2 py-1 text-[10px] font-semibold text-[var(--color-blue-link)] shadow-sm hover:bg-[var(--color-blue-pale)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-1"
       >
-        <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+        <Maximize2 className="h-3 w-3" aria-hidden />
+        <span>Expand</span>
       </button>
 
       <div className="opacity-55 transition-opacity group-hover:opacity-100">
-        <header className="pr-6">
+        <header className="pr-16">
           <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
             All NCR · 6 mo
           </span>
