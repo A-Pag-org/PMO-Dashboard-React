@@ -13,11 +13,12 @@ import type {
   MapCenterBubble,
 } from './types';
 
-// ─── 8 Initiatives (grid order from wireframe pages 7–8) ───────────────
+// ─── 9 Initiatives (grid order — two-bar tiles first, then single-bar) ─
 
-// Order (left→right, top→bottom) matches wireframe page 7:
-//   Row 1:  Naya Safar Yojana | CEMS/APCD installation | Road Repair | MRS
-//   Row 2:  C&D - SCC         | C&D - ICCC             | Green Contribution | Greening
+// Grid layout (3 columns, left→right, top→bottom):
+//   Row 1:  Naya Safar Yojana | CEMS/APCD          | MRS
+//   Row 2:  Stubble Burning   | Road Repair        | C&D - SCC
+//   Row 3:  C&D - ICCC        | Green Contribution | Greening
 export const INITIATIVES: Initiative[] = [
   {
     // ─── Spec §5 rows 1–7 ───────────────────────────────────────────────
@@ -66,28 +67,6 @@ export const INITIATIVES: Initiative[] = [
     ],
   },
   {
-    // ─── Spec §5 rows 14–20 ─────────────────────────────────────────────
-    name: 'Road Repair',
-    slug: 'road-repair',
-    primaryMetric: 'Road length for which repairs completed (km)',
-    summaryCard: {
-      // Donut chosen over the spec's "single bar" per customer override.
-      description: 'Road length for which repairs completed (km)',
-      variant: 'donut',
-      donut: { label: 'Length', target: 1200, achieved: 780 },
-    },
-    metrics: [
-      { name: 'Road length for which repairs completed (km)',     type: 'outcome',   target: 1200, achieved: 780, unit: 'km',  format: 'X/Y', dataSource: 'API (311 Apps)' },
-      { name: 'Road length for which tender published (km)',      type: 'progress',  target: 1500, achieved: 980, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
-      { name: 'Road length for which work order issued (km)',     type: 'progress',  target: 1500, achieved: 820, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
-      { name: 'Road length surveyed (km)',                        type: 'progress',  target: 1800, achieved: 1320, unit: 'km', format: 'X/Y', dataSource: 'API (311 Apps)' },
-      { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612, previousAchieved: 540,     format: 'Xx',  dataSource: 'API (311 Apps)' },
-      // Y/N — target = 1, achieved = 1 (Y) or 0 (N)
-      { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', dataSource: 'Manual' },
-      { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', dataSource: 'Manual' },
-    ],
-  },
-  {
     // ─── Spec §5 rows 21–34 ─────────────────────────────────────────────
     name: 'MRS',
     slug: 'mrs',
@@ -124,6 +103,50 @@ export const INITIATIVES: Initiative[] = [
       // Readiness — Y/N
       { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', dataSource: 'Manual' },
       { name: 'Digital tool to track road covered exists',    type: 'readiness', target: 1, achieved: 1, format: 'Y/N', dataSource: 'Manual' },
+    ],
+  },
+  {
+    // ─── Stubble Burning (added per Figma final design) ─────────────────
+    name: 'Stubble Burning',
+    slug: 'stubble-burning',
+    primaryMetric: 'Reduction in farm fires & area under mechanized harvesting',
+    summaryCard: {
+      description: 'Farm fires reduced & paddy area covered by mechanized harvesting',
+      variant: 'two-donuts',
+      bars: [
+        { label: 'Fires',    target: 50000,  achieved: 32000 },
+        { label: 'Area',     target: 100000, achieved: 45000 },
+      ],
+    },
+    metrics: [
+      { name: 'Reduction in farm fires vs baseline',           type: 'outcome',  target: 50000,  achieved: 32000, isInverse: true, format: 'X/Y', dataSource: 'API (ISRO / CREAMS)' },
+      { name: 'Paddy area covered by mechanized harvesting',   type: 'outcome',  target: 100000, achieved: 45000, unit: 'ha',      format: 'X/Y', dataSource: 'API (State Agri. Dept)' },
+      { name: 'Happy/Super Seeders distributed to farmers',    type: 'progress', target: 12000,  achieved: 7800,                   format: 'X/Y', dataSource: 'Manual (State Agri. Dept)' },
+      { name: 'Pusa decomposer sprays conducted (acres)',      type: 'progress', target: 80000,  achieved: 52000, unit: 'acres',   format: 'X/Y', dataSource: 'Manual (IARI / States)' },
+      { name: 'Farmers sensitized via outreach',               type: 'progress', target: null,   achieved: 26500, previousAchieved: 21000, format: 'Xx', dataSource: 'Manual (KVKs)' },
+      { name: 'State stubble-burning action plan published',   type: 'readiness', target: 1, achieved: 1,                          format: 'Y/N', dataSource: 'Manual' },
+    ],
+  },
+  {
+    // ─── Spec §5 rows 14–20 ─────────────────────────────────────────────
+    name: 'Road Repair',
+    slug: 'road-repair',
+    primaryMetric: 'Road length for which repairs completed (km)',
+    summaryCard: {
+      // Donut chosen over the spec's "single bar" per customer override.
+      description: 'Road length for which repairs completed (km)',
+      variant: 'donut',
+      donut: { label: 'Length', target: 1200, achieved: 780 },
+    },
+    metrics: [
+      { name: 'Road length for which repairs completed (km)',     type: 'outcome',   target: 1200, achieved: 780, unit: 'km',  format: 'X/Y', dataSource: 'API (311 Apps)' },
+      { name: 'Road length for which tender published (km)',      type: 'progress',  target: 1500, achieved: 980, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
+      { name: 'Road length for which work order issued (km)',     type: 'progress',  target: 1500, achieved: 820, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
+      { name: 'Road length surveyed (km)',                        type: 'progress',  target: 1800, achieved: 1320, unit: 'km', format: 'X/Y', dataSource: 'API (311 Apps)' },
+      { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612, previousAchieved: 540,     format: 'Xx',  dataSource: 'API (311 Apps)' },
+      // Y/N — target = 1, achieved = 1 (Y) or 0 (N)
+      { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', dataSource: 'Manual' },
+      { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', dataSource: 'Manual' },
     ],
   },
   {
@@ -197,28 +220,6 @@ export const INITIATIVES: Initiative[] = [
       { name: 'No. of bamboos planted',                                   type: 'progress',  target: 60000,  achieved: 12000,         format: 'X/Y', dataSource: 'Manual' },
       { name: 'Annual city-level greening action plan finalized',         type: 'progress',  target: 1, achieved: 1,                  format: 'Y/N', dataSource: 'Manual (Forest/Horticulture dept)' },
       { name: 'Phase 1 implementation of greening action plan initiated', type: 'progress',  target: 1, achieved: 0,                  format: 'Y/N', dataSource: 'Manual (Forest/Horticulture dept)' },
-    ],
-  },
-  {
-    // ─── Stubble Burning (added per Figma final design) ─────────────────
-    name: 'Stubble Burning',
-    slug: 'stubble-burning',
-    primaryMetric: 'Reduction in farm fires & area under mechanized harvesting',
-    summaryCard: {
-      description: 'Farm fires reduced & paddy area covered by mechanized harvesting',
-      variant: 'two-donuts',
-      bars: [
-        { label: 'Fires',    target: 50000,  achieved: 32000 },
-        { label: 'Area',     target: 100000, achieved: 45000 },
-      ],
-    },
-    metrics: [
-      { name: 'Reduction in farm fires vs baseline',           type: 'outcome',  target: 50000,  achieved: 32000, isInverse: true, format: 'X/Y', dataSource: 'API (ISRO / CREAMS)' },
-      { name: 'Paddy area covered by mechanized harvesting',   type: 'outcome',  target: 100000, achieved: 45000, unit: 'ha',      format: 'X/Y', dataSource: 'API (State Agri. Dept)' },
-      { name: 'Happy/Super Seeders distributed to farmers',    type: 'progress', target: 12000,  achieved: 7800,                   format: 'X/Y', dataSource: 'Manual (State Agri. Dept)' },
-      { name: 'Pusa decomposer sprays conducted (acres)',      type: 'progress', target: 80000,  achieved: 52000, unit: 'acres',   format: 'X/Y', dataSource: 'Manual (IARI / States)' },
-      { name: 'Farmers sensitized via outreach',               type: 'progress', target: null,   achieved: 26500, previousAchieved: 21000, format: 'Xx', dataSource: 'Manual (KVKs)' },
-      { name: 'State stubble-burning action plan published',   type: 'readiness', target: 1, achieved: 1,                          format: 'Y/N', dataSource: 'Manual' },
     ],
   },
 ];
