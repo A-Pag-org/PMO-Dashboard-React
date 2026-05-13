@@ -310,9 +310,6 @@ export default function DetailPage() {
         onExtraChange={setExtra}
         customRange={customRange}
         onCustomRangeChange={setCustomRange}
-        availableViewLevels={!isCentralLevelMetric ? availableViewLevels : []}
-        viewLabel={effectiveViewLabel}
-        onViewLevelChange={setViewLevel}
         seeAllHref={seeAllHref}
       />
 
