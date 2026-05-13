@@ -84,73 +84,76 @@ export default function MapTrendChart({
   return (
     <section
       aria-label="Trend graph"
-      className="pointer-events-auto w-[176px] rounded-md border border-[var(--color-border)] bg-white/95 p-1.5 shadow-md backdrop-blur-sm"
+      className="pointer-events-auto group relative w-[176px] rounded-md border border-[var(--color-border)]/40 bg-white/45 p-1.5 shadow-sm backdrop-blur-[2px] transition-opacity hover:bg-white/80"
     >
-      <header className="flex items-center justify-between gap-2">
-        <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
-          All NCR · 6 mo
-        </span>
-        <button
-          type="button"
-          onClick={onMaximise}
-          aria-label="Maximise trend graph"
-          className="rounded p-0.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] hover:text-[var(--color-blue-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]"
-        >
-          <Maximize2 className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      </header>
-
-      <div className="mt-1 flex items-center justify-between gap-2 px-0.5">
-        <span className="text-[12px] font-bold leading-none tabular-nums text-[var(--color-text-primary)]">
-          {fmt(last, unit)}
-        </span>
-        <span
-          className="inline-flex items-center gap-0.5 text-[9px] font-bold leading-none tabular-nums"
-          style={{ color: deltaColor }}
-          title={`Change vs ${series.points[0].label}`}
-        >
-          <DeltaIcon className="h-3 w-3" aria-hidden />
-          {flat
-            ? '—'
-            : `${delta > 0 ? '+' : ''}${fmt(Math.abs(delta), unit).replace('%', '')}${
-                unit === 'pct' ? ' pp' : ''
-              }`}
-        </span>
-      </div>
-
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%"
-        height={H}
-        className="mt-0.5 block"
-        role="img"
-        aria-label={`Trend from ${fmt(first, unit)} to ${fmt(last, unit)}`}
+      <button
+        type="button"
+        onClick={onMaximise}
+        aria-label="Maximise trend graph"
+        className="absolute right-1 top-1 z-10 rounded bg-white/85 p-0.5 text-[var(--color-text-primary)] shadow-sm ring-1 ring-[var(--color-border)] hover:bg-white hover:text-[var(--color-blue-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]"
       >
-        <path d={areaPath} fill={colors.bg} opacity={0.7} />
-        <path
-          d={linePath}
-          fill="none"
-          stroke={colors.fg}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle
-          cx={points[points.length - 1][0]}
-          cy={points[points.length - 1][1]}
-          r={2}
-          fill={colors.fg}
-        />
-      </svg>
+        <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+      </button>
 
-      <div className="mt-0.5 flex items-baseline justify-between text-[8px] font-medium tabular-nums text-[var(--color-text-muted)]">
-        <span>{series.points[0].label}</span>
-        <span>{series.points[series.points.length - 1].label}</span>
+      <div className="opacity-55 transition-opacity group-hover:opacity-100">
+        <header className="pr-6">
+          <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
+            All NCR · 6 mo
+          </span>
+        </header>
+
+        <div className="mt-1 flex items-center justify-between gap-2 px-0.5">
+          <span className="text-[12px] font-bold leading-none tabular-nums text-[var(--color-text-primary)]">
+            {fmt(last, unit)}
+          </span>
+          <span
+            className="inline-flex items-center gap-0.5 text-[9px] font-bold leading-none tabular-nums"
+            style={{ color: deltaColor }}
+            title={`Change vs ${series.points[0].label}`}
+          >
+            <DeltaIcon className="h-3 w-3" aria-hidden />
+            {flat
+              ? '—'
+              : `${delta > 0 ? '+' : ''}${fmt(Math.abs(delta), unit).replace('%', '')}${
+                  unit === 'pct' ? ' pp' : ''
+                }`}
+          </span>
+        </div>
+
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          height={H}
+          className="mt-0.5 block"
+          role="img"
+          aria-label={`Trend from ${fmt(first, unit)} to ${fmt(last, unit)}`}
+        >
+          <path d={areaPath} fill={colors.bg} opacity={0.7} />
+          <path
+            d={linePath}
+            fill="none"
+            stroke={colors.fg}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle
+            cx={points[points.length - 1][0]}
+            cy={points[points.length - 1][1]}
+            r={2}
+            fill={colors.fg}
+          />
+        </svg>
+
+        <div className="mt-0.5 flex items-baseline justify-between text-[8px] font-medium tabular-nums text-[var(--color-text-muted)]">
+          <span>{series.points[0].label}</span>
+          <span>{series.points[series.points.length - 1].label}</span>
+        </div>
+
+        <p className="mt-0.5 text-center text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-secondary)]">
+          Trend graph
+        </p>
       </div>
-
-      <p className="mt-0.5 text-center text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-secondary)]">
-        Trend graph
-      </p>
     </section>
   );
 }

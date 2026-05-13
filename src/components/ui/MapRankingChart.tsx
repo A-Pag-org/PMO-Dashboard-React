@@ -47,27 +47,30 @@ export default function MapRankingChart({
   return (
     <section
       aria-label={`Ranking graph by ${level}`}
-      className="pointer-events-auto w-[176px] rounded-md border border-[var(--color-border)] bg-white/95 p-1.5 shadow-md backdrop-blur-sm"
+      className="pointer-events-auto group relative w-[176px] rounded-md border border-[var(--color-border)]/40 bg-white/45 p-1.5 shadow-sm backdrop-blur-[2px] transition-opacity hover:bg-white/80"
     >
-      <header className="flex items-center justify-between gap-2">
-        <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
-          Top {top.length} · {level}
-        </span>
-        <button
-          type="button"
-          onClick={onMaximise}
-          aria-label="Maximise ranking graph"
-          className="rounded p-0.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-light)] hover:text-[var(--color-blue-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]"
-        >
-          <Maximize2 className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      </header>
+      <button
+        type="button"
+        onClick={onMaximise}
+        aria-label="Maximise ranking graph"
+        className="absolute right-1 top-1 z-10 rounded bg-white/85 p-0.5 text-[var(--color-text-primary)] shadow-sm ring-1 ring-[var(--color-border)] hover:bg-white hover:text-[var(--color-blue-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]"
+      >
+        <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+      </button>
 
-      <ChartBody rows={top} plotHeight={96} barMinHeight={6} compact />
+      <div className="opacity-55 transition-opacity group-hover:opacity-100">
+        <header className="pr-6">
+          <span className="text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">
+            Top {top.length} · {level}
+          </span>
+        </header>
 
-      <p className="mt-0.5 text-center text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-secondary)]">
-        Ranking graph
-      </p>
+        <ChartBody rows={top} plotHeight={96} barMinHeight={6} compact />
+
+        <p className="mt-0.5 text-center text-[9px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-secondary)]">
+          Ranking graph
+        </p>
+      </div>
     </section>
   );
 }
