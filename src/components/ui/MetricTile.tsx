@@ -68,8 +68,11 @@ export default function MetricTile({
           {metric.name}
         </p>
         {metric.isInverse ? (
-          <span className="shrink-0 rounded bg-[var(--color-tl-red-bg)] px-1 py-px text-[8px] font-bold uppercase text-[var(--color-tl-red-text)]">
-            Inverse
+          <span
+            className="shrink-0 rounded bg-[var(--color-tl-red-bg)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[var(--color-tl-red-text)]"
+            title="For this metric, lower values are better (e.g. fewer violations)."
+          >
+            Lower is better
           </span>
         ) : null}
       </header>
@@ -286,10 +289,22 @@ function Footer({
   isCentral: boolean;
 }) {
   const band = bandFor(metric);
-  const lowestLevel = isCentral ? 'Central' : metric.lowestLevelLabel;
-  const meta = [frequency === 'overall' ? 'Overall' : 'Monthly', lowestLevel]
-    .filter(Boolean)
-    .join(' · ');
+  const lowestLevel = isCentral ? 'No regional split' : metric.lowestLevelLabel;
+
+  // Plain-English meta. "Updated monthly" / "Cumulative only" reads
+  // straight; the drill-level part uses "Drills to X" so officials know
+  // immediately how deep they can go.
+  const freqLabel =
+    metric.format === 'Y/N'
+      ? 'Yes/No status'
+      : frequency === 'overall'
+      ? 'Cumulative only'
+      : 'Updated monthly';
+  const drillLabel = isCentral
+    ? 'No regional split'
+    : lowestLevel
+    ? `Drills to ${lowestLevel}`
+    : undefined;
 
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -297,6 +312,7 @@ function Footer({
         <span
           className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
           style={{ backgroundColor: band.bg, color: band.text }}
+          title={band.title}
         >
           <span
             aria-hidden
@@ -306,31 +322,49 @@ function Footer({
           {band.label}
         </span>
       ) : null}
-      <span className="text-[9px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
-        {meta}
+      <span
+        className="text-[10px] font-semibold text-[var(--color-text-muted)]"
+        title="How often this metric is updated, and the lowest geography it splits by."
+      >
+        {freqLabel}
+        {drillLabel ? ` · ${drillLabel}` : ''}
       </span>
     </div>
   );
 }
 
 function bandFor(metric: Metric):
-  | { label: string; bg: string; fg: string; text: string }
+  | { label: string; title: string; bg: string; fg: string; text: string }
   | null {
   if (metric.format === 'Y/N') {
     const isYes = metric.achieved === 1;
     const colors = getBandColors(isYes ? 'GREEN' : 'RED');
-    return { label: isYes ? 'Ready' : 'Not ready', ...colors };
+    return {
+      label: isYes ? 'Ready' : 'Not ready',
+      title: isYes
+        ? 'In place / completed.'
+        : 'Not yet in place — action required.',
+      ...colors,
+    };
   }
   if (metric.format === 'X/Y') {
     const pct = getCompletionPercentage(metric.target, metric.achieved);
-    const colors = getBandColors(getColorBand(pct, metric.isInverse));
+    const band = getColorBand(pct, metric.isInverse);
+    const colors = getBandColors(band);
     const label =
-      getColorBand(pct, metric.isInverse) === 'GREEN'
-        ? 'On track'
-        : getColorBand(pct, metric.isInverse) === 'YELLOW'
-        ? 'At risk'
-        : 'Behind';
-    return { label, ...colors };
+      band === 'GREEN' ? 'On track' : band === 'YELLOW' ? 'At risk' : 'Behind';
+    const title = metric.isInverse
+      ? band === 'GREEN'
+        ? 'Lower than 30% of total — within target (lower is better here).'
+        : band === 'YELLOW'
+        ? '30–60% of total — watch closely.'
+        : 'Above 60% of total — critical (lower is better here).'
+      : band === 'GREEN'
+      ? 'At or above 60% of target.'
+      : band === 'YELLOW'
+      ? '30–60% of target — at risk.'
+      : 'Below 30% of target — falling behind.';
+    return { label, title, ...colors };
   }
   return null;
 }

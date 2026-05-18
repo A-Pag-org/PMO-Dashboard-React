@@ -57,7 +57,7 @@ const REPORTING_MONTHS: { key: string; label: string }[] = (() => {
 export const DEFAULT_TIME_PERIOD: TimePeriod = { overall: true, months: [] };
 
 function labelFor(period: TimePeriod): string {
-  if (period.overall || period.months.length === 0) return 'Overall';
+  if (period.overall || period.months.length === 0) return 'All months';
   const ordered = REPORTING_MONTHS
     .filter((m) => period.months.includes(m.key))
     .map((m) => m.label);
@@ -184,11 +184,15 @@ export default function TimePeriodPill({
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
                   Reporting period
                 </h3>
+                <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
+                  Apr 2026 – Mar 2027. Pick one or more months, or leave on
+                  "All months to date" for the cumulative total.
+                </p>
               </div>
 
               <ul className="max-h-[320px] overflow-y-auto py-1">
                 <Row
-                  label="Overall (cumulative)"
+                  label="All months to date"
                   emphasis
                   checked={period.overall || period.months.length === 0}
                   onToggle={selectOverall}
