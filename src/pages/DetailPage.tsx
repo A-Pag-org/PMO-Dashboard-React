@@ -185,7 +185,14 @@ export default function DetailPage() {
 
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
   const supportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
-  const supportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
+  // RTO ranking has no real data yet — the toggle is therefore hidden
+  // until the API delivers RTO-level rows. The RTO *filter* pill in
+  // the navy bar is unaffected; only the in-panel ranking toggle is
+  // gated. Flip this back to `initiativeConfig?.geographyLevels.includes('rto')`
+  // once real data is available.
+  const HAS_RTO_RANKING_DATA = false;
+  const supportsRto =
+    (initiativeConfig?.geographyLevels.includes('rto') ?? false) && HAS_RTO_RANKING_DATA;
 
   const delhiOnlyRole = isDelhiOnlyRole(role);
   const isAtIndividualRto = !!area.rto;
