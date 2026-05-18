@@ -24,6 +24,7 @@ import { DEFAULT_TIME_PERIOD } from '@/components/ui/TimePeriodPill';
 import MetricTile from '@/components/ui/MetricTile';
 import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
+import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
 import {
   cn,
   formatNumber,
@@ -38,42 +39,11 @@ import {
   getMetricValueForArea,
 } from '@/lib/aggregation';
 import { getInitiativeConfig } from '@/lib/initiatives';
-import type { ColorBand, MapDataPoint, ViewLevel, Metric } from '@/lib/types';
+import type { MapDataPoint, ViewLevel, Metric } from '@/lib/types';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
-interface BandTally {
-  green: number;
-  yellow: number;
-  red: number;
-  /** Xx metrics — tracked but have no target / no band. */
-  untracked: number;
-  /** Total number of metrics surveyed. */
-  total: number;
-}
-
-function summariseMetrics(metrics: Metric[]): BandTally {
-  const out: BandTally = { green: 0, yellow: 0, red: 0, untracked: 0, total: 0 };
-  for (const m of metrics) {
-    out.total += 1;
-    if (m.format === 'Y/N') {
-      if (m.achieved === 1) out.green += 1;
-      else out.red += 1;
-      continue;
-    }
-    if (m.format === 'Xx') {
-      out.untracked += 1;
-      continue;
-    }
-    const pct = getCompletionPercentage(m.target, m.achieved);
-    const band = getColorBand(pct, m.isInverse);
-    if (band === 'GREEN') out.green += 1;
-    else if (band === 'YELLOW') out.yellow += 1;
-    else out.red += 1;
-  }
-  return out;
-}
 
 /**
  * Rank for ordering tiles within a section:
@@ -101,13 +71,6 @@ function formatMonthKey(key: string): string {
   if (!y || !m) return key;
   const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${names[m - 1]} '${String(y).slice(-2)}`;
-}
-
-function areaLabel(area: AreaFilterValue): string {
-  if (area.rto)   return area.rto;
-  if (area.city)  return area.city;
-  if (area.state) return area.state;
-  return 'Delhi-NCR';
 }
 
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
@@ -489,13 +452,6 @@ export default function DetailPage() {
     ? formatMonthKey(period.months[0])
     : `${formatMonthKey(period.months[0])} + ${period.months.length - 1} more`;
 
-  const totalMetrics =
-    outcomeMetrics.length + progressMetrics.length + readinessMetrics.length;
-
-  const outcomeTally = useMemo(() => summariseMetrics(outcomeMetrics), [outcomeMetrics]);
-  const progressTally = useMemo(() => summariseMetrics(progressMetrics), [progressMetrics]);
-  const readinessTally = useMemo(() => summariseMetrics(readinessMetrics), [readinessMetrics]);
-
   // Cumulative outcome roll-up — sums the initiative's *headline*
   // outcome X/Y metrics (per INITIATIVE_CONFIGS.headlineMetricNames),
   // filtered to non-inverse. So Naya Safar clubs only trucks + buses
@@ -550,18 +506,10 @@ export default function DetailPage() {
           aria-label="Initiative metrics"
         >
           <div className="flex flex-col gap-4 p-4">
-            <InitiativeHealthBanner
-              initiativeName={currentInit.name}
-              periodLabel={periodLabel}
-              scopeLabel={areaLabel(area)}
-              outcomeTally={outcomeTally}
-              totalMetrics={totalMetrics}
-            />
-
             <MetricSection
               title="Outcome metrics"
               hint="What this initiative is trying to achieve."
-              tally={outcomeTally}
+              count={outcomeMetrics.length}
               emphasis
             >
               {outcomeMetrics.length > 0 ? (
@@ -585,7 +533,7 @@ export default function DetailPage() {
               <MetricSection
                 title="Progress metrics"
                 hint="What we are doing to get there."
-                tally={progressTally}
+                count={progressMetrics.length}
               >
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {progressMetrics.map((m) => (
@@ -605,7 +553,7 @@ export default function DetailPage() {
               <MetricSection
                 title="Readiness metrics"
                 hint="What needs to be in place to succeed."
-                tally={readinessTally}
+                count={readinessMetrics.length}
               >
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {readinessMetrics.map((m) => (
@@ -734,6 +682,10 @@ export default function DetailPage() {
           ) : null}
         </aside>
       </main>
+
+      <footer className="flex shrink-0 items-center justify-end border-t border-[#E2E2EA] bg-white px-8 py-3">
+        <CompletionThresholdsLegend />
+      </footer>
     </div>
   );
 }
@@ -743,13 +695,13 @@ export default function DetailPage() {
 function MetricSection({
   title,
   hint,
-  tally,
+  count,
   emphasis = false,
   children,
 }: {
   title: string;
   hint?: string;
-  tally: BandTally;
+  count: number;
   emphasis?: boolean;
   children: React.ReactNode;
 }) {
@@ -770,7 +722,7 @@ function MetricSection({
           {title}
         </h2>
         <span className="rounded bg-[var(--color-surface-light)] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
-          {tally.total}
+          {count}
         </span>
         {hint ? (
           <p className="text-[10px] text-[var(--color-text-muted)]">{hint}</p>
@@ -781,106 +733,6 @@ function MetricSection({
   );
 }
 
-function InitiativeHealthBanner({
-  initiativeName,
-  periodLabel,
-  scopeLabel,
-  outcomeTally,
-  totalMetrics,
-}: {
-  initiativeName: string;
-  periodLabel: string;
-  scopeLabel: string;
-  outcomeTally: BandTally;
-  totalMetrics: number;
-}) {
-  const verdictColor = headlineVerdictColor(outcomeTally);
-
-  return (
-    <header
-      className="rounded-md border bg-white shadow-sm"
-      style={{
-        borderLeftWidth: 4,
-        borderLeftColor: verdictColor,
-        borderTopColor: 'var(--color-border-table)',
-        borderRightColor: 'var(--color-border-table)',
-        borderBottomColor: 'var(--color-border-table)',
-      }}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold leading-tight text-[var(--color-text-primary)]">
-            {initiativeName}
-          </h1>
-          <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
-            <span className="font-semibold text-[var(--color-text-primary)]">{scopeLabel}</span>
-            <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
-            {periodLabel}
-            <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
-            {totalMetrics} {totalMetrics === 1 ? 'metric' : 'metrics'} tracked
-          </p>
-        </div>
-
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-            Colour key
-          </span>
-          <div className="grid grid-cols-[10px_auto_auto_auto] items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-tight">
-            <LegendCells band="GREEN"  label="On track" range="≥ 60% of target" count={outcomeTally.green} />
-            <LegendCells band="YELLOW" label="At risk"  range="30 – 60%"        count={outcomeTally.yellow} />
-            <LegendCells band="RED"    label="Behind"   range="below 30%"       count={outcomeTally.red} />
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-/**
- * Four cells of a 4-column grid (dot · count · label · range). Rendering
- * them as siblings — not inside a wrapper — keeps the dots aligned in a
- * single column across all rows in the parent grid.
- */
-function LegendCells({
-  band,
-  label,
-  range,
-  count,
-}: {
-  band: Exclude<ColorBand, 'NA'>;
-  label: string;
-  range: string;
-  count: number;
-}) {
-  const colors = getBandColors(band);
-  const tip = `${count} outcome metric${count === 1 ? '' : 's'} ${label.toLowerCase()} (${range}).`;
-  return (
-    <>
-      <span
-        aria-hidden
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: colors.fg }}
-        title={tip}
-      />
-      <span
-        className="text-right font-bold tabular-nums"
-        style={{ color: count > 0 ? colors.text : 'var(--color-text-muted)' }}
-      >
-        {count}
-      </span>
-      <span className="font-bold text-[var(--color-text-primary)]">{label}</span>
-      <span className="text-[var(--color-text-muted)]">{range}</span>
-    </>
-  );
-}
-
-function headlineVerdictColor(t: BandTally): string {
-  const tracked = t.green + t.yellow + t.red;
-  if (tracked === 0) return 'var(--color-text-muted)';
-  // Worst-band wins so the left edge still surfaces the laggard at a glance.
-  const band: Exclude<ColorBand, 'NA'> = t.red > 0 ? 'RED' : t.yellow > 0 ? 'YELLOW' : 'GREEN';
-  return getBandColors(band).fg;
-}
 
 function OutcomeCumulativeCard({
   achieved,
