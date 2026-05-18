@@ -34,13 +34,13 @@ export const INITIATIVES: Initiative[] = [
       ],
     },
     metrics: [
-      { name: 'No. of pre-BS VI trucks converted',                      type: 'outcome',  target: 76496, achieved: 38248, unit: 'vehicles', format: 'X/Y', dataSource: 'API (MoRTH portal)' },
-      { name: 'No. of pre-BS VI buses converted',                       type: 'outcome',  target: 10000, achieved: 6500,  unit: 'vehicles', format: 'X/Y', dataSource: 'API (MoRTH portal)' },
-      { name: 'No. of events conducted',                                type: 'outcome',  target: 300,   achieved: 81,                       format: 'X/Y', dataSource: 'API (States)' },
-      { name: 'No. of events planned',                                  type: 'progress', target: 250,   achieved: 175,                      format: 'X/Y', dataSource: 'API (TBD)' },
-      { name: 'No. of outlets activated for fuel voucher acceptance',   type: 'progress', target: 1500,  achieved: 285,                      format: 'X/Y', dataSource: 'API (TBD)' },
-      { name: 'EOIs and Scrapping requests from truckers/bus owners',   type: 'progress', target: null,  achieved: 4820, previousAchieved: 4480,                                format: 'Xx',  dataSource: 'API (MoRTH)' },
-      { name: 'PSBs / NBFCs onboarded',                                 type: 'progress', target: null,  achieved: 28,   previousAchieved: 26,    geographyLevel: 'central', format: 'Xx', dataSource: 'API (Canara Bank/MoRTH)' },
+      { name: 'No. of pre-BS VI trucks converted',                      type: 'outcome',  target: 76496, achieved: 38248, unit: 'vehicles', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'RTO',      dataSource: 'API (MoRTH portal)' },
+      { name: 'No. of pre-BS VI buses converted',                       type: 'outcome',  target: 10000, achieved: 6500,  unit: 'vehicles', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'RTO',      dataSource: 'API (MoRTH portal)' },
+      { name: 'No. of events conducted',                                type: 'outcome',  target: 300,   achieved: 81,                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (States)' },
+      { name: 'No. of events planned',                                  type: 'progress', target: 250,   achieved: 175,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (TBD)' },
+      { name: 'No. of outlets activated for fuel voucher acceptance',   type: 'progress', target: 1500,  achieved: 285,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (TBD)' },
+      { name: 'EOIs and Scrapping requests from truckers/bus owners',   type: 'progress', target: null,  achieved: 4820, previousAchieved: 4480,                                format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (MoRTH)' },
+      { name: 'PSBs / NBFCs onboarded',                                 type: 'progress', target: null,  achieved: 28,   previousAchieved: 26,    geographyLevel: 'central', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'Central', dataSource: 'API (Canara Bank/MoRTH)' },
     ],
   },
   {
@@ -57,13 +57,13 @@ export const INITIATIVES: Initiative[] = [
       ],
     },
     metrics: [
-      { name: 'No. of industrial units where CEMS installation completed',  type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', dataSource: 'API (CEMS CPCB portal)' },
-      { name: 'No. of industrial units where APCDs installation completed', type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', dataSource: 'Manual (SPCBs)' },
+      { name: 'No. of industrial units where CEMS installation completed',  type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', trackingFrequency: 'overall', lowestLevelLabel: 'Industrial Area', dataSource: 'API (CEMS CPCB portal)' },
+      { name: 'No. of industrial units where APCDs installation completed', type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Industrial Area', dataSource: 'Manual (SPCBs)' },
       // X/Y* per §4.2 — denominator is Total Sites (500), not a target of 0.
-      { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', dataSource: 'API (CEMS CPCB)' },
-      { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320, previousAchieved: 270,                               format: 'Xx',  dataSource: 'Manual (States)' },
-      { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                                         format: 'X/Y', dataSource: 'Manual (CPCB/MoEFCC)' },
-      { name: 'Vendors empaneled for CEMS/APCD supply and O&M',             type: 'progress', target: null, achieved: 18,  previousAchieved: 14,                                 format: 'Xx',  dataSource: 'Manual (CPCB)' },
+      { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Industrial Area', dataSource: 'API (CEMS CPCB)' },
+      { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320, previousAchieved: 270,                               format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'Industrial Area', dataSource: 'Manual (States)' },
+      { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                                         format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Industrial Area', dataSource: 'Manual (CPCB/MoEFCC)' },
+      { name: 'Vendors empaneled for CEMS/APCD supply and O&M',             type: 'progress', target: null, achieved: 18,  previousAchieved: 14,    geographyLevel: 'central',     format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'Central',         dataSource: 'Manual (CPCB)' },
     ],
   },
   {
@@ -81,28 +81,28 @@ export const INITIATIVES: Initiative[] = [
     },
     metrics: [
       // Outcome — route coverage, by road width
-      { name: 'Route coverage achieved (>15m)',     type: 'outcome',   target: 800, achieved: 560, unit: 'km', format: 'X/Y', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
-      { name: 'Route coverage achieved (10–15m)',   type: 'outcome',   target: 600, achieved: 300, unit: 'km', format: 'X/Y', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
-      { name: 'Route coverage achieved (<10m)',     type: 'outcome',   target: 400, achieved: 100, unit: 'km', format: 'X/Y', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
+      { name: 'Route coverage achieved (>15m)',     type: 'outcome',   target: 800, achieved: 560, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
+      { name: 'Route coverage achieved (10–15m)',   type: 'outcome',   target: 600, achieved: 300, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
+      { name: 'Route coverage achieved (<10m)',     type: 'outcome',   target: 400, achieved: 100, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
 
       // Progress — target road length to be covered (Xx)
-      { name: 'Target road length to be covered (>15m)',   type: 'progress', target: null, achieved: 800, previousAchieved: 760, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'Target road length to be covered (10–15m)', type: 'progress', target: null, achieved: 600, previousAchieved: 580, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'Target road length to be covered (<10m)',   type: 'progress', target: null, achieved: 400, previousAchieved: 380, unit: 'km', format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (>15m)',   type: 'progress', target: null, achieved: 800, previousAchieved: 760, unit: 'km', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (10–15m)', type: 'progress', target: null, achieved: 600, previousAchieved: 580, unit: 'km', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'Target road length to be covered (<10m)',   type: 'progress', target: null, achieved: 400, previousAchieved: 380, unit: 'km', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
 
       // Progress — MRS operational, by road width
-      { name: 'No. of MRS operational (>15m)',     type: 'progress', target: 60, achieved: 38, format: 'X/Y', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS operational (10–15m)',   type: 'progress', target: 45, achieved: 18, format: 'X/Y', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS operational (<10m)',     type: 'progress', target: 30, achieved: 6,  format: 'X/Y', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS operational (>15m)',     type: 'progress', target: 60, achieved: 38, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS operational (10–15m)',   type: 'progress', target: 45, achieved: 18, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS operational (<10m)',     type: 'progress', target: 30, achieved: 6,  format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
 
       // Readiness — MRS required (Xx)
-      { name: 'No. of MRS required (>15m)',     type: 'readiness', target: null, achieved: 60, previousAchieved: 60, format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS required (10–15m)',   type: 'readiness', target: null, achieved: 45, previousAchieved: 45, format: 'Xx', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS required (<10m)',     type: 'readiness', target: null, achieved: 30, previousAchieved: 30, format: 'Xx', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (>15m)',     type: 'readiness', target: null, achieved: 60, previousAchieved: 60, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (10–15m)',   type: 'readiness', target: null, achieved: 45, previousAchieved: 45, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'No. of MRS required (<10m)',     type: 'readiness', target: null, achieved: 30, previousAchieved: 30, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
 
       // Readiness — Y/N
-      { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', dataSource: 'Manual' },
-      { name: 'Digital tool to track road covered exists',    type: 'readiness', target: 1, achieved: 1, format: 'Y/N', dataSource: 'Manual' },
+      { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
+      { name: 'Digital tool to track road covered exists',    type: 'readiness', target: 1, achieved: 1, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
     ],
   },
   {
@@ -119,12 +119,12 @@ export const INITIATIVES: Initiative[] = [
       ],
     },
     metrics: [
-      { name: 'Reduction in farm fires vs baseline',           type: 'outcome',  target: 50000,  achieved: 32000, isInverse: true, format: 'X/Y', dataSource: 'API (ISRO / CREAMS)' },
-      { name: 'Paddy area covered by mechanized harvesting',   type: 'outcome',  target: 100000, achieved: 45000, unit: 'ha',      format: 'X/Y', dataSource: 'API (State Agri. Dept)' },
-      { name: 'Happy/Super Seeders distributed to farmers',    type: 'progress', target: 12000,  achieved: 7800,                   format: 'X/Y', dataSource: 'Manual (State Agri. Dept)' },
-      { name: 'Pusa decomposer sprays conducted (acres)',      type: 'progress', target: 80000,  achieved: 52000, unit: 'acres',   format: 'X/Y', dataSource: 'Manual (IARI / States)' },
-      { name: 'Farmers sensitized via outreach',               type: 'progress', target: null,   achieved: 26500, previousAchieved: 21000, format: 'Xx', dataSource: 'Manual (KVKs)' },
-      { name: 'State stubble-burning action plan published',   type: 'readiness', target: 1, achieved: 1,                          format: 'Y/N', dataSource: 'Manual' },
+      { name: 'Reduction in farm fires vs baseline',           type: 'outcome',  target: 50000,  achieved: 32000, isInverse: true, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (ISRO / CREAMS)' },
+      { name: 'Paddy area covered by mechanized harvesting',   type: 'outcome',  target: 100000, achieved: 45000, unit: 'ha',      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (State Agri. Dept)' },
+      { name: 'Happy/Super Seeders distributed to farmers',    type: 'progress', target: 12000,  achieved: 7800,                   format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (State Agri. Dept)' },
+      { name: 'Pusa decomposer sprays conducted (acres)',      type: 'progress', target: 80000,  achieved: 52000, unit: 'acres',   format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (IARI / States)' },
+      { name: 'Farmers sensitized via outreach',               type: 'progress', target: null,   achieved: 26500, previousAchieved: 21000, format: 'Xx', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (KVKs)' },
+      { name: 'State stubble-burning action plan published',   type: 'readiness', target: 1, achieved: 1,                          format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual' },
     ],
   },
   {
@@ -139,14 +139,14 @@ export const INITIATIVES: Initiative[] = [
       donut: { label: 'Length', target: 1200, achieved: 780 },
     },
     metrics: [
-      { name: 'Road length for which repairs completed (km)',     type: 'outcome',   target: 1200, achieved: 780, unit: 'km',  format: 'X/Y', dataSource: 'API (311 Apps)' },
-      { name: 'Road length for which tender published (km)',      type: 'progress',  target: 1500, achieved: 980, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
-      { name: 'Road length for which work order issued (km)',     type: 'progress',  target: 1500, achieved: 820, unit: 'km',  format: 'X/Y', dataSource: 'MoHUA (TBD)' },
-      { name: 'Road length surveyed (km)',                        type: 'progress',  target: 1800, achieved: 1320, unit: 'km', format: 'X/Y', dataSource: 'API (311 Apps)' },
-      { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612, previousAchieved: 540,     format: 'Xx',  dataSource: 'API (311 Apps)' },
+      { name: 'Road length for which repairs completed (km)',     type: 'outcome',   target: 1200, achieved: 780, unit: 'km',  format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (311 Apps)' },
+      { name: 'Road length for which tender published (km)',      type: 'progress',  target: 1500, achieved: 980, unit: 'km',  format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'MoHUA (TBD)' },
+      { name: 'Road length for which work order issued (km)',     type: 'progress',  target: 1500, achieved: 820, unit: 'km',  format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'MoHUA (TBD)' },
+      { name: 'Road length surveyed (km)',                        type: 'progress',  target: 1800, achieved: 1320, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (311 Apps)' },
+      { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612, previousAchieved: 540,     format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (311 Apps)' },
       // Y/N — target = 1, achieved = 1 (Y) or 0 (N)
-      { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', dataSource: 'Manual' },
-      { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', dataSource: 'Manual' },
+      { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
+      { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
     ],
   },
   {
@@ -160,14 +160,14 @@ export const INITIATIVES: Initiative[] = [
       donut: { label: 'SCCs operationalized', target: 500, achieved: 200 },
     },
     metrics: [
-      { name: 'No. of SCCs operationalized',                           type: 'outcome',   target: 500, achieved: 200,                                  format: 'X/Y', dataSource: 'Manual (ULB C&D Dashboard)' },
-      { name: 'Total quantum of malba received at SCC',                type: 'outcome',   target: null, achieved: 50,  previousAchieved: 41, unit: 'MMT',                    format: 'Xx',  dataSource: 'Manual (C&D Dashboard)' },
-      { name: 'Utilization of C&D waste processed material (tonnes)',  type: 'progress',  target: 800, achieved: 420, unit: 'tonnes',                  format: 'X/Y', dataSource: 'MoHUA Malba portal (TBD)' },
-      { name: 'Recycling plant capacity available (tonnes)',           type: 'progress',  target: 1000, achieved: 650, unit: 'tonnes',                 format: 'X/Y', dataSource: 'MoHUA Malba portal (TBD)' },
-      { name: 'No. of SCC identified (land parcels earmarked)',        type: 'progress',  target: null, achieved: 320, previousAchieved: 305,          format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
-      { name: 'No. of SCC required',                                   type: 'readiness', target: null, achieved: 500, previousAchieved: 500,          format: 'Xx',  dataSource: 'Manual (ULB C&D Dashboard)' },
-      { name: 'Adequate recycling plant capacity in place',            type: 'readiness', target: 1,    achieved: 0,                                   format: 'Y/N', dataSource: 'Manual' },
-      { name: 'Digital tool to track intake via SCCs exists',          type: 'readiness', target: 1,    achieved: 1,                                   format: 'Y/N', dataSource: 'Manual' },
+      { name: 'No. of SCCs operationalized',                           type: 'outcome',   target: 500, achieved: 200,                                  format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'Total quantum of malba received at SCC',                type: 'outcome',   target: null, achieved: 50,  previousAchieved: 41, unit: 'MMT',                    format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'Manual (C&D Dashboard)' },
+      { name: 'Utilization of C&D waste processed material (tonnes)',  type: 'progress',  target: 800, achieved: 420, unit: 'tonnes',                  format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'MoHUA Malba portal (TBD)' },
+      { name: 'Recycling plant capacity available (tonnes)',           type: 'progress',  target: 1000, achieved: 650, unit: 'tonnes',                 format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'MoHUA Malba portal (TBD)' },
+      { name: 'No. of SCC identified (land parcels earmarked)',        type: 'progress',  target: null, achieved: 320, previousAchieved: 305,          format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'No. of SCC required',                                   type: 'readiness', target: null, achieved: 500, previousAchieved: 500,          format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual (ULB C&D Dashboard)' },
+      { name: 'Adequate recycling plant capacity in place',            type: 'readiness', target: 1,    achieved: 0,                                   format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
+      { name: 'Digital tool to track intake via SCCs exists',          type: 'readiness', target: 1,    achieved: 1,                                   format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
     ],
   },
   {
@@ -181,11 +181,11 @@ export const INITIATIVES: Initiative[] = [
       donut: { label: 'Sites registered', target: 100, achieved: 45 },
     },
     metrics: [
-      { name: 'No. of sites registered and connected with ICCC',     type: 'outcome',  target: 100, achieved: 45,                                       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
+      { name: 'No. of sites registered and connected with ICCC',     type: 'outcome',  target: 100, achieved: 45,                                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Delhi (state)', dataSource: 'API (ICCC DPCC)' },
       // X/Y* — denominator is Total Sites (200), per §4.2.
-      { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', dataSource: 'API (ICCC DPCC)' },
-      { name: 'No. of inspections of construction sites conducted',  type: 'progress', target: 300, achieved: 245, isInverse: true,                      format: 'X/Y', dataSource: 'ICCC DPCC (TBD)' },
-      { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612, previousAchieved: 588,                format: 'Xx',  dataSource: 'ICCC DPCC (TBD)' },
+      { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Delhi (state)', dataSource: 'API (ICCC DPCC)' },
+      { name: 'No. of inspections of construction sites conducted',  type: 'progress', target: 300, achieved: 245, isInverse: true,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Delhi (state)', dataSource: 'ICCC DPCC (TBD)' },
+      { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612, previousAchieved: 588,                format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'Delhi (state)', dataSource: 'ICCC DPCC (TBD)' },
     ],
   },
   {
@@ -199,8 +199,8 @@ export const INITIATIVES: Initiative[] = [
       donut: { label: 'Tolls active', target: 50, achieved: 32 },
     },
     metrics: [
-      { name: 'Tolls with Green Contribution collection initiated',         type: 'outcome',  target: 50, achieved: 32, format: 'X/Y', dataSource: 'API (MoRTH / IHMCL)' },
-      { name: 'Identified tolls with Infra setup done (ANPR + FASTag)',     type: 'progress', target: 50, achieved: 38, format: 'X/Y', dataSource: 'API (MoRTH / IHMCL)' },
+      { name: 'Tolls with Green Contribution collection initiated',         type: 'outcome',  target: 50, achieved: 32, geographyLevel: 'central', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Central', dataSource: 'API (MoRTH / IHMCL)' },
+      { name: 'Identified tolls with Infra setup done (ANPR + FASTag)',     type: 'progress', target: 50, achieved: 38, geographyLevel: 'central', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Central', dataSource: 'API (MoRTH / IHMCL)' },
     ],
   },
   {
@@ -214,12 +214,12 @@ export const INITIATIVES: Initiative[] = [
       donut: { label: 'Area greened', target: 5000, achieved: 3120 },
     },
     metrics: [
-      { name: 'Area of land greened (hectares)',                          type: 'outcome',   target: 5000, achieved: 3120, unit: 'ha', format: 'X/Y', dataSource: 'Manual' },
-      { name: 'No. of trees planted',                                     type: 'progress',  target: 250000, achieved: 162000,        format: 'X/Y', dataSource: 'Manual' },
-      { name: 'No. of shrubs planted',                                    type: 'progress',  target: 180000, achieved: 78000,         format: 'X/Y', dataSource: 'Manual' },
-      { name: 'No. of bamboos planted',                                   type: 'progress',  target: 60000,  achieved: 12000,         format: 'X/Y', dataSource: 'Manual' },
-      { name: 'Annual city-level greening action plan finalized',         type: 'progress',  target: 1, achieved: 1,                  format: 'Y/N', dataSource: 'Manual (Forest/Horticulture dept)' },
-      { name: 'Phase 1 implementation of greening action plan initiated', type: 'progress',  target: 1, achieved: 0,                  format: 'Y/N', dataSource: 'Manual (Forest/Horticulture dept)' },
+      { name: 'Area of land greened (hectares)',                          type: 'outcome',   target: 5000, achieved: 3120, unit: 'ha', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual' },
+      { name: 'No. of trees planted',                                     type: 'progress',  target: 250000, achieved: 162000,        format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual' },
+      { name: 'No. of shrubs planted',                                    type: 'progress',  target: 180000, achieved: 78000,         format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual' },
+      { name: 'No. of bamboos planted',                                   type: 'progress',  target: 60000,  achieved: 12000,         format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual' },
+      { name: 'Annual city-level greening action plan finalized',         type: 'progress',  target: 1, achieved: 1,                  format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual (Forest/Horticulture dept)' },
+      { name: 'Phase 1 implementation of greening action plan initiated', type: 'progress',  target: 1, achieved: 0,                  format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual (Forest/Horticulture dept)' },
     ],
   },
 ];

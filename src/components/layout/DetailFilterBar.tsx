@@ -20,11 +20,11 @@ import {
 import { INITIATIVE_CONFIGS } from '@/lib/initiatives';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import FilterPill from '@/components/ui/FilterPill';
-import TimeRangePill from '@/components/ui/TimeRangePill';
-import type { CustomRange } from '@/components/ui/TimeRangePill';
+import TimePeriodPill from '@/components/ui/TimePeriodPill';
+import type { TimePeriod } from '@/components/ui/TimePeriodPill';
 
 export type ViewLabel = 'State' | 'City' | 'RTO';
-export type { CustomRange };
+export type { TimePeriod };
 
 interface DetailFilterBarProps {
   area: AreaFilterValue;
@@ -34,8 +34,8 @@ interface DetailFilterBarProps {
   onInitiativeChange: (name: string) => void;
   onExtraChange: (key: string, value: string) => void;
 
-  customRange?: CustomRange;
-  onCustomRangeChange?: (r: CustomRange) => void;
+  period?: TimePeriod;
+  onPeriodChange?: (p: TimePeriod) => void;
 
   seeAllHref: string;
 }
@@ -47,8 +47,8 @@ export default function DetailFilterBar({
   onAreaChange,
   onInitiativeChange,
   onExtraChange,
-  customRange,
-  onCustomRangeChange,
+  period,
+  onPeriodChange,
   seeAllHref,
 }: DetailFilterBarProps) {
   const slug = INITIATIVES.find((i) => i.name === initiativeName)?.slug ?? '';
@@ -130,10 +130,7 @@ export default function DetailFilterBar({
         />
       ))}
 
-      <TimeRangePill
-        customRange={customRange}
-        onCustomRangeChange={onCustomRangeChange}
-      />
+      <TimePeriodPill period={period} onChange={onPeriodChange} />
 
       <Link
         to={seeAllHref}

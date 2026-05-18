@@ -20,6 +20,12 @@ interface MetricHeroStripProps {
   /** Used to colour the band chip + bottom rule. */
   achievedForBand: number | null;
   targetForBand: number | null;
+  /**
+   * Human label for the active reporting period, e.g. "Overall",
+   * "May '26", "May '26 + 2 more". When supplied, rendered as a chip
+   * so officials always see which time slice is in effect.
+   */
+  periodLabel?: string;
 }
 
 function bandFor(
@@ -59,11 +65,21 @@ export default function MetricHeroStrip({
   displayText,
   achievedForBand,
   targetForBand,
+  periodLabel,
 }: MetricHeroStripProps) {
   if (!metric) return null;
 
   const band = bandFor(metric, achievedForBand, targetForBand);
   const scopeChain = [area.state, area.city, area.rto].filter(Boolean) as string[];
+
+  // Tracking-frequency derivation per spec — Y/N is implicitly overall;
+  // X/Y and Xx default to monthly unless explicitly flagged 'overall'.
+  const frequency =
+    metric.trackingFrequency ?? (metric.format === 'Y/N' ? 'overall' : 'monthly');
+  const lowestLevel = metric.lowestLevelLabel;
+  const metadata: string[] = [];
+  metadata.push(frequency === 'overall' ? 'Overall' : 'Monthly');
+  if (lowestLevel) metadata.push(lowestLevel);
 
   const headline =
     displayText ??
@@ -106,6 +122,22 @@ export default function MetricHeroStrip({
           </span>
         ) : null}
       </div>
+
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-table)] bg-[var(--color-surface-light)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]"
+        title="Tracking frequency · Lowest geographic level"
+      >
+        {metadata.join(' · ')}
+      </span>
+
+      {periodLabel ? (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-blue-link)]"
+          title="Active reporting period"
+        >
+          {periodLabel}
+        </span>
+      ) : null}
 
       {band ? (
         <span
