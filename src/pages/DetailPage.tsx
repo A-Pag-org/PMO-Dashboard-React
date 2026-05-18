@@ -1,18 +1,13 @@
 // FILE: src/pages/DetailPage.tsx
-// PURPOSE: Detailed View (spec §4) — two-column layout.
+// PURPOSE: Detailed View — minimalist two-column layout designed for
+//          senior officials.
 //          · 2nd bar     : horizontal filter strip (Initiative, State,
-//                          City, RTO, extras, time range, View toggle)
-//                          plus the "See all data" CTA on the right.
-//          · Centre      : metric header + map canvas with two stacked
-//                          widgets pinned to the top-left:
-//                            1. Ranking graph — top-5 bars; maximise
-//                               opens a popup with the full chart and
-//                               the ranking table.
-//                            2. Trend graph   — all-NCR sparkline;
-//                               maximise opens a popup with a multi-
-//                               region line chart and a legend table.
+//                          City, RTO, extras, time range, See all data).
+//          · Centre      : compact KPI strip + ranking panel (with an
+//                          inline State/City/RTO switcher) + 6-month
+//                          trend panel for the selected metric.
 //          · Right rail  : Metrics inspector (Outcome · Progress ·
-//                          Readiness groups).
+//                          Readiness groups) — unchanged.
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -29,25 +24,20 @@ import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
 import type { CustomRange, ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricCard from '@/components/ui/MetricCard';
-import MapRankingChart from '@/components/ui/MapRankingChart';
-import RankingPopup from '@/components/ui/RankingPopup';
-import MapTrendChart from '@/components/ui/MapTrendChart';
-import TrendPopup from '@/components/ui/TrendPopup';
-import DelhiNCRMap from '@/components/maps/DelhiNCRMap';
+import MetricHeroStrip from '@/components/ui/MetricHeroStrip';
+import RankingPanel from '@/components/ui/RankingPanel';
+import TrendPanel from '@/components/ui/TrendPanel';
 import { cn } from '@/lib/utils';
 import {
   INITIATIVES,
-  STATES,
   CITY_STATE_MAP,
-  RTO_OPTIONS_BY_CITY,
-  MOCK_DETAIL_MAP_DATA,
 } from '@/lib/constants';
 import {
   getMetricByState,
   getMetricValueForArea,
 } from '@/lib/aggregation';
 import { getInitiativeConfig } from '@/lib/initiatives';
-import type { MapDataPoint, ViewLevel, Metric, MapCenterBubble } from '@/lib/types';
+import type { MapDataPoint, ViewLevel, Metric } from '@/lib/types';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
@@ -67,22 +57,6 @@ function areaLabel(area: AreaFilterValue): string {
   if (area.city)  return area.city;
   if (area.state) return area.state;
   return 'Delhi-NCR';
-}
-
-function buildCenterBubble(
-  metric: Metric | undefined,
-  area: AreaFilterValue,
-): MapCenterBubble {
-  if (!metric) return { value: 0, label: '—', subtitle: '' };
-  const isCentral = metric.geographyLevel === 'central';
-  const label = isCentral ? 'Delhi-NCR (central)' : areaLabel(area);
-  const agg = getMetricValueForArea(metric, isCentral ? {} : area, label);
-  return {
-    value: agg.format === 'X/Y' ? agg.pct : agg.achieved ?? 0,
-    displayText: agg.displayText,
-    label,
-    subtitle: agg.subtitle,
-  };
 }
 
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
@@ -157,8 +131,6 @@ export default function DetailPage() {
     Record<string, string>
   >({});
   const [customRange, setCustomRange] = useState<CustomRange | undefined>(undefined);
-  const [rankingOpen, setRankingOpen] = useState(false);
-  const [trendOpen, setTrendOpen] = useState(false);
   const role = getCurrentRole();
 
   const currentInit =
@@ -177,11 +149,6 @@ export default function DetailPage() {
     currentInit.metrics[0];
 
   const isCentralLevelMetric = selectedMetric?.geographyLevel === 'central';
-
-  const centerBubble = useMemo(
-    () => buildCenterBubble(selectedMetric, area),
-    [selectedMetric, area],
-  );
 
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
   const supportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
@@ -216,9 +183,9 @@ export default function DetailPage() {
     : availableViewLevels[0] ?? 'State';
   const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
 
-  const { mapData, emptyHint } = useMemo(() => {
+  const { rankingRows, emptyHint } = useMemo(() => {
     if (isCentralLevelMetric || !selectedMetric) {
-      return { mapData: [] as MapDataPoint[], emptyHint: undefined };
+      return { rankingRows: [] as MapDataPoint[], emptyHint: undefined };
     }
 
     if (effectiveViewLevel === 'state') {
@@ -226,29 +193,19 @@ export default function DetailPage() {
       const filtered = area.state
         ? stateData.filter((d) => d.name === area.state)
         : stateData;
-      return { mapData: filtered, emptyHint: undefined };
+      return { rankingRows: filtered, emptyHint: undefined };
     }
 
     if (effectiveViewLevel === 'rto') {
       if (!area.city) {
         return {
-          mapData: [] as MapDataPoint[],
-          emptyHint: 'Select a city to view RTOs.',
+          rankingRows: [] as MapDataPoint[],
+          emptyHint: 'Select a city to compare RTOs.',
         };
       }
-      const rtos = RTO_OPTIONS_BY_CITY[area.city] ?? [];
-      const cityRow = MOCK_DETAIL_MAP_DATA.find((d) => d.name === area.city);
-      const base = cityRow?.value ?? 0;
-      const perRtoValue = Math.max(1, Math.round(base / Math.max(1, rtos.length)));
-      const data: MapDataPoint[] = rtos.map((name) => ({
-        name,
-        value: perRtoValue,
-        onTrack: cityRow?.onTrack ?? true,
-        format: selectedMetric.format,
-      }));
       return {
-        mapData: data,
-        emptyHint: rtos.length === 0 ? `No RTOs recorded for ${area.city}.` : undefined,
+        rankingRows: [] as MapDataPoint[],
+        emptyHint: `RTO-level breakdown for ${area.city} is not yet available.`,
       };
     }
 
@@ -259,8 +216,13 @@ export default function DetailPage() {
     if (area.city) {
       data = data.filter((d) => d.name === area.city);
     }
-    return { mapData: data, emptyHint: undefined };
+    return { rankingRows: data, emptyHint: undefined };
   }, [isCentralLevelMetric, effectiveViewLevel, area, selectedMetric]);
+
+  const ranking = useMemo(
+    () => [...rankingRows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)),
+    [rankingRows],
+  );
 
   function handleSelectMetric(slug: string, name: string) {
     setSelectedMetricByInitiative((prev) => ({ ...prev, [slug]: name }));
@@ -268,17 +230,18 @@ export default function DetailPage() {
 
   const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
 
-  // Ranking — derive a per-state/per-city sorted list for the active
-  // metric so the right rail's "Ranking" tab has real data without a
-  // separate API call.
-  const ranking = useMemo(() => {
-    if (!selectedMetric || isCentralLevelMetric) return [];
-    const rows =
-      effectiveViewLevel === 'city'
-        ? buildMapDataForMetricByCity(selectedMetric)
-        : buildMapDataForMetric(selectedMetric);
-    return [...rows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-  }, [selectedMetric, isCentralLevelMetric, effectiveViewLevel]);
+  // Headline aggregate for the hero strip — uses the same aggregation helper
+  // that previously fed the centre bubble on the map.
+  const heroAgg = useMemo(() => {
+    if (!selectedMetric) return undefined;
+    const isCentral = selectedMetric.geographyLevel === 'central';
+    const scopedArea = isCentral ? {} : area;
+    const scope = isCentral ? 'Delhi-NCR (central)' : areaLabel(area);
+    return {
+      agg: getMetricValueForArea(selectedMetric, scopedArea, scope),
+      scope,
+    };
+  }, [selectedMetric, area]);
 
   // Trend widget needs a single "current overall" number + a unit hint.
   // X/Y → 0-100 percentage of the all-NCR aggregate. Xx → raw count.
@@ -295,12 +258,24 @@ export default function DetailPage() {
     return selectedMetric.achieved ?? 0;
   }, [selectedMetric]);
 
+  function handleLevelChange(lvl: ViewLabel) {
+    setViewLevel(lvl.toLowerCase() as ViewLevel);
+  }
+
+  const showRanking =
+    !isCentralLevelMetric &&
+    selectedMetric?.format === 'X/Y' &&
+    availableViewLevels.length > 0;
+
+  const showTrend =
+    !isCentralLevelMetric &&
+    !!selectedMetric &&
+    selectedMetric.format !== 'Y/N';
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-white">
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-surface-light)]">
       <TopBar activePage="detail" />
 
-      {/* 2nd bar — horizontal filter strip (replaces the old left rail */}
-      {/* and breadcrumb; "See all data" pinned to the right). */}
       <DetailFilterBar
         area={area}
         initiativeName={initiativeName}
@@ -314,104 +289,88 @@ export default function DetailPage() {
       />
 
       <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px]">
-        {/* ── CENTRE: map (≈70% of viewport) ────────────────────────── */}
+        {/* ── CENTRE: insights stack (KPI · ranking · trend) ──────────── */}
         <section
-          className="relative flex min-h-0 flex-col bg-white"
-          aria-label="Map view"
+          className="flex min-h-0 flex-col overflow-y-auto bg-[var(--color-surface-light)]"
+          aria-label="Metric insights"
         >
-          {/* Metric header — title + type tag. Trend lives on the map. */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border-table)] px-4 py-2">
-            <span
-              className="inline-block h-2 w-2 shrink-0 rounded-full"
-              style={{
-                backgroundColor:
-                  selectedMetric?.type === 'outcome'
-                    ? 'var(--color-accent)'
-                    : selectedMetric?.type === 'progress'
-                    ? 'var(--color-blue-link)'
-                    : 'var(--color-text-muted)',
-              }}
-              aria-hidden
-            />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-              {selectedMetric?.type ?? 'metric'}
-            </span>
-            <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
-              {selectedMetric?.name ?? currentInit.primaryMetric}
+          <div className="flex flex-col gap-3 p-4">
+            {/* Metric title strip */}
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block h-2 w-2 shrink-0 rounded-full"
+                style={{
+                  backgroundColor:
+                    selectedMetric?.type === 'outcome'
+                      ? 'var(--color-accent)'
+                      : selectedMetric?.type === 'progress'
+                      ? 'var(--color-blue-link)'
+                      : 'var(--color-text-muted)',
+                }}
+                aria-hidden
+              />
+              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+                {selectedMetric?.type ?? 'metric'}
+              </span>
+              <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
+                {selectedMetric?.name ?? currentInit.primaryMetric}
+              </h2>
               {selectedMetric?.isInverse ? (
-                <span className="ml-2 rounded bg-[var(--color-tl-red-bg)] px-1.5 py-0.5 text-[9px] font-bold uppercase text-[var(--color-tl-red-text)]">
+                <span className="rounded bg-[var(--color-tl-red-bg)] px-1.5 py-0.5 text-[9px] font-bold uppercase text-[var(--color-tl-red-text)]">
                   Inverse
                 </span>
               ) : null}
-            </h2>
-          </div>
-
-          {/* Map canvas */}
-          <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3">
-            <div
-              className={cn(
-                'h-full w-full',
-                isCentralLevelMetric && 'opacity-50 grayscale',
-              )}
-            >
-              <DelhiNCRMap
-                data={mapData}
-                centerBubble={centerBubble}
-                area={area}
-                viewLevel={effectiveViewLevel}
-                supportsRto={supportsRto}
-                emptyHint={emptyHint}
-                onBubbleClick={(name) => {
-                  if (isCentralLevelMetric) return;
-                  const isState = STATES.includes(name as (typeof STATES)[number]);
-                  if (isState) {
-                    setArea({ state: name });
-                    return;
-                  }
-                  const mappedState = CITY_STATE_MAP[name];
-                  if (mappedState) {
-                    setArea({ state: mappedState, city: name });
-                    return;
-                  }
-                  if (area.city && supportsRto) {
-                    setArea({ state: area.state, city: area.city, rto: name });
-                  }
-                }}
-              />
             </div>
 
+            <MetricHeroStrip
+              metric={selectedMetric}
+              area={area}
+              scopeLabel={heroAgg?.scope ?? 'Delhi-NCR'}
+              displayText={
+                selectedMetric?.format === 'X/Y'
+                  ? undefined
+                  : heroAgg?.agg.displayText
+              }
+              achievedForBand={heroAgg?.agg.achieved ?? null}
+              targetForBand={heroAgg?.agg.target ?? null}
+            />
+
             {isCentralLevelMetric ? (
-              <div className="pointer-events-none absolute inset-x-4 top-2 flex items-start justify-center">
-                <div className="pointer-events-auto flex max-w-[460px] items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2 shadow-sm">
-                  <Info className="h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
-                  <div className="text-xs text-[var(--color-text-primary)]">
-                    <p className="font-semibold">This metric is tracked centrally.</p>
-                    <p className="text-[var(--color-text-secondary)]">
-                      Only the all-NCR aggregate is available — there is no
-                      regional breakdown for {selectedMetric?.name}.
-                    </p>
-                  </div>
+              <div className="flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2.5 shadow-sm">
+                <Info className="h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
+                <div className="text-xs text-[var(--color-text-primary)]">
+                  <p className="font-semibold">This metric is tracked centrally.</p>
+                  <p className="text-[var(--color-text-secondary)]">
+                    Only the all-NCR aggregate is available — there is no
+                    regional breakdown for {selectedMetric?.name}.
+                  </p>
                 </div>
               </div>
             ) : null}
 
-            {!isCentralLevelMetric && ranking.length > 0 ? (
-              <div className="pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-2">
-                <MapRankingChart
-                  rows={ranking}
-                  level={effectiveViewLabel}
-                  onMaximise={() => setRankingOpen(true)}
-                />
-                {selectedMetric && selectedMetric.format !== 'Y/N' ? (
-                  <MapTrendChart
-                    metricName={selectedMetric.name}
-                    currentValue={trendCurrentValue}
-                    unit={trendUnit}
-                    isInverse={selectedMetric.isInverse}
-                    onMaximise={() => setTrendOpen(true)}
-                  />
-                ) : null}
-              </div>
+            {showRanking ? (
+              <RankingPanel
+                rows={ranking}
+                level={effectiveViewLabel}
+                availableLevels={availableViewLevels}
+                onLevelChange={handleLevelChange}
+                emptyHint={emptyHint}
+              />
+            ) : !isCentralLevelMetric && selectedMetric?.format !== 'X/Y' ? (
+              <p className="rounded-md border border-dashed border-[var(--color-border-table)] bg-white px-4 py-6 text-center text-xs text-[var(--color-text-muted)]">
+                Ranking is shown only for target-driven metrics (X / Y).
+              </p>
+            ) : null}
+
+            {showTrend ? (
+              <TrendPanel
+                metricName={selectedMetric.name}
+                overallValue={trendCurrentValue}
+                rows={ranking}
+                unit={trendUnit}
+                isInverse={selectedMetric.isInverse}
+                level={effectiveViewLabel}
+              />
             ) : null}
           </div>
         </section>
@@ -441,27 +400,6 @@ export default function DetailPage() {
           </div>
         </aside>
       </main>
-
-      <RankingPopup
-        open={rankingOpen}
-        rows={ranking}
-        level={effectiveViewLabel}
-        metricName={selectedMetric?.name}
-        onClose={() => setRankingOpen(false)}
-      />
-
-      {selectedMetric && selectedMetric.format !== 'Y/N' ? (
-        <TrendPopup
-          open={trendOpen}
-          metricName={selectedMetric.name}
-          rows={ranking}
-          overallValue={trendCurrentValue}
-          unit={trendUnit}
-          isInverse={selectedMetric.isInverse}
-          level={effectiveViewLabel}
-          onClose={() => setTrendOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }

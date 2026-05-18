@@ -37,7 +37,6 @@ export default defineConfig({
           router: ['react-router-dom'],
           motion: ['framer-motion'],
           charts: ['recharts'],
-          geo: ['d3-geo'],
         },
       },
     },

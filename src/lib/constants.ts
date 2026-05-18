@@ -464,27 +464,6 @@ export const RTO_OPTIONS_BY_CITY: Record<string, string[]> = {
   'Alwar':        ['Alwar RTO'],
 };
 
-// ─── Mock Data: Detail Page Map — City Level (wireframe page 9) ────────
-// TODO: replace with API call
-
-export const MOCK_DETAIL_MAP_DATA: MapDataPoint[] = [
-  { name: 'Delhi',         value: 2200, onTrack: true },
-  { name: 'Noida',         value: 800,  onTrack: false },
-  { name: 'Greater Noida', value: 700,  onTrack: false },
-  { name: 'Ghaziabad',     value: 650,  onTrack: false },
-  { name: 'Gurugram',      value: 3500, onTrack: true },
-  { name: 'Rohtak',        value: 2800, onTrack: true },
-  { name: 'Panipat',       value: 2800, onTrack: true },
-  { name: 'Neemrana',      value: 1200, onTrack: true },
-  { name: 'Alwar',         value: 900,  onTrack: true },
-];
-
-export const MOCK_DETAIL_CENTER_BUBBLE: MapCenterBubble = {
-  value: 15300,
-  label: 'Pre-BS VI Trucks/Buses Converted',
-  subtitle: '76,496 / 1,91,239 trucks',
-};
-
 // ─── Mock Data: Detail Page Tables — per city (wireframe page 10) ──────
 // TODO: replace with API call
 
