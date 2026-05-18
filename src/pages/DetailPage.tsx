@@ -347,6 +347,8 @@ export default function DetailPage() {
               totalMetrics={totalMetrics}
             />
 
+            <ColorLegend />
+
             <MetricSection
               title="Outcome metrics"
               hint="What this initiative is trying to achieve."
@@ -726,6 +728,56 @@ function headlineVerdict(t: BandTally): {
       ? 'Watch — at risk'
       : 'Action needed';
   return { label, color: colors.fg, bg: colors.bg, text: colors.text };
+}
+
+function ColorLegend() {
+  return (
+    <div
+      role="note"
+      aria-label="Colour key"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-[var(--color-border-table)] bg-white px-3 py-1.5"
+    >
+      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+        Colour key
+      </span>
+      <LegendSwatch band="GREEN" label="On track" range="≥ 60% of target" />
+      <LegendSwatch band="YELLOW" label="At risk" range="30 – 60%" />
+      <LegendSwatch band="RED" label="Behind" range="below 30%" />
+      <span
+        className="text-[10px] text-[var(--color-text-muted)]"
+        title="For metrics where lower values are better (e.g. industries in violation), the scale is reversed: below 30% is on track, above 60% is behind."
+      >
+        For metrics marked <em className="not-italic font-semibold">Lower is better</em>, the scale is reversed.
+      </span>
+    </div>
+  );
+}
+
+function LegendSwatch({
+  band,
+  label,
+  range,
+}: {
+  band: Exclude<ColorBand, 'NA'>;
+  label: string;
+  range: string;
+}) {
+  const colors = getBandColors(band);
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px]">
+      <span
+        aria-hidden
+        className="inline-block h-2.5 w-2.5 rounded-full ring-1"
+        style={{
+          backgroundColor: colors.fg,
+          // light tinted ring so the swatch reads even on a pale section
+          boxShadow: `0 0 0 2px ${colors.bg}`,
+        }}
+      />
+      <span className="font-bold text-[var(--color-text-primary)]">{label}</span>
+      <span className="text-[var(--color-text-muted)]">{range}</span>
+    </span>
+  );
 }
 
 function CalloutBox({ title, body }: { title: string; body: string }) {
