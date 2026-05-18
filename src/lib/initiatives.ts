@@ -31,6 +31,17 @@ export interface InitiativeConfig {
    * default selection on the Detail page (spec §5: max 3, ideal 2).
    */
   headlineMetricNames: string[];
+  /**
+   * Display label for the mid-level geography dropdown in the navy
+   * filter bar. Most initiatives say "City"; Naya Safar / CEMS use
+   * "District" per the business-rules spec.
+   */
+  cityLabel?: string;
+  /**
+   * Display label for the deepest geography dropdown. Naya Safar uses
+   * "RTO", CEMS uses "Industrial Area".
+   */
+  rtoLabel?: string;
 }
 
 export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
@@ -42,6 +53,8 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
     // and buses as separate tiles, so a top-bar bifurcation would be
     // redundant chrome.
     extraFilters: [],
+    cityLabel: 'District',
+    rtoLabel: 'RTO',
     headlineMetricNames: [
       'No. of pre-BS VI trucks converted',
       'No. of pre-BS VI buses converted',
@@ -64,6 +77,11 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
         options: ['Red', 'Orange', 'Green', 'White'],
       },
     ],
+    // Spec nomenclature kept ready for when city/industrial-area data
+    // lands. Today the bar only renders State because geographyLevels
+    // is ['state'].
+    cityLabel: 'District',
+    rtoLabel: 'Industrial Area',
     headlineMetricNames: [
       'No. of industrial units where CEMS installation completed',
       'No. of industrial units where APCDs installation completed',
