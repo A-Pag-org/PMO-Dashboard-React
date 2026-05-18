@@ -33,6 +33,7 @@ import {
 } from '@/lib/utils';
 import { INITIATIVES, CITY_STATE_MAP, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
 import {
+  getAreaWeight,
   getMetricByState,
   getMetricValueForArea,
 } from '@/lib/aggregation';
@@ -89,16 +90,41 @@ function areaLabel(area: AreaFilterValue): string {
 }
 
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
-  return getMetricByState(metric).map(({ name, agg }) => ({
-    name,
-    value: agg.format === 'X/Y' ? agg.pct : agg.achieved ?? 0,
-    onTrack: agg.band === 'GREEN',
-    format: agg.format,
-    band: agg.band,
-    label: agg.format === 'X/Y'
-      ? `${(agg.achieved ?? 0).toLocaleString('en-IN')} / ${(agg.target ?? 0).toLocaleString('en-IN')} (${agg.pct}%)`
-      : agg.displayText,
-  }));
+  return getMetricByState(metric).map(({ name, agg }) => {
+    if (agg.format === 'X/Y') {
+      // Deterministic per-state noise so the four NCR states have a
+      // visible spread of completion %, not a near-flat distribution
+      // from population-weight rounding alone. Same seed always
+      // returns the same noised number.
+      const noise = (hash01(`${name}|${metric.name}`) - 0.5) * 60;
+      const pct = Math.max(0, Math.min(100, Math.round(agg.pct + noise)));
+      const target = agg.target ?? 0;
+      const achieved = Math.round((target * pct) / 100);
+      const band = pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN';
+      return {
+        name,
+        value: pct,
+        onTrack: band === 'GREEN',
+        format: 'X/Y' as const,
+        band: metric.isInverse
+          ? band === 'GREEN'
+            ? 'RED'
+            : band === 'RED'
+            ? 'GREEN'
+            : 'YELLOW'
+          : band,
+        label: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')} (${pct}%)`,
+      };
+    }
+    return {
+      name,
+      value: agg.achieved ?? 0,
+      onTrack: agg.band === 'GREEN',
+      format: agg.format,
+      band: agg.band,
+      label: agg.displayText,
+    };
+  });
 }
 
 function hash01(seed: string): number {
@@ -201,6 +227,67 @@ function buildMapDataForMetricByRto(
   });
 }
 
+/**
+ * Per-metric values scoped to the current area filter. Looks up the
+ * same deterministically-noised row that the ranking panel would show
+ * for this scope, so every tile reflects the user's selection — and
+ * the same area always returns the same numbers.
+ *
+ * No area, central metric, or no matching row → fall back to the
+ * initiative-level achieved / target on the metric itself.
+ */
+function scopedMetricValues(
+  metric: Metric,
+  area: AreaFilterValue,
+): {
+  achieved: number | null;
+  target: number | null;
+  previousAchieved: number | null;
+} {
+  const fallback = {
+    achieved: metric.achieved,
+    target: metric.target,
+    previousAchieved: metric.previousAchieved ?? null,
+  };
+  if (metric.geographyLevel === 'central') return fallback;
+  if (!area.state && !area.city && !area.rto) return fallback;
+
+  let row: MapDataPoint | undefined;
+  if (area.rto) {
+    row = buildMapDataForMetricByRto(metric, area).find((r) => r.name === area.rto);
+  } else if (area.city) {
+    row = buildMapDataForMetricByCity(metric).find((r) => r.name === area.city);
+  } else if (area.state) {
+    row = buildMapDataForMetric(metric).find((r) => r.name === area.state);
+  }
+  if (!row) return fallback;
+
+  // For Xx-format metrics we keep previousAchieved area-weight-scaled
+  // so the month-on-month delta on the tile stays directionally
+  // correct (the noise pattern for Xx is itself weight-scaled).
+  const w = getAreaWeight(area);
+  const prev =
+    metric.previousAchieved != null
+      ? Math.round(metric.previousAchieved * w)
+      : null;
+
+  if (metric.format === 'X/Y') {
+    const match = row.label?.match(/^([\d,]+) \/ ([\d,]+)/);
+    if (match) {
+      const achieved = parseInt(match[1].replace(/,/g, ''), 10);
+      const target = parseInt(match[2].replace(/,/g, ''), 10);
+      return { achieved, target, previousAchieved: prev };
+    }
+  }
+  if (metric.format === 'Xx') {
+    return { achieved: row.value, target: null, previousAchieved: prev };
+  }
+  if (metric.format === 'Y/N') {
+    return { achieved: row.value === 1 ? 1 : 0, target: 1, previousAchieved: null };
+  }
+  return fallback;
+}
+
 export default function DetailPage() {
   const {
     area,
@@ -226,9 +313,21 @@ export default function DetailPage() {
   const currentInit =
     INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
 
-  const outcomeMetrics  = currentInit.metrics.filter((m) => m.type === 'outcome');
-  const progressMetrics = currentInit.metrics.filter((m) => m.type === 'progress');
-  const readinessMetrics = currentInit.metrics.filter((m) => m.type === 'readiness');
+  // Clone every metric with values scoped to the current area filter,
+  // so the tiles, the section tallies, and the cumulative card all
+  // reflect the selected state / city / RTO. Same area = same numbers.
+  const scopedMetrics = useMemo(
+    () =>
+      currentInit.metrics.map((m) => ({
+        ...m,
+        ...scopedMetricValues(m, area),
+      })),
+    [currentInit, area],
+  );
+
+  const outcomeMetrics  = scopedMetrics.filter((m) => m.type === 'outcome');
+  const progressMetrics = scopedMetrics.filter((m) => m.type === 'progress');
+  const readinessMetrics = scopedMetrics.filter((m) => m.type === 'readiness');
 
   const defaultSelectedMetricName =
     outcomeMetrics[0]?.name ?? currentInit.metrics[0]?.name ?? '';
@@ -376,21 +475,29 @@ export default function DetailPage() {
   const progressTally = useMemo(() => summariseMetrics(progressMetrics), [progressMetrics]);
   const readinessTally = useMemo(() => summariseMetrics(readinessMetrics), [readinessMetrics]);
 
-  // Cumulative outcome roll-up — summed achieved / target across every
-  // non-inverse Outcome X/Y metric of the current initiative. Anchors
-  // the drill drawer with the initiative-level headline (e.g. Naya
-  // Safar's buses + trucks combined). Suppressed when there's only
-  // one such metric — the single-tile value is then already the total.
+  // Cumulative outcome roll-up — sums the initiative's *headline*
+  // outcome X/Y metrics (per INITIATIVE_CONFIGS.headlineMetricNames),
+  // filtered to non-inverse. So Naya Safar clubs only trucks + buses
+  // (events isn't a headline outcome and isn't commensurate),
+  // CEMS clubs CEMS + APCD installs (violations excluded as inverse),
+  // MRS clubs all three road widths, and single-outcome initiatives
+  // get no card at all. Uses scopedMetrics so the number tracks the
+  // active area filter.
   const outcomeCumulative = useMemo(() => {
-    const xy = currentInit.metrics.filter(
-      (m) => m.type === 'outcome' && m.format === 'X/Y' && !m.isInverse,
+    const headlineNames = new Set(initiativeConfig?.headlineMetricNames ?? []);
+    const relevant = scopedMetrics.filter(
+      (m) =>
+        m.type === 'outcome' &&
+        m.format === 'X/Y' &&
+        !m.isInverse &&
+        headlineNames.has(m.name),
     );
-    if (xy.length < 2) return null;
-    const achieved = xy.reduce((s, m) => s + (m.achieved ?? 0), 0);
-    const target = xy.reduce((s, m) => s + (m.target ?? 0), 0);
+    if (relevant.length < 2) return null;
+    const achieved = relevant.reduce((s, m) => s + (m.achieved ?? 0), 0);
+    const target = relevant.reduce((s, m) => s + (m.target ?? 0), 0);
     const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
-    return { achieved, target, pct, count: xy.length };
-  }, [currentInit]);
+    return { achieved, target, pct, count: relevant.length };
+  }, [scopedMetrics, initiativeConfig]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-surface-light)]">
