@@ -81,7 +81,7 @@ export default function DetailFilterBar({
           label="State"
           compact={!area.state}
           value={area.state ?? ''}
-          placeholder="All Delhi NCR"
+          placeholder="All NCR states"
           options={STATES}
           onChange={(v) => onAreaChange(v ? { state: v } : {})}
         />
@@ -92,7 +92,7 @@ export default function DetailFilterBar({
           label="City"
           compact={!area.city}
           value={area.city ?? ''}
-          placeholder={area.state ? `All of ${area.state}` : 'Pick a state first'}
+          placeholder={area.state ? `All cities in ${area.state}` : 'Choose a state first'}
           options={cityOptions}
           disabled={!area.state}
           onChange={(v) =>
@@ -106,7 +106,7 @@ export default function DetailFilterBar({
           label="RTO"
           compact={!area.rto}
           value={area.rto ?? ''}
-          placeholder={area.city ? `All RTOs in ${area.city}` : 'Pick a city first'}
+          placeholder={area.city ? `All RTOs in ${area.city}` : 'Choose a city first'}
           options={rtoOptions}
           disabled={!area.city}
           onChange={(v) =>
@@ -134,9 +134,10 @@ export default function DetailFilterBar({
 
       <Link
         to={seeAllHref}
+        title="Open the full data tables for this initiative."
         className="ml-auto inline-flex h-9 shrink-0 items-center rounded-[4px] bg-white/[0.92] px-3 font-['Roboto',sans-serif] text-[12px] font-semibold text-[#2E4B8F] shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
       >
-        See all data →
+        Full data tables →
       </Link>
     </div>
   );

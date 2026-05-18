@@ -25,17 +25,54 @@ import MetricTile from '@/components/ui/MetricTile';
 import MetricHeroStrip from '@/components/ui/MetricHeroStrip';
 import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
-import { cn } from '@/lib/utils';
+import {
+  cn,
+  getBandColors,
+  getColorBand,
+  getCompletionPercentage,
+} from '@/lib/utils';
 import { INITIATIVES, CITY_STATE_MAP } from '@/lib/constants';
 import {
   getMetricByState,
   getMetricValueForArea,
 } from '@/lib/aggregation';
 import { getInitiativeConfig } from '@/lib/initiatives';
-import type { MapDataPoint, ViewLevel, Metric } from '@/lib/types';
+import type { ColorBand, MapDataPoint, ViewLevel, Metric } from '@/lib/types';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
+
+interface BandTally {
+  green: number;
+  yellow: number;
+  red: number;
+  /** Xx metrics — tracked but have no target / no band. */
+  untracked: number;
+  /** Total number of metrics surveyed. */
+  total: number;
+}
+
+function summariseMetrics(metrics: Metric[]): BandTally {
+  const out: BandTally = { green: 0, yellow: 0, red: 0, untracked: 0, total: 0 };
+  for (const m of metrics) {
+    out.total += 1;
+    if (m.format === 'Y/N') {
+      if (m.achieved === 1) out.green += 1;
+      else out.red += 1;
+      continue;
+    }
+    if (m.format === 'Xx') {
+      out.untracked += 1;
+      continue;
+    }
+    const pct = getCompletionPercentage(m.target, m.achieved);
+    const band = getColorBand(pct, m.isInverse);
+    if (band === 'GREEN') out.green += 1;
+    else if (band === 'YELLOW') out.yellow += 1;
+    else out.red += 1;
+  }
+  return out;
+}
 
 function formatMonthKey(key: string): string {
   const [y, m] = key.split('-').map((s) => Number(s));
@@ -267,13 +304,17 @@ export default function DetailPage() {
     !!selectedMetric && metricFrequency === 'overall' && monthsActive;
 
   const periodLabel = period.overall || period.months.length === 0
-    ? 'Overall'
+    ? 'All months to date'
     : period.months.length === 1
     ? formatMonthKey(period.months[0])
     : `${formatMonthKey(period.months[0])} + ${period.months.length - 1} more`;
 
   const totalMetrics =
     outcomeMetrics.length + progressMetrics.length + readinessMetrics.length;
+
+  const outcomeTally = useMemo(() => summariseMetrics(outcomeMetrics), [outcomeMetrics]);
+  const progressTally = useMemo(() => summariseMetrics(progressMetrics), [progressMetrics]);
+  const readinessTally = useMemo(() => summariseMetrics(readinessMetrics), [readinessMetrics]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-surface-light)]">
@@ -298,19 +339,18 @@ export default function DetailPage() {
           aria-label="Initiative metrics"
         >
           <div className="flex flex-col gap-4 p-4">
-            <header className="flex items-baseline justify-between">
-              <h1 className="text-base font-bold text-[var(--color-text-primary)]">
-                {currentInit.name}
-              </h1>
-              <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">
-                {totalMetrics} metrics tracked
-              </span>
-            </header>
+            <InitiativeHealthBanner
+              initiativeName={currentInit.name}
+              periodLabel={periodLabel}
+              scopeLabel={areaLabel(area)}
+              outcomeTally={outcomeTally}
+              totalMetrics={totalMetrics}
+            />
 
             <MetricSection
               title="Outcome metrics"
-              hint="The headline results this initiative is judged on."
-              count={outcomeMetrics.length}
+              hint="What this initiative is trying to achieve."
+              tally={outcomeTally}
               emphasis
             >
               {outcomeMetrics.length > 0 ? (
@@ -333,8 +373,8 @@ export default function DetailPage() {
             {progressMetrics.length > 0 ? (
               <MetricSection
                 title="Progress metrics"
-                hint="Inputs and activities driving the outcomes."
-                count={progressMetrics.length}
+                hint="What we are doing to get there."
+                tally={progressTally}
               >
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {progressMetrics.map((m) => (
@@ -353,8 +393,8 @@ export default function DetailPage() {
             {readinessMetrics.length > 0 ? (
               <MetricSection
                 title="Readiness metrics"
-                hint="Enablers and yes/no prerequisites."
-                count={readinessMetrics.length}
+                hint="What needs to be in place to succeed."
+                tally={readinessTally}
               >
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {readinessMetrics.map((m) => (
@@ -380,14 +420,23 @@ export default function DetailPage() {
           <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-navy)] px-4 py-2.5 text-white">
             <div className="min-w-0">
               <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/70">
-                Drill view
+                Showing detail for
               </span>
               <p className="truncate text-xs font-bold" title={selectedMetric?.name}>
-                {selectedMetric?.name ?? '—'}
+                {selectedMetric?.name ?? 'Pick a metric on the left'}
               </p>
             </div>
             {selectedMetric ? (
-              <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+              <span
+                className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                title={
+                  selectedMetric.type === 'outcome'
+                    ? 'Outcome — a headline result the initiative is judged on.'
+                    : selectedMetric.type === 'progress'
+                    ? 'Progress — an activity or input driving the outcomes.'
+                    : 'Readiness — a prerequisite that must be in place.'
+                }
+              >
                 {selectedMetric.type}
               </span>
             ) : null}
@@ -411,15 +460,15 @@ export default function DetailPage() {
 
               {showCumulativeCallout ? (
                 <CalloutBox
-                  title="This metric is tracked at cumulative level only."
-                  body={`Values shown are the overall total regardless of the months you have selected (${periodLabel}).`}
+                  title="Total figure only — not split by month."
+                  body={`This metric isn't reported month-by-month. The number you see is the cumulative total, even though you have ${periodLabel} selected.`}
                 />
               ) : null}
 
               {isCentralLevelMetric ? (
                 <CalloutBox
-                  title="This metric is tracked centrally."
-                  body={`Only the all-NCR aggregate is available — there is no regional breakdown for ${selectedMetric?.name}.`}
+                  title="No regional breakdown."
+                  body="This metric is reported as a single all-NCR figure, so there's no state/city/RTO split."
                 />
               ) : null}
 
@@ -433,7 +482,7 @@ export default function DetailPage() {
                 />
               ) : !isCentralLevelMetric && selectedMetric?.format !== 'X/Y' ? (
                 <p className="rounded-md border border-dashed border-[var(--color-border-table)] bg-white px-4 py-5 text-center text-[11px] text-[var(--color-text-muted)]">
-                  Ranking is shown only for target-driven (X/Y) metrics.
+                  Ranking is only shown for metrics with a target.
                 </p>
               ) : null}
 
@@ -460,13 +509,13 @@ export default function DetailPage() {
 function MetricSection({
   title,
   hint,
-  count,
+  tally,
   emphasis = false,
   children,
 }: {
   title: string;
   hint?: string;
-  count: number;
+  tally: BandTally;
   emphasis?: boolean;
   children: React.ReactNode;
 }) {
@@ -474,7 +523,7 @@ function MetricSection({
     <section className="flex flex-col gap-2">
       <header
         className={cn(
-          'flex items-baseline justify-between border-b pb-1',
+          'flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b pb-1.5',
           emphasis ? 'border-[var(--color-accent)]' : 'border-[var(--color-border-table)]',
         )}
       >
@@ -488,16 +537,160 @@ function MetricSection({
             {title}
           </h2>
           <span className="rounded bg-[var(--color-surface-light)] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
-            {count}
+            {tally.total}
           </span>
+          {hint ? (
+            <span className="hidden text-[10px] text-[var(--color-text-muted)] md:inline">
+              {hint}
+            </span>
+          ) : null}
         </div>
-        {hint ? (
-          <p className="text-[10px] text-[var(--color-text-muted)]">{hint}</p>
-        ) : null}
+        <StatusBreakdown tally={tally} />
       </header>
       {children}
     </section>
   );
+}
+
+function StatusBreakdown({ tally }: { tally: BandTally }) {
+  if (tally.total === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {tally.green > 0 ? <StatusPill band="GREEN" count={tally.green} label="On track" /> : null}
+      {tally.yellow > 0 ? <StatusPill band="YELLOW" count={tally.yellow} label="At risk" /> : null}
+      {tally.red > 0 ? <StatusPill band="RED" count={tally.red} label="Behind" /> : null}
+      {tally.untracked > 0 ? (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-table)] bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]"
+          title="Reported as a raw count — no target, so no on-track / behind status."
+        >
+          {tally.untracked} no target
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusPill({
+  band,
+  count,
+  label,
+}: {
+  band: Exclude<ColorBand, 'NA'>;
+  count: number;
+  label: string;
+}) {
+  const colors = getBandColors(band);
+  const tip =
+    label === 'On track'
+      ? 'At or above 60% of target.'
+      : label === 'At risk'
+      ? '30–60% of target — watch closely.'
+      : 'Below 30% of target — falling behind.';
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+      style={{ backgroundColor: colors.bg, color: colors.text }}
+      title={tip}
+    >
+      <span
+        aria-hidden
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: colors.fg }}
+      />
+      {count} {label}
+    </span>
+  );
+}
+
+function InitiativeHealthBanner({
+  initiativeName,
+  periodLabel,
+  scopeLabel,
+  outcomeTally,
+  totalMetrics,
+}: {
+  initiativeName: string;
+  periodLabel: string;
+  scopeLabel: string;
+  outcomeTally: BandTally;
+  totalMetrics: number;
+}) {
+  const verdict = headlineVerdict(outcomeTally);
+
+  return (
+    <header
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border bg-white px-4 py-3 shadow-sm"
+      style={{
+        borderLeftWidth: 4,
+        borderLeftColor: verdict.color,
+        borderTopColor: 'var(--color-border-table)',
+        borderRightColor: 'var(--color-border-table)',
+        borderBottomColor: 'var(--color-border-table)',
+      }}
+    >
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
+          Initiative
+        </p>
+        <h1 className="truncate text-lg font-bold leading-tight text-[var(--color-text-primary)]">
+          {initiativeName}
+        </h1>
+        <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+          <span className="font-semibold text-[var(--color-text-primary)]">{scopeLabel}</span>
+          <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
+          {periodLabel}
+          <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
+          {totalMetrics} {totalMetrics === 1 ? 'metric' : 'metrics'} tracked
+        </p>
+      </div>
+
+      <div className="flex flex-col items-end gap-1.5">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide"
+          style={{ backgroundColor: verdict.bg, color: verdict.text }}
+        >
+          <span
+            aria-hidden
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ backgroundColor: verdict.color }}
+          />
+          {verdict.label}
+        </span>
+        <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">
+          Based on outcome metrics
+        </p>
+        <StatusBreakdown tally={outcomeTally} />
+      </div>
+    </header>
+  );
+}
+
+function headlineVerdict(t: BandTally): {
+  label: string;
+  color: string;
+  bg: string;
+  text: string;
+} {
+  const tracked = t.green + t.yellow + t.red;
+  if (tracked === 0) {
+    return {
+      label: 'No status',
+      color: 'var(--color-text-muted)',
+      bg: 'var(--color-surface-light)',
+      text: 'var(--color-text-secondary)',
+    };
+  }
+  // Worst-band wins so officials see the laggard, not an average.
+  const band: Exclude<ColorBand, 'NA'> = t.red > 0 ? 'RED' : t.yellow > 0 ? 'YELLOW' : 'GREEN';
+  const colors = getBandColors(band);
+  const label =
+    band === 'GREEN'
+      ? 'On track overall'
+      : band === 'YELLOW'
+      ? 'Watch — at risk'
+      : 'Action needed';
+  return { label, color: colors.fg, bg: colors.bg, text: colors.text };
 }
 
 function CalloutBox({ title, body }: { title: string; body: string }) {
