@@ -38,9 +38,10 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
   'naya-safar-yojana': {
     slug: 'naya-safar-yojana',
     geographyLevels: ['state', 'city', 'rto'],
-    extraFilters: [
-      { key: 'vehicleType', label: 'Vehicle Type', options: ['Truck', 'Bus'] },
-    ],
+    // No Vehicle Type filter — the metrics grid already shows trucks
+    // and buses as separate tiles, so a top-bar bifurcation would be
+    // redundant chrome.
+    extraFilters: [],
     headlineMetricNames: [
       'No. of pre-BS VI trucks converted',
       'No. of pre-BS VI buses converted',
