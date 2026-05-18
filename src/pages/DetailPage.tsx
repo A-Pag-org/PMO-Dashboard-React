@@ -1,38 +1,32 @@
 // FILE: src/pages/DetailPage.tsx
-// PURPOSE: Detailed View — minimalist two-column layout designed for
-//          senior officials.
-//          · 2nd bar     : horizontal filter strip (Initiative, State,
-//                          City, RTO, extras, time range, See all data).
-//          · Centre      : compact KPI strip + ranking panel (with an
-//                          inline State/City/RTO switcher) + 6-month
-//                          trend panel for the selected metric.
-//          · Right rail  : Metrics inspector (Outcome · Progress ·
-//                          Readiness groups) — unchanged.
+// PURPOSE: Detailed View — metric-first layout designed for senior officials.
+//          · TopBar + filter strip stay unchanged.
+//          · LEFT (primary, ~60%): three metric groups laid out as rich
+//            tiles — Outcome (2-col, prominent) · Progress (3-col) ·
+//            Readiness (3-col, compact). Each tile shows the value, the
+//            traffic-light band, a 6-month sparkline (when meaningful)
+//            and "Monthly · {lowest-level}" metadata. Clicking a tile
+//            selects it for the drill drawer.
+//          · RIGHT (~360px): drill drawer for the selected metric —
+//            hero strip + central / cumulative-only callouts + ranking
+//            by State/City/RTO + 6-month trend chart.
+//
+//          Business logic preserved: same metric data, same aggregation
+//          helpers, same filters. The map is gone; ranking + trend are
+//          first-class but secondary to the metric grid.
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Truck,
-  Bus,
-  Calendar,
-  Fuel,
-  Landmark,
-  Database,
-  Info,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Info } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
 import type { TimePeriod, ViewLabel } from '@/components/layout/DetailFilterBar';
 import { DEFAULT_TIME_PERIOD } from '@/components/ui/TimePeriodPill';
-import MetricCard from '@/components/ui/MetricCard';
+import MetricTile from '@/components/ui/MetricTile';
 import MetricHeroStrip from '@/components/ui/MetricHeroStrip';
 import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
 import { cn } from '@/lib/utils';
-import {
-  INITIATIVES,
-  CITY_STATE_MAP,
-} from '@/lib/constants';
+import { INITIATIVES, CITY_STATE_MAP } from '@/lib/constants';
 import {
   getMetricByState,
   getMetricValueForArea,
@@ -43,18 +37,7 @@ import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
-function iconForMetric(m: Metric): LucideIcon {
-  const n = m.name.toLowerCase();
-  if (n.includes('truck')) return Truck;
-  if (n.includes('bus')) return Bus;
-  if (n.includes('event')) return Calendar;
-  if (n.includes('outlet') || n.includes('fuel')) return Fuel;
-  if (n.includes('psb') || n.includes('nbfc') || n.includes('onboard')) return Landmark;
-  return Database;
-}
-
 function formatMonthKey(key: string): string {
-  // "2026-05" → "May '26"
   const [y, m] = key.split('-').map((s) => Number(s));
   if (!y || !m) return key;
   const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -239,8 +222,6 @@ export default function DetailPage() {
 
   const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
 
-  // Headline aggregate for the hero strip — uses the same aggregation helper
-  // that previously fed the centre bubble on the map.
   const heroAgg = useMemo(() => {
     if (!selectedMetric) return undefined;
     const isCentral = selectedMetric.geographyLevel === 'central';
@@ -252,9 +233,6 @@ export default function DetailPage() {
     };
   }, [selectedMetric, area]);
 
-  // Trend widget needs a single "current overall" number + a unit hint.
-  // X/Y → 0-100 percentage of the all-NCR aggregate. Xx → raw count.
-  // Y/N is suppressed at the call site (no meaningful trend to draw).
   const trendUnit: 'pct' | 'count' =
     selectedMetric?.format === 'Xx' ? 'count' : 'pct';
   const trendCurrentValue = useMemo(() => {
@@ -281,10 +259,6 @@ export default function DetailPage() {
     !!selectedMetric &&
     selectedMetric.format !== 'Y/N';
 
-  // Spec (General rules DV §9 + Map rules cases 2/4/5/8/9/11/12):
-  // when an "overall only" metric is being viewed with one or more
-  // specific months selected, surface the cumulative-only callout so
-  // officials don't misread the slice. Y/N is implicitly overall.
   const metricFrequency =
     selectedMetric?.trackingFrequency ??
     (selectedMetric?.format === 'Y/N' ? 'overall' : 'monthly');
@@ -297,6 +271,9 @@ export default function DetailPage() {
     : period.months.length === 1
     ? formatMonthKey(period.months[0])
     : `${formatMonthKey(period.months[0])} + ${period.months.length - 1} more`;
+
+  const totalMetrics =
+    outcomeMetrics.length + progressMetrics.length + readinessMetrics.length;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-surface-light)]">
@@ -314,131 +291,163 @@ export default function DetailPage() {
         seeAllHref={seeAllHref}
       />
 
-      <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_420px]">
-        {/* ── CENTRE: insights stack (KPI · ranking · trend) ──────────── */}
+      <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
+        {/* ── LEFT (primary): metric groups ─────────────────────────── */}
         <section
           className="flex min-h-0 flex-col overflow-y-auto bg-[var(--color-surface-light)]"
-          aria-label="Metric insights"
+          aria-label="Initiative metrics"
         >
-          <div className="flex flex-col gap-3 p-4">
-            {/* Metric title strip */}
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-2 w-2 shrink-0 rounded-full"
-                style={{
-                  backgroundColor:
-                    selectedMetric?.type === 'outcome'
-                      ? 'var(--color-accent)'
-                      : selectedMetric?.type === 'progress'
-                      ? 'var(--color-blue-link)'
-                      : 'var(--color-text-muted)',
-                }}
-                aria-hidden
-              />
-              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-                {selectedMetric?.type ?? 'metric'}
+          <div className="flex flex-col gap-4 p-4">
+            <header className="flex items-baseline justify-between">
+              <h1 className="text-base font-bold text-[var(--color-text-primary)]">
+                {currentInit.name}
+              </h1>
+              <span className="text-[11px] font-semibold text-[var(--color-text-muted)]">
+                {totalMetrics} metrics tracked
               </span>
-              <h2 className="text-sm font-bold text-[var(--color-text-primary)]">
-                {selectedMetric?.name ?? currentInit.primaryMetric}
-              </h2>
-              {selectedMetric?.isInverse ? (
-                <span className="rounded bg-[var(--color-tl-red-bg)] px-1.5 py-0.5 text-[9px] font-bold uppercase text-[var(--color-tl-red-text)]">
-                  Inverse
-                </span>
-              ) : null}
-            </div>
+            </header>
 
-            <MetricHeroStrip
-              metric={selectedMetric}
-              area={area}
-              scopeLabel={heroAgg?.scope ?? 'Delhi-NCR'}
-              displayText={
-                selectedMetric?.format === 'X/Y'
-                  ? undefined
-                  : heroAgg?.agg.displayText
-              }
-              achievedForBand={heroAgg?.agg.achieved ?? null}
-              targetForBand={heroAgg?.agg.target ?? null}
-              periodLabel={periodLabel}
-            />
-
-            {showCumulativeCallout ? (
-              <div className="flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2.5 shadow-sm">
-                <Info className="h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
-                <div className="text-xs text-[var(--color-text-primary)]">
-                  <p className="font-semibold">
-                    This metric is tracked at cumulative level only.
-                  </p>
-                  <p className="text-[var(--color-text-secondary)]">
-                    Values shown are the overall total regardless of the
-                    months you have selected ({periodLabel}).
-                  </p>
+            <MetricSection
+              title="Outcome metrics"
+              hint="The headline results this initiative is judged on."
+              count={outcomeMetrics.length}
+              emphasis
+            >
+              {outcomeMetrics.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {outcomeMetrics.map((m) => (
+                    <MetricTile
+                      key={m.name}
+                      metric={m}
+                      size="lg"
+                      selected={selectedMetric?.name === m.name}
+                      onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
+                    />
+                  ))}
                 </div>
-              </div>
-            ) : null}
+              ) : (
+                <EmptyRow label="No outcome metrics for this initiative." />
+              )}
+            </MetricSection>
 
-            {isCentralLevelMetric ? (
-              <div className="flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2.5 shadow-sm">
-                <Info className="h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
-                <div className="text-xs text-[var(--color-text-primary)]">
-                  <p className="font-semibold">This metric is tracked centrally.</p>
-                  <p className="text-[var(--color-text-secondary)]">
-                    Only the all-NCR aggregate is available — there is no
-                    regional breakdown for {selectedMetric?.name}.
-                  </p>
+            {progressMetrics.length > 0 ? (
+              <MetricSection
+                title="Progress metrics"
+                hint="Inputs and activities driving the outcomes."
+                count={progressMetrics.length}
+              >
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {progressMetrics.map((m) => (
+                    <MetricTile
+                      key={m.name}
+                      metric={m}
+                      size="md"
+                      selected={selectedMetric?.name === m.name}
+                      onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
+                    />
+                  ))}
                 </div>
-              </div>
+              </MetricSection>
             ) : null}
 
-            {showRanking ? (
-              <RankingPanel
-                rows={ranking}
-                level={effectiveViewLabel}
-                availableLevels={availableViewLevels}
-                onLevelChange={handleLevelChange}
-                emptyHint={emptyHint}
-              />
-            ) : !isCentralLevelMetric && selectedMetric?.format !== 'X/Y' ? (
-              <p className="rounded-md border border-dashed border-[var(--color-border-table)] bg-white px-4 py-6 text-center text-xs text-[var(--color-text-muted)]">
-                Ranking is shown only for target-driven metrics (X / Y).
-              </p>
-            ) : null}
-
-            {showTrend ? (
-              <TrendPanel
-                metricName={selectedMetric.name}
-                overallValue={trendCurrentValue}
-                rows={ranking}
-                unit={trendUnit}
-                isInverse={selectedMetric.isInverse}
-                level={effectiveViewLabel}
-              />
+            {readinessMetrics.length > 0 ? (
+              <MetricSection
+                title="Readiness metrics"
+                hint="Enablers and yes/no prerequisites."
+                count={readinessMetrics.length}
+              >
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {readinessMetrics.map((m) => (
+                    <MetricTile
+                      key={m.name}
+                      metric={m}
+                      size="sm"
+                      selected={selectedMetric?.name === m.name}
+                      onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
+                    />
+                  ))}
+                </div>
+              </MetricSection>
             ) : null}
           </div>
         </section>
 
-        {/* ── RIGHT: metrics inspector ─────────────────────────────── */}
+        {/* ── RIGHT (drill drawer): selected-metric details ─────────── */}
         <aside
           className="flex min-h-0 flex-col overflow-hidden border-l border-[var(--color-border)] bg-white"
-          aria-label="Metrics inspector"
+          aria-label="Selected metric details"
         >
-          <header className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--color-text-primary)]">
-              Metrics
-            </h2>
-            <span className="text-[10px] font-semibold text-[var(--color-text-muted)]">
-              {outcomeMetrics.length + progressMetrics.length + readinessMetrics.length} total
-            </span>
+          <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-navy)] px-4 py-2.5 text-white">
+            <div className="min-w-0">
+              <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/70">
+                Drill view
+              </span>
+              <p className="truncate text-xs font-bold" title={selectedMetric?.name}>
+                {selectedMetric?.name ?? '—'}
+              </p>
+            </div>
+            {selectedMetric ? (
+              <span className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                {selectedMetric.type}
+              </span>
+            ) : null}
           </header>
 
           <div className="flex-1 overflow-y-auto">
-            <MetricsPanel
-              outcomeMetrics={outcomeMetrics}
-              progressMetrics={progressMetrics}
-              readinessMetrics={readinessMetrics}
-              selectedMetricName={selectedMetric?.name}
-              onSelect={(name) => handleSelectMetric(currentInit.slug, name)}
-            />
+            <div className="flex flex-col gap-3 p-3">
+              <MetricHeroStrip
+                metric={selectedMetric}
+                area={area}
+                scopeLabel={heroAgg?.scope ?? 'Delhi-NCR'}
+                displayText={
+                  selectedMetric?.format === 'X/Y'
+                    ? undefined
+                    : heroAgg?.agg.displayText
+                }
+                achievedForBand={heroAgg?.agg.achieved ?? null}
+                targetForBand={heroAgg?.agg.target ?? null}
+                periodLabel={periodLabel}
+              />
+
+              {showCumulativeCallout ? (
+                <CalloutBox
+                  title="This metric is tracked at cumulative level only."
+                  body={`Values shown are the overall total regardless of the months you have selected (${periodLabel}).`}
+                />
+              ) : null}
+
+              {isCentralLevelMetric ? (
+                <CalloutBox
+                  title="This metric is tracked centrally."
+                  body={`Only the all-NCR aggregate is available — there is no regional breakdown for ${selectedMetric?.name}.`}
+                />
+              ) : null}
+
+              {showRanking ? (
+                <RankingPanel
+                  rows={ranking}
+                  level={effectiveViewLabel}
+                  availableLevels={availableViewLevels}
+                  onLevelChange={handleLevelChange}
+                  emptyHint={emptyHint}
+                />
+              ) : !isCentralLevelMetric && selectedMetric?.format !== 'X/Y' ? (
+                <p className="rounded-md border border-dashed border-[var(--color-border-table)] bg-white px-4 py-5 text-center text-[11px] text-[var(--color-text-muted)]">
+                  Ranking is shown only for target-driven (X/Y) metrics.
+                </p>
+              ) : null}
+
+              {showTrend ? (
+                <TrendPanel
+                  metricName={selectedMetric.name}
+                  overallValue={trendCurrentValue}
+                  rows={ranking}
+                  unit={trendUnit}
+                  isInverse={selectedMetric.isInverse}
+                  level={effectiveViewLabel}
+                />
+              ) : null}
+            </div>
           </div>
         </aside>
       </main>
@@ -446,157 +455,66 @@ export default function DetailPage() {
   );
 }
 
-function MetricsPanel({
-  outcomeMetrics,
-  progressMetrics,
-  readinessMetrics,
-  selectedMetricName,
-  onSelect,
-}: {
-  outcomeMetrics: Metric[];
-  progressMetrics: Metric[];
-  readinessMetrics: Metric[];
-  selectedMetricName?: string;
-  onSelect: (name: string) => void;
-}) {
-  return (
-    <div className="flex flex-col">
-      <MetricGroup
-        title="Outcome metrics"
-        count={outcomeMetrics.length}
-        emphasis
-        defaultOpen
-      >
-        {outcomeMetrics.length > 0 ? (
-          outcomeMetrics.map((m) => (
-            <MetricCard
-              key={m.name}
-              icon={iconForMetric(m)}
-              label={m.name}
-              achieved={m.achieved}
-              target={m.target}
-              previousAchieved={m.previousAchieved}
-              format={m.format}
-              isInverse={m.isInverse}
-              denominatorLabel={m.denominatorLabel}
-              prominent
-              selected={selectedMetricName === m.name}
-              onSelect={() => onSelect(m.name)}
-            />
-          ))
-        ) : (
-          <EmptyRow label="No outcome metrics for this initiative" />
-        )}
-      </MetricGroup>
+/* ─────────────────────────────────────────────────────────────────────── */
 
-      {progressMetrics.length > 0 ? (
-        <MetricGroup
-          title="Progress metrics"
-          count={progressMetrics.length}
-          defaultOpen={false}
-        >
-          {progressMetrics.map((m) => (
-            <MetricCard
-              key={m.name}
-              icon={iconForMetric(m)}
-              label={m.name}
-              achieved={m.achieved}
-              target={m.target}
-              previousAchieved={m.previousAchieved}
-              format={m.format}
-              isInverse={m.isInverse}
-              denominatorLabel={m.denominatorLabel}
-              selected={selectedMetricName === m.name}
-              onSelect={() => onSelect(m.name)}
-            />
-          ))}
-        </MetricGroup>
-      ) : null}
-
-      {readinessMetrics.length > 0 ? (
-        <MetricGroup
-          title="Readiness metrics"
-          count={readinessMetrics.length}
-          defaultOpen={false}
-        >
-          {readinessMetrics.map((m) => (
-            <MetricCard
-              key={m.name}
-              icon={iconForMetric(m)}
-              label={m.name}
-              achieved={m.achieved}
-              target={m.target}
-              previousAchieved={m.previousAchieved}
-              format={m.format}
-              isInverse={m.isInverse}
-              denominatorLabel={m.denominatorLabel}
-              selected={selectedMetricName === m.name}
-              onSelect={() => onSelect(m.name)}
-            />
-          ))}
-        </MetricGroup>
-      ) : null}
-    </div>
-  );
-}
-
-function MetricGroup({
+function MetricSection({
   title,
+  hint,
   count,
-  defaultOpen = true,
   emphasis = false,
   children,
 }: {
   title: string;
+  hint?: string;
   count: number;
-  defaultOpen?: boolean;
   emphasis?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const headingId = `metric-group-${title.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <div
-      className={cn(
-        'shrink-0',
-        emphasis && 'border-t-2 border-[var(--color-accent)]',
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls={headingId}
-        className="flex w-full items-center justify-between bg-[var(--color-navy)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-navy-mid)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-inset"
+    <section className="flex flex-col gap-2">
+      <header
+        className={cn(
+          'flex items-baseline justify-between border-b pb-1',
+          emphasis ? 'border-[var(--color-accent)]' : 'border-[var(--color-border-table)]',
+        )}
       >
-        <span className="inline-flex items-center gap-2">
-          <span
+        <div className="flex items-baseline gap-2">
+          <h2
             className={cn(
-              'inline-block h-3.5 w-3.5 transition-transform',
-              open && 'rotate-90',
+              'text-xs font-bold uppercase tracking-[0.08em]',
+              emphasis ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]',
             )}
-            aria-hidden
           >
-            ›
-          </span>
-          {title}
-          <span className="rounded bg-white/15 px-1.5 py-px text-[10px] font-bold tabular-nums">
+            {title}
+          </h2>
+          <span className="rounded bg-[var(--color-surface-light)] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
             {count}
           </span>
-        </span>
-      </button>
-      {open ? (
-        <div id={headingId} className="flex flex-col gap-2 px-2 py-2">
-          {children}
         </div>
-      ) : null}
+        {hint ? (
+          <p className="text-[10px] text-[var(--color-text-muted)]">{hint}</p>
+        ) : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function CalloutBox({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2.5 shadow-sm">
+      <Info className="h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
+      <div className="text-xs text-[var(--color-text-primary)]">
+        <p className="font-semibold">{title}</p>
+        <p className="text-[var(--color-text-secondary)]">{body}</p>
+      </div>
     </div>
   );
 }
 
 function EmptyRow({ label }: { label: string }) {
   return (
-    <p className="py-3 text-center text-xs text-[var(--color-text-muted)]">
+    <p className="rounded-md border border-dashed border-[var(--color-border-table)] bg-white px-4 py-5 text-center text-xs text-[var(--color-text-muted)]">
       {label}
     </p>
   );
