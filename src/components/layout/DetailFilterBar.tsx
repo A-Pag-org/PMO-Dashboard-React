@@ -1,27 +1,20 @@
 // FILE: src/components/layout/DetailFilterBar.tsx
 // PURPOSE: Detail-page filter strip — the navy band that sits directly
-//          below TopBar. Carries every page-scoping filter on a single
-//          line:
-//            Initiative · State · {District|City} · {RTO|Industrial Area}
-//            · <extras> · Period · Full data tables
+//          below TopBar. Single line:
+//            Initiative · Area · <extras> · Period · Full data tables
 //
-//          State / mid-level / deepest-level use standard dropdown
-//          pills (FilterPill renders a native <select> under the hood
-//          so the menu opens the same way as any browser dropdown).
-//          The mid- and deepest-level labels switch per initiative —
-//          Naya Safar uses "District" + "RTO", CEMS uses
-//          "District" + "Industrial Area", others default to "City".
+//          State / mid-level / deepest-level live behind a single
+//          "Area" pill (AreaPicker) — clicking opens a card with three
+//          stacked native-style dropdowns whose labels switch per
+//          initiative (e.g. Naya Safar reads State · District · RTO,
+//          Road Repair reads State · City).
 
 import { Link } from 'react-router-dom';
-import {
-  INITIATIVES,
-  STATES,
-  UPLOAD_CITY_OPTIONS_BY_STATE,
-  RTO_OPTIONS_BY_CITY,
-} from '@/lib/constants';
+import { INITIATIVES } from '@/lib/constants';
 import { INITIATIVE_CONFIGS } from '@/lib/initiatives';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import FilterPill from '@/components/ui/FilterPill';
+import AreaPicker from '@/components/ui/AreaPicker';
 import TimePeriodPill from '@/components/ui/TimePeriodPill';
 import type { TimePeriod } from '@/components/ui/TimePeriodPill';
 
@@ -59,14 +52,8 @@ export default function DetailFilterBar({
   const supportsState = config?.geographyLevels.includes('state') ?? true;
   const supportsCity = config?.geographyLevels.includes('city') ?? true;
   const supportsRto = config?.geographyLevels.includes('rto') ?? false;
-
   const cityLabel = config?.cityLabel ?? 'City';
   const rtoLabel = config?.rtoLabel ?? 'RTO';
-
-  const cityOptions = area.state
-    ? UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? []
-    : [];
-  const rtoOptions = area.city ? RTO_OPTIONS_BY_CITY[area.city] ?? [] : [];
 
   return (
     <div
@@ -82,53 +69,13 @@ export default function DetailFilterBar({
       />
 
       {supportsState ? (
-        <FilterPill
-          label="State"
-          compact={!area.state}
-          value={area.state ?? ''}
-          placeholder="All NCR states"
-          options={STATES}
-          onChange={(v) => onAreaChange(v ? { state: v } : {})}
-        />
-      ) : null}
-
-      {supportsCity ? (
-        <FilterPill
-          label={cityLabel}
-          compact={!area.city}
-          value={area.city ?? ''}
-          placeholder={
-            area.state
-              ? `All ${cityLabel.toLowerCase()}s in ${area.state}`
-              : 'Choose a state first'
-          }
-          options={cityOptions}
-          disabled={!area.state}
-          onChange={(v) =>
-            onAreaChange({ state: area.state, city: v || undefined })
-          }
-        />
-      ) : null}
-
-      {supportsRto ? (
-        <FilterPill
-          label={rtoLabel}
-          compact={!area.rto}
-          value={area.rto ?? ''}
-          placeholder={
-            area.city
-              ? `All ${rtoLabel.toLowerCase()}s in ${area.city}`
-              : `Choose a ${cityLabel.toLowerCase()} first`
-          }
-          options={rtoOptions}
-          disabled={!area.city}
-          onChange={(v) =>
-            onAreaChange({
-              state: area.state,
-              city: area.city,
-              rto: v || undefined,
-            })
-          }
+        <AreaPicker
+          area={area}
+          onChange={onAreaChange}
+          supportsCity={supportsCity}
+          supportsRto={supportsRto}
+          cityLabel={cityLabel}
+          rtoLabel={rtoLabel}
         />
       ) : null}
 
