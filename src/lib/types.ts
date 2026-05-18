@@ -45,6 +45,21 @@ export interface Metric {
    * center bubble — never as a regional overlay on the map.
    */
   geographyLevel?: 'state' | 'city' | 'rto' | 'central';
+  /**
+   * Per-spec Logic (DV) col J: 'monthly' metrics re-aggregate when the
+   * user selects specific months in the time filter. 'overall' metrics
+   * always show their cumulative value regardless of month selection
+   * and the page renders a "tracked at cumulative level only" callout.
+   * Defaults to 'monthly' for X/Y and Xx; Y/N is implicitly 'overall'.
+   */
+  trackingFrequency?: 'monthly' | 'overall';
+  /**
+   * Display label for the metric's lowest geographic level — used by
+   * the hero strip badge ("Monthly · City"). Free text so we can match
+   * the spec's vocabulary per initiative ("District", "Industrial Area",
+   * "ULB", ...).
+   */
+  lowestLevelLabel?: string;
   /** Free-text data source label (API / Manual / TBD etc.). */
   dataSource?: string;
   /**

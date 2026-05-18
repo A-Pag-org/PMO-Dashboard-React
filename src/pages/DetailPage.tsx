@@ -22,7 +22,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
-import type { CustomRange, ViewLabel } from '@/components/layout/DetailFilterBar';
+import type { TimePeriod, ViewLabel } from '@/components/layout/DetailFilterBar';
+import { DEFAULT_TIME_PERIOD } from '@/components/ui/TimePeriodPill';
 import MetricCard from '@/components/ui/MetricCard';
 import MetricHeroStrip from '@/components/ui/MetricHeroStrip';
 import RankingPanel from '@/components/ui/RankingPanel';
@@ -50,6 +51,14 @@ function iconForMetric(m: Metric): LucideIcon {
   if (n.includes('outlet') || n.includes('fuel')) return Fuel;
   if (n.includes('psb') || n.includes('nbfc') || n.includes('onboard')) return Landmark;
   return Database;
+}
+
+function formatMonthKey(key: string): string {
+  // "2026-05" → "May '26"
+  const [y, m] = key.split('-').map((s) => Number(s));
+  if (!y || !m) return key;
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${names[m - 1]} '${String(y).slice(-2)}`;
 }
 
 function areaLabel(area: AreaFilterValue): string {
@@ -130,7 +139,7 @@ export default function DetailPage() {
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
-  const [customRange, setCustomRange] = useState<CustomRange | undefined>(undefined);
+  const [period, setPeriod] = useState<TimePeriod>(DEFAULT_TIME_PERIOD);
   const role = getCurrentRole();
 
   const currentInit =
@@ -272,6 +281,23 @@ export default function DetailPage() {
     !!selectedMetric &&
     selectedMetric.format !== 'Y/N';
 
+  // Spec (General rules DV §9 + Map rules cases 2/4/5/8/9/11/12):
+  // when an "overall only" metric is being viewed with one or more
+  // specific months selected, surface the cumulative-only callout so
+  // officials don't misread the slice. Y/N is implicitly overall.
+  const metricFrequency =
+    selectedMetric?.trackingFrequency ??
+    (selectedMetric?.format === 'Y/N' ? 'overall' : 'monthly');
+  const monthsActive = !period.overall && period.months.length > 0;
+  const showCumulativeCallout =
+    !!selectedMetric && metricFrequency === 'overall' && monthsActive;
+
+  const periodLabel = period.overall || period.months.length === 0
+    ? 'Overall'
+    : period.months.length === 1
+    ? formatMonthKey(period.months[0])
+    : `${formatMonthKey(period.months[0])} + ${period.months.length - 1} more`;
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-surface-light)]">
       <TopBar activePage="detail" />
@@ -283,8 +309,8 @@ export default function DetailPage() {
         onAreaChange={setArea}
         onInitiativeChange={setInitiativeName}
         onExtraChange={setExtra}
-        customRange={customRange}
-        onCustomRangeChange={setCustomRange}
+        period={period}
+        onPeriodChange={setPeriod}
         seeAllHref={seeAllHref}
       />
 
@@ -333,7 +359,23 @@ export default function DetailPage() {
               }
               achievedForBand={heroAgg?.agg.achieved ?? null}
               targetForBand={heroAgg?.agg.target ?? null}
+              periodLabel={periodLabel}
             />
+
+            {showCumulativeCallout ? (
+              <div className="flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2.5 shadow-sm">
+                <Info className="h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
+                <div className="text-xs text-[var(--color-text-primary)]">
+                  <p className="font-semibold">
+                    This metric is tracked at cumulative level only.
+                  </p>
+                  <p className="text-[var(--color-text-secondary)]">
+                    Values shown are the overall total regardless of the
+                    months you have selected ({periodLabel}).
+                  </p>
+                </div>
+              </div>
+            ) : null}
 
             {isCentralLevelMetric ? (
               <div className="flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2.5 shadow-sm">
