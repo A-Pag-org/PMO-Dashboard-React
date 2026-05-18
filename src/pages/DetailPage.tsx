@@ -354,7 +354,7 @@ export default function DetailPage() {
               emphasis
             >
               {outcomeMetrics.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {outcomeMetrics.map((m) => (
                     <MetricTile
                       key={m.name}
@@ -617,6 +617,7 @@ function InitiativeHealthBanner({
   totalMetrics: number;
 }) {
   const verdict = headlineVerdict(outcomeTally);
+  const tracked = outcomeTally.green + outcomeTally.yellow + outcomeTally.red;
 
   return (
     <header
@@ -630,9 +631,6 @@ function InitiativeHealthBanner({
       }}
     >
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">
-          Initiative
-        </p>
         <h1 className="truncate text-lg font-bold leading-tight text-[var(--color-text-primary)]">
           {initiativeName}
         </h1>
@@ -645,10 +643,11 @@ function InitiativeHealthBanner({
         </p>
       </div>
 
-      <div className="flex flex-col items-end gap-1.5">
+      <div className="flex flex-col items-end gap-1">
         <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide"
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
           style={{ backgroundColor: verdict.bg, color: verdict.text }}
+          title="Worst-band-wins across outcome metrics."
         >
           <span
             aria-hidden
@@ -657,12 +656,48 @@ function InitiativeHealthBanner({
           />
           {verdict.label}
         </span>
-        <p className="text-[10px] font-semibold text-[var(--color-text-muted)]">
-          Based on outcome metrics
-        </p>
-        <StatusBreakdown tally={outcomeTally} />
+        {tracked > 0 ? (
+          <p className="text-[11px] font-semibold tabular-nums">
+            <OutcomeCount n={outcomeTally.red} label="behind" band="RED" />
+            <OutcomeCount n={outcomeTally.yellow} label="at risk" band="YELLOW" />
+            <OutcomeCount n={outcomeTally.green} label="on track" band="GREEN" />
+          </p>
+        ) : null}
       </div>
     </header>
+  );
+}
+
+function OutcomeCount({
+  n,
+  label,
+  band,
+}: {
+  n: number;
+  label: string;
+  band: Exclude<ColorBand, 'NA'>;
+}) {
+  if (n === 0) return null;
+  const colors = getBandColors(band);
+  return (
+    <span
+      className="ml-2 first:ml-0"
+      style={{ color: colors.text }}
+      title={
+        label === 'on track'
+          ? 'Outcome metrics at ≥60% of target.'
+          : label === 'at risk'
+          ? 'Outcome metrics at 30–60% of target.'
+          : 'Outcome metrics below 30% of target.'
+      }
+    >
+      <span
+        aria-hidden
+        className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle"
+        style={{ backgroundColor: colors.fg }}
+      />
+      {n} {label}
+    </span>
   );
 }
 
