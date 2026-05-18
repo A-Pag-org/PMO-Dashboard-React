@@ -160,9 +160,10 @@ export default function DetailPage() {
     Record<string, string>
   >({});
   const [period, setPeriod] = useState<TimePeriod>(DEFAULT_TIME_PERIOD);
-  // Right-hand drill drawer (ranking + trend) is collapsed by default;
-  // a chevron handle toggles it. Selecting a metric tile also auto-
-  // opens the drawer so officials are taken straight to the detail.
+  // Right-hand drill drawer (ranking + trend) is collapsed by default
+  // and only opens when the user clicks the chevron handle. Selecting
+  // a metric tile updates which metric the drawer will show, but does
+  // not open the drawer itself — the user stays in control of the view.
   const [drawerOpen, setDrawerOpen] = useState(false);
   const role = getCurrentRole();
 
@@ -259,9 +260,6 @@ export default function DetailPage() {
 
   function handleSelectMetric(slug: string, name: string) {
     setSelectedMetricByInitiative((prev) => ({ ...prev, [slug]: name }));
-    // Auto-open the drill drawer on tile click so the click has a
-    // visible effect even when the drawer was collapsed.
-    setDrawerOpen(true);
   }
 
   const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
