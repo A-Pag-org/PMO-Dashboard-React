@@ -618,12 +618,6 @@ function InitiativeHealthBanner({
         <LegendSwatch band="GREEN" label="On track" range="≥ 60% of target" />
         <LegendSwatch band="YELLOW" label="At risk" range="30 – 60%" />
         <LegendSwatch band="RED" label="Behind" range="below 30%" />
-        <span
-          className="text-[10px] text-[var(--color-text-muted)]"
-          title="For metrics where lower values are better (e.g. industries in violation), the scale is reversed: below 30% is on track, above 60% is behind."
-        >
-          For metrics marked <em className="not-italic font-semibold">Lower is better</em>, the scale is reversed.
-        </span>
       </div>
     </header>
   );
