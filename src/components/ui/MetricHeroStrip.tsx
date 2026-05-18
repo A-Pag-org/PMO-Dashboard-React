@@ -86,6 +86,8 @@ export default function MetricHeroStrip({
       : 'Updated monthly';
   const drillLabel = isCentral
     ? 'No regional split'
+    : lowestLevel === 'State'
+    ? 'By state'
     : lowestLevel
     ? `Drills to ${lowestLevel}`
     : undefined;
