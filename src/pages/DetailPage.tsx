@@ -16,7 +16,7 @@
 //          first-class but secondary to the metric grid.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
 import type { TimePeriod, ViewLabel } from '@/components/layout/DetailFilterBar';
@@ -160,6 +160,11 @@ export default function DetailPage() {
     Record<string, string>
   >({});
   const [period, setPeriod] = useState<TimePeriod>(DEFAULT_TIME_PERIOD);
+  // Right-hand drill drawer (ranking + trend) is collapsed by default
+  // and only opens when the user clicks the chevron handle. Selecting
+  // a metric tile updates which metric the drawer will show, but does
+  // not open the drawer itself — the user stays in control of the view.
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const role = getCurrentRole();
 
   const currentInit =
@@ -332,7 +337,14 @@ export default function DetailPage() {
         seeAllHref={seeAllHref}
       />
 
-      <main className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
+      <main
+        className="grid min-h-0 flex-1 transition-[grid-template-columns] duration-200 ease-out"
+        style={{
+          gridTemplateColumns: drawerOpen
+            ? 'minmax(0, 1fr) minmax(300px, 340px)'
+            : 'minmax(0, 1fr) 32px',
+        }}
+      >
         {/* ── LEFT (primary): metric groups ─────────────────────────── */}
         <section
           className="flex min-h-0 flex-col overflow-y-auto bg-[var(--color-surface-light)]"
@@ -414,36 +426,64 @@ export default function DetailPage() {
 
         {/* ── RIGHT (drill drawer): selected-metric details ─────────── */}
         <aside
-          className="flex min-h-0 flex-col overflow-hidden border-l border-[var(--color-border)] bg-white"
+          className="relative flex min-h-0 overflow-hidden border-l border-[var(--color-border)] bg-white"
           aria-label="Selected metric details"
         >
-          <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-navy)] px-4 py-2.5 text-white">
-            <div className="min-w-0">
-              <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/70">
-                Showing detail for
-              </span>
-              <p className="truncate text-xs font-bold" title={selectedMetric?.name}>
-                {selectedMetric?.name ?? 'Pick a metric on the left'}
-              </p>
-            </div>
-            {selectedMetric ? (
-              <span
-                className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                title={
-                  selectedMetric.type === 'outcome'
-                    ? 'Outcome — a headline result the initiative is judged on.'
-                    : selectedMetric.type === 'progress'
-                    ? 'Progress — an activity or input driving the outcomes.'
-                    : 'Readiness — a prerequisite that must be in place.'
-                }
-              >
-                {selectedMetric.type}
-              </span>
-            ) : null}
-          </header>
+          {/* Toggle handle — vertical strip on the left edge with a
+              chevron centred top-to-bottom. Always visible so the
+              drawer can be opened from any state. */}
+          <div className="flex w-8 shrink-0 items-center justify-center border-r border-[var(--color-border-table)] bg-[var(--color-surface-light)]">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen((o) => !o)}
+              aria-expanded={drawerOpen}
+              aria-controls="metric-drill-drawer"
+              aria-label={drawerOpen ? 'Hide ranking and trend' : 'Show ranking and trend'}
+              title={drawerOpen ? 'Hide ranking and trend' : 'Show ranking and trend'}
+              className="flex h-14 w-7 items-center justify-center rounded-r-md border border-l-0 border-[var(--color-border)] bg-white text-[var(--color-text-secondary)] shadow-sm transition-colors hover:bg-[var(--color-blue-pale)] hover:text-[var(--color-blue-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]"
+            >
+              {drawerOpen ? (
+                <ChevronRight className="h-5 w-5" aria-hidden />
+              ) : (
+                <ChevronLeft className="h-5 w-5" aria-hidden />
+              )}
+            </button>
+          </div>
 
-          <div className="flex-1 overflow-y-auto">
-            <div className="flex flex-col gap-3 p-3">
+          {/* Drill content — rendered only when open so collapsed
+              state is a clean sliver. */}
+          {drawerOpen ? (
+            <div
+              id="metric-drill-drawer"
+              className="flex min-w-0 flex-1 flex-col overflow-hidden"
+            >
+              <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-navy)] px-4 py-2.5 text-white">
+                <div className="min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/70">
+                    Showing detail for
+                  </span>
+                  <p className="truncate text-xs font-bold" title={selectedMetric?.name}>
+                    {selectedMetric?.name ?? 'Pick a metric on the left'}
+                  </p>
+                </div>
+                {selectedMetric ? (
+                  <span
+                    className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                    title={
+                      selectedMetric.type === 'outcome'
+                        ? 'Outcome — a headline result the initiative is judged on.'
+                        : selectedMetric.type === 'progress'
+                        ? 'Progress — an activity or input driving the outcomes.'
+                        : 'Readiness — a prerequisite that must be in place.'
+                    }
+                  >
+                    {selectedMetric.type}
+                  </span>
+                ) : null}
+              </header>
+
+              <div className="flex-1 overflow-y-auto">
+                <div className="flex flex-col gap-3 p-3">
               <MetricHeroStrip
                 metric={selectedMetric}
                 area={area}
@@ -496,8 +536,10 @@ export default function DetailPage() {
                   level={effectiveViewLabel}
                 />
               ) : null}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : null}
         </aside>
       </main>
     </div>
