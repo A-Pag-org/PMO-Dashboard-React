@@ -1,12 +1,11 @@
 // FILE: src/components/ui/MetricTile.tsx
 // PURPOSE: Vertical metric card for the Detail page's metrics grid.
-//          Replaces the horizontal MetricCard row that lived in the
-//          narrow right rail. Each tile carries:
-//            · type chip + metric name
+//          Each tile carries:
+//            · metric name (large, bold)
 //            · format-aware value display (X/Y bar · Xx big number · Y/N pill)
-//            · 6-month sparkline (suppressed for Y/N and overall-only)
-//            · band + tracking-frequency / lowest-level metadata
-//          Clicking selects the metric for the drill drawer.
+//            · tracking-frequency / lowest-level metadata
+//          Colour-coding lives on the bar / pill itself; the page-level
+//          legend explains what each band means.
 
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 import {
@@ -17,7 +16,6 @@ import {
   getColorBand,
   getCompletionPercentage,
 } from '@/lib/utils';
-import { synthSeries } from '@/lib/trendSynth';
 import type { Metric } from '@/lib/types';
 
 interface MetricTileProps {
@@ -39,7 +37,6 @@ export default function MetricTile({
   const frequency =
     metric.trackingFrequency ?? (metric.format === 'Y/N' ? 'overall' : 'monthly');
   const isCentral = metric.geographyLevel === 'central';
-  const showSparkline = metric.format !== 'Y/N' && frequency !== 'overall';
 
   return (
     <Container
@@ -80,10 +77,6 @@ export default function MetricTile({
       <div className={size === 'sm' ? 'mt-1.5' : 'mt-2.5'}>
         <Value metric={metric} size={size} />
       </div>
-
-      {showSparkline ? (
-        <Sparkline metric={metric} size={size} />
-      ) : null}
 
       <Footer metric={metric} frequency={frequency} isCentral={isCentral} />
     </Container>
@@ -198,82 +191,6 @@ function DeltaChip({ delta }: { delta: number }) {
       {positive ? '+' : '−'}
       {formatNumber(Math.abs(delta))}
     </span>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-
-function Sparkline({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
-  const isXY = metric.format === 'X/Y';
-  const target = metric.target ?? 0;
-  const achieved = metric.achieved ?? 0;
-
-  const targetValue = isXY
-    ? target > 0
-      ? Math.max(0, Math.min(100, (achieved / target) * 100))
-      : 0
-    : achieved;
-  const max = isXY ? 100 : Math.max(10, targetValue * 1.4);
-  const series = synthSeries(`${metric.name}|All NCR`, targetValue, 6, 0, max);
-
-  const W = 200;
-  const H = size === 'lg' ? 36 : 28;
-  const padX = 2;
-  const padY = 3;
-  const innerW = W - padX * 2;
-  const innerH = H - padY * 2;
-  const lo = Math.min(...series);
-  const hi = Math.max(...series);
-  const range = hi - lo || 1;
-
-  const points = series.map((v, i) => {
-    const x = padX + (i / (series.length - 1)) * innerW;
-    const y = padY + (1 - (v - lo) / range) * innerH;
-    return [x, y] as const;
-  });
-  const linePath = points
-    .map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`)
-    .join(' ');
-  const areaPath =
-    `${linePath} L ${points[points.length - 1][0].toFixed(1)} ${(padY + innerH).toFixed(1)} ` +
-    `L ${points[0][0].toFixed(1)} ${(padY + innerH).toFixed(1)} Z`;
-
-  const band = isXY
-    ? getColorBand(targetValue, metric.isInverse)
-    : 'GREEN';
-  const colors = getBandColors(band);
-
-  return (
-    <div className="mt-2.5 flex items-center gap-2">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%"
-        height={H}
-        className="flex-1"
-        role="img"
-        aria-label="6-month trend sparkline"
-        preserveAspectRatio="none"
-      >
-        <path d={areaPath} fill={colors.bg} opacity={0.7} />
-        <path
-          d={linePath}
-          fill="none"
-          stroke={colors.fg}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle
-          cx={points[points.length - 1][0]}
-          cy={points[points.length - 1][1]}
-          r={2}
-          fill={colors.fg}
-        />
-      </svg>
-      <span className="text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-        6 mo
-      </span>
-    </div>
   );
 }
 
