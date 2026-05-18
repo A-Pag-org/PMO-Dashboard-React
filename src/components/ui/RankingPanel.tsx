@@ -130,7 +130,7 @@ function RankingRow({ row, rank }: { row: MapDataPoint; rank: number }) {
 
   return (
     <li
-      className="grid grid-cols-[22px_minmax(56px,1fr)_minmax(80px,1fr)_minmax(74px,auto)] items-center gap-2 whitespace-nowrap border-b border-[var(--color-border-table)] px-3 py-1.5 last:border-b-0"
+      className="grid grid-cols-[24px_minmax(72px,1fr)_minmax(110px,1.6fr)_minmax(96px,auto)] items-center gap-2 whitespace-nowrap border-b border-[var(--color-border-table)] px-3 py-1.5 last:border-b-0"
       title={`#${rank} ${row.name} — ${row.label ?? `${pct}%`}`}
     >
       <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-surface-light)] text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">

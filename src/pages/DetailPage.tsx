@@ -26,6 +26,7 @@ import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
 import {
   cn,
+  formatNumber,
   getBandColors,
   getColorBand,
   getCompletionPercentage,
@@ -316,6 +317,22 @@ export default function DetailPage() {
   const progressTally = useMemo(() => summariseMetrics(progressMetrics), [progressMetrics]);
   const readinessTally = useMemo(() => summariseMetrics(readinessMetrics), [readinessMetrics]);
 
+  // Cumulative outcome roll-up — summed achieved / target across every
+  // non-inverse Outcome X/Y metric of the current initiative. Anchors
+  // the drill drawer with the initiative-level headline (e.g. Naya
+  // Safar's buses + trucks combined). Suppressed when there's only
+  // one such metric — the single-tile value is then already the total.
+  const outcomeCumulative = useMemo(() => {
+    const xy = currentInit.metrics.filter(
+      (m) => m.type === 'outcome' && m.format === 'X/Y' && !m.isInverse,
+    );
+    if (xy.length < 2) return null;
+    const achieved = xy.reduce((s, m) => s + (m.achieved ?? 0), 0);
+    const target = xy.reduce((s, m) => s + (m.target ?? 0), 0);
+    const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
+    return { achieved, target, pct, count: xy.length };
+  }, [currentInit]);
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-surface-light)]">
       <TopBar activePage="detail" />
@@ -336,7 +353,7 @@ export default function DetailPage() {
         className="grid min-h-0 flex-1 transition-[grid-template-columns] duration-200 ease-out"
         style={{
           gridTemplateColumns: drawerOpen
-            ? 'minmax(0, 1fr) minmax(300px, 340px)'
+            ? 'minmax(0, 1fr) minmax(380px, 440px)'
             : 'minmax(0, 1fr) 32px',
         }}
       >
@@ -479,6 +496,15 @@ export default function DetailPage() {
 
               <div className="flex-1 overflow-y-auto">
                 <div className="flex flex-col gap-3 p-3">
+              {outcomeCumulative ? (
+                <OutcomeCumulativeCard
+                  achieved={outcomeCumulative.achieved}
+                  target={outcomeCumulative.target}
+                  pct={outcomeCumulative.pct}
+                  count={outcomeCumulative.count}
+                />
+              ) : null}
+
               {showCumulativeCallout ? (
                 <CalloutBox
                   title="Total figure only — not split by month."
@@ -614,16 +640,23 @@ function InitiativeHealthBanner({
           <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
             Colour key
           </span>
-          <LegendLine band="GREEN" label="On track" range="≥ 60% of target" count={outcomeTally.green} />
-          <LegendLine band="YELLOW" label="At risk"  range="30 – 60%"        count={outcomeTally.yellow} />
-          <LegendLine band="RED"    label="Behind"   range="below 30%"       count={outcomeTally.red} />
+          <div className="grid grid-cols-[10px_auto_auto_auto] items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-tight">
+            <LegendCells band="GREEN"  label="On track" range="≥ 60% of target" count={outcomeTally.green} />
+            <LegendCells band="YELLOW" label="At risk"  range="30 – 60%"        count={outcomeTally.yellow} />
+            <LegendCells band="RED"    label="Behind"   range="below 30%"       count={outcomeTally.red} />
+          </div>
         </div>
       </div>
     </header>
   );
 }
 
-function LegendLine({
+/**
+ * Four cells of a 4-column grid (dot · count · label · range). Rendering
+ * them as siblings — not inside a wrapper — keeps the dots aligned in a
+ * single column across all rows in the parent grid.
+ */
+function LegendCells({
   band,
   label,
   range,
@@ -635,25 +668,24 @@ function LegendLine({
   count: number;
 }) {
   const colors = getBandColors(band);
+  const tip = `${count} outcome metric${count === 1 ? '' : 's'} ${label.toLowerCase()} (${range}).`;
   return (
-    <span
-      className="inline-flex items-baseline gap-2 text-[11px] leading-tight"
-      title={`${count} outcome metric${count === 1 ? '' : 's'} ${label.toLowerCase()} (${range}).`}
-    >
+    <>
       <span
         aria-hidden
-        className="inline-block h-2 w-2 shrink-0 translate-y-px rounded-full"
+        className="inline-block h-2 w-2 rounded-full"
         style={{ backgroundColor: colors.fg }}
+        title={tip}
       />
       <span
-        className="w-5 text-right font-bold tabular-nums"
+        className="text-right font-bold tabular-nums"
         style={{ color: count > 0 ? colors.text : 'var(--color-text-muted)' }}
       >
         {count}
       </span>
       <span className="font-bold text-[var(--color-text-primary)]">{label}</span>
       <span className="text-[var(--color-text-muted)]">{range}</span>
-    </span>
+    </>
   );
 }
 
@@ -663,6 +695,51 @@ function headlineVerdictColor(t: BandTally): string {
   // Worst-band wins so the left edge still surfaces the laggard at a glance.
   const band: Exclude<ColorBand, 'NA'> = t.red > 0 ? 'RED' : t.yellow > 0 ? 'YELLOW' : 'GREEN';
   return getBandColors(band).fg;
+}
+
+function OutcomeCumulativeCard({
+  achieved,
+  target,
+  pct,
+  count,
+}: {
+  achieved: number;
+  target: number;
+  pct: number;
+  count: number;
+}) {
+  const band = getColorBand(pct, false);
+  const colors = getBandColors(band);
+  return (
+    <div
+      className="rounded-md border bg-white px-3 py-2 shadow-sm"
+      style={{
+        borderLeftWidth: 4,
+        borderLeftColor: colors.fg,
+        borderTopColor: 'var(--color-border-table)',
+        borderRightColor: 'var(--color-border-table)',
+        borderBottomColor: 'var(--color-border-table)',
+      }}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+        Outcome total across initiative
+      </p>
+      <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0">
+        <span className="text-base font-bold tabular-nums text-[var(--color-text-primary)]">
+          {formatNumber(achieved)} / {formatNumber(target)}
+        </span>
+        <span
+          className="text-sm font-bold tabular-nums"
+          style={{ color: colors.text }}
+        >
+          {pct}%
+        </span>
+      </div>
+      <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
+        Sum across {count} outcome metrics with targets.
+      </p>
+    </div>
+  );
 }
 
 function CalloutBox({ title, body }: { title: string; body: string }) {
