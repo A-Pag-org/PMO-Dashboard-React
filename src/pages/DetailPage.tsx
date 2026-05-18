@@ -75,6 +75,27 @@ function summariseMetrics(metrics: Metric[]): BandTally {
   return out;
 }
 
+/**
+ * Rank for ordering tiles within a section:
+ *   GREEN = 0, YELLOW = 1, RED = 2, no-band (Xx) = 3.
+ * Y/N treats Y as GREEN and N as RED. The sort itself is stable via
+ * Array.prototype.sort so ties preserve the original definition order.
+ */
+function statusRank(m: Metric): number {
+  if (m.format === 'Y/N') return m.achieved === 1 ? 0 : 2;
+  if (m.format === 'Xx') return 3;
+  if (m.format === 'X/Y') {
+    const pct = getCompletionPercentage(m.target, m.achieved);
+    const band = getColorBand(pct, m.isInverse);
+    return band === 'GREEN' ? 0 : band === 'YELLOW' ? 1 : 2;
+  }
+  return 3;
+}
+
+function sortByStatusBand<T extends Metric>(metrics: T[]): T[] {
+  return [...metrics].sort((a, b) => statusRank(a) - statusRank(b));
+}
+
 function formatMonthKey(key: string): string {
   const [y, m] = key.split('-').map((s) => Number(s));
   if (!y || !m) return key;
@@ -325,9 +346,9 @@ export default function DetailPage() {
     [currentInit, area],
   );
 
-  const outcomeMetrics  = scopedMetrics.filter((m) => m.type === 'outcome');
-  const progressMetrics = scopedMetrics.filter((m) => m.type === 'progress');
-  const readinessMetrics = scopedMetrics.filter((m) => m.type === 'readiness');
+  const outcomeMetrics  = sortByStatusBand(scopedMetrics.filter((m) => m.type === 'outcome'));
+  const progressMetrics = sortByStatusBand(scopedMetrics.filter((m) => m.type === 'progress'));
+  const readinessMetrics = sortByStatusBand(scopedMetrics.filter((m) => m.type === 'readiness'));
 
   const defaultSelectedMetricName =
     outcomeMetrics[0]?.name ?? currentInit.metrics[0]?.name ?? '';
@@ -635,15 +656,13 @@ export default function DetailPage() {
               id="metric-drill-drawer"
               className="flex min-w-0 flex-1 flex-col overflow-hidden"
             >
-              <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-navy)] px-4 py-2.5 text-white">
-                <div className="min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-white/70">
-                    Showing detail for
-                  </span>
-                  <p className="truncate text-xs font-bold" title={selectedMetric?.name}>
-                    {selectedMetric?.name ?? 'Pick a metric on the left'}
-                  </p>
-                </div>
+              <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-navy)] px-4 py-2 text-white">
+                <p
+                  className="min-w-0 truncate text-[13px] font-bold"
+                  title={selectedMetric?.name}
+                >
+                  {selectedMetric?.name ?? 'Pick a metric on the left'}
+                </p>
                 {selectedMetric ? (
                   <span
                     className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
