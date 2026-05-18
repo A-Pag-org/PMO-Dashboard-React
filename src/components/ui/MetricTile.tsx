@@ -60,8 +60,8 @@ export default function MetricTile({
       <header className="flex items-start justify-between gap-2">
         <p
           className={cn(
-            'flex-1 font-semibold leading-snug text-[var(--color-text-primary)]',
-            size === 'lg' ? 'text-sm' : 'text-[12px]',
+            'flex-1 font-bold leading-snug text-[var(--color-text-primary)]',
+            size === 'lg' ? 'text-[15px]' : size === 'sm' ? 'text-[13px]' : 'text-[14px]',
           )}
           title={metric.name}
         >
