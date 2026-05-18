@@ -347,8 +347,6 @@ export default function DetailPage() {
               totalMetrics={totalMetrics}
             />
 
-            <ColorLegend />
-
             <MetricSection
               title="Outcome metrics"
               hint="What this initiative is trying to achieve."
@@ -525,83 +523,27 @@ function MetricSection({
     <section className="flex flex-col gap-2">
       <header
         className={cn(
-          'flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b pb-1.5',
+          'flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b pb-1.5',
           emphasis ? 'border-[var(--color-accent)]' : 'border-[var(--color-border-table)]',
         )}
       >
-        <div className="flex items-baseline gap-2">
-          <h2
-            className={cn(
-              'text-xs font-bold uppercase tracking-[0.08em]',
-              emphasis ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]',
-            )}
-          >
-            {title}
-          </h2>
-          <span className="rounded bg-[var(--color-surface-light)] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
-            {tally.total}
-          </span>
-          {hint ? (
-            <span className="hidden text-[10px] text-[var(--color-text-muted)] md:inline">
-              {hint}
-            </span>
-          ) : null}
-        </div>
-        <StatusBreakdown tally={tally} />
+        <h2
+          className={cn(
+            'text-xs font-bold uppercase tracking-[0.08em]',
+            emphasis ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]',
+          )}
+        >
+          {title}
+        </h2>
+        <span className="rounded bg-[var(--color-surface-light)] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
+          {tally.total}
+        </span>
+        {hint ? (
+          <p className="text-[10px] text-[var(--color-text-muted)]">{hint}</p>
+        ) : null}
       </header>
       {children}
     </section>
-  );
-}
-
-function StatusBreakdown({ tally }: { tally: BandTally }) {
-  if (tally.total === 0) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {tally.green > 0 ? <StatusPill band="GREEN" count={tally.green} label="On track" /> : null}
-      {tally.yellow > 0 ? <StatusPill band="YELLOW" count={tally.yellow} label="At risk" /> : null}
-      {tally.red > 0 ? <StatusPill band="RED" count={tally.red} label="Behind" /> : null}
-      {tally.untracked > 0 ? (
-        <span
-          className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-table)] bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]"
-          title="Reported as a raw count — no target, so no on-track / behind status."
-        >
-          {tally.untracked} no target
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function StatusPill({
-  band,
-  count,
-  label,
-}: {
-  band: Exclude<ColorBand, 'NA'>;
-  count: number;
-  label: string;
-}) {
-  const colors = getBandColors(band);
-  const tip =
-    label === 'On track'
-      ? 'At or above 60% of target.'
-      : label === 'At risk'
-      ? '30–60% of target — watch closely.'
-      : 'Below 30% of target — falling behind.';
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-      style={{ backgroundColor: colors.bg, color: colors.text }}
-      title={tip}
-    >
-      <span
-        aria-hidden
-        className="inline-block h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: colors.fg }}
-      />
-      {count} {label}
-    </span>
   );
 }
 
@@ -623,7 +565,7 @@ function InitiativeHealthBanner({
 
   return (
     <header
-      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border bg-white px-4 py-3 shadow-sm"
+      className="rounded-md border bg-white shadow-sm"
       style={{
         borderLeftWidth: 4,
         borderLeftColor: verdict.color,
@@ -632,39 +574,50 @@ function InitiativeHealthBanner({
         borderBottomColor: 'var(--color-border-table)',
       }}
     >
-      <div className="min-w-0">
-        <h1 className="truncate text-lg font-bold leading-tight text-[var(--color-text-primary)]">
-          {initiativeName}
-        </h1>
-        <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
-          <span className="font-semibold text-[var(--color-text-primary)]">{scopeLabel}</span>
-          <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
-          {periodLabel}
-          <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
-          {totalMetrics} {totalMetrics === 1 ? 'metric' : 'metrics'} tracked
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-lg font-bold leading-tight text-[var(--color-text-primary)]">
+            {initiativeName}
+          </h1>
+          <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
+            <span className="font-semibold text-[var(--color-text-primary)]">{scopeLabel}</span>
+            <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
+            {periodLabel}
+            <span className="mx-1.5 text-[var(--color-text-muted)]">·</span>
+            {totalMetrics} {totalMetrics === 1 ? 'metric' : 'metrics'} tracked
+          </p>
+        </div>
+
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
+            style={{ backgroundColor: verdict.bg, color: verdict.text }}
+            title="Worst-band-wins across outcome metrics."
+          >
+            <span
+              aria-hidden
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: verdict.color }}
+            />
+            {verdict.label}
+          </span>
+          {tracked > 0 ? (
+            <p className="text-[11px] font-semibold tabular-nums">
+              <OutcomeCount n={outcomeTally.red} label="behind" band="RED" />
+              <OutcomeCount n={outcomeTally.yellow} label="at risk" band="YELLOW" />
+              <OutcomeCount n={outcomeTally.green} label="on track" band="GREEN" />
+            </p>
+          ) : null}
+        </div>
       </div>
 
-      <div className="flex flex-col items-end gap-1">
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
-          style={{ backgroundColor: verdict.bg, color: verdict.text }}
-          title="Worst-band-wins across outcome metrics."
-        >
-          <span
-            aria-hidden
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: verdict.color }}
-          />
-          {verdict.label}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--color-border-table)] bg-[var(--color-surface-light)] px-4 py-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+          Colour key
         </span>
-        {tracked > 0 ? (
-          <p className="text-[11px] font-semibold tabular-nums">
-            <OutcomeCount n={outcomeTally.red} label="behind" band="RED" />
-            <OutcomeCount n={outcomeTally.yellow} label="at risk" band="YELLOW" />
-            <OutcomeCount n={outcomeTally.green} label="on track" band="GREEN" />
-          </p>
-        ) : null}
+        <LegendSwatch band="GREEN" label="On track" range="≥ 60% of target" />
+        <LegendSwatch band="YELLOW" label="At risk" range="30 – 60%" />
+        <LegendSwatch band="RED" label="Behind" range="below 30%" />
       </div>
     </header>
   );
@@ -728,29 +681,6 @@ function headlineVerdict(t: BandTally): {
       ? 'Watch — at risk'
       : 'Action needed';
   return { label, color: colors.fg, bg: colors.bg, text: colors.text };
-}
-
-function ColorLegend() {
-  return (
-    <div
-      role="note"
-      aria-label="Colour key"
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-[var(--color-border-table)] bg-white px-3 py-1.5"
-    >
-      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-        Colour key
-      </span>
-      <LegendSwatch band="GREEN" label="On track" range="≥ 60% of target" />
-      <LegendSwatch band="YELLOW" label="At risk" range="30 – 60%" />
-      <LegendSwatch band="RED" label="Behind" range="below 30%" />
-      <span
-        className="text-[10px] text-[var(--color-text-muted)]"
-        title="For metrics where lower values are better (e.g. industries in violation), the scale is reversed: below 30% is on track, above 60% is behind."
-      >
-        For metrics marked <em className="not-italic font-semibold">Lower is better</em>, the scale is reversed.
-      </span>
-    </div>
-  );
 }
 
 function LegendSwatch({
