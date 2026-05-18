@@ -38,9 +38,10 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
   'naya-safar-yojana': {
     slug: 'naya-safar-yojana',
     geographyLevels: ['state', 'city', 'rto'],
-    extraFilters: [
-      { key: 'vehicleType', label: 'Vehicle Type', options: ['Truck', 'Bus'] },
-    ],
+    // No Vehicle Type filter — the metrics grid already shows trucks
+    // and buses as separate tiles, so a top-bar bifurcation would be
+    // redundant chrome.
+    extraFilters: [],
     headlineMetricNames: [
       'No. of pre-BS VI trucks converted',
       'No. of pre-BS VI buses converted',
@@ -94,9 +95,11 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
   mrs: {
     slug: 'mrs',
     geographyLevels: ['state', 'city'],
-    extraFilters: [
-      { key: 'roadWidth', label: 'Road Width', options: ['>15m', '10–15m', '<10m'] },
-    ],
+    // No Road Width filter — the metrics grid already shows route
+    // coverage / operational / required as separate tiles per width
+    // (>15m, 10–15m, <10m), so the top-bar bifurcation would repeat
+    // what the tiles already make explicit.
+    extraFilters: [],
     headlineMetricNames: [
       'Route coverage achieved (>15m)',
       'Route coverage achieved (10–15m)',
