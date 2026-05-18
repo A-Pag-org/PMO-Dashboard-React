@@ -22,7 +22,6 @@ import DetailFilterBar from '@/components/layout/DetailFilterBar';
 import type { TimePeriod, ViewLabel } from '@/components/layout/DetailFilterBar';
 import { DEFAULT_TIME_PERIOD } from '@/components/ui/TimePeriodPill';
 import MetricTile from '@/components/ui/MetricTile';
-import MetricHeroStrip from '@/components/ui/MetricHeroStrip';
 import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
 import {
@@ -264,17 +263,6 @@ export default function DetailPage() {
 
   const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
 
-  const heroAgg = useMemo(() => {
-    if (!selectedMetric) return undefined;
-    const isCentral = selectedMetric.geographyLevel === 'central';
-    const scopedArea = isCentral ? {} : area;
-    const scope = isCentral ? 'Delhi-NCR (central)' : areaLabel(area);
-    return {
-      agg: getMetricValueForArea(selectedMetric, scopedArea, scope),
-      scope,
-    };
-  }, [selectedMetric, area]);
-
   const trendUnit: 'pct' | 'count' =
     selectedMetric?.format === 'Xx' ? 'count' : 'pct';
   const trendCurrentValue = useMemo(() => {
@@ -484,20 +472,6 @@ export default function DetailPage() {
 
               <div className="flex-1 overflow-y-auto">
                 <div className="flex flex-col gap-3 p-3">
-              <MetricHeroStrip
-                metric={selectedMetric}
-                area={area}
-                scopeLabel={heroAgg?.scope ?? 'Delhi-NCR'}
-                displayText={
-                  selectedMetric?.format === 'X/Y'
-                    ? undefined
-                    : heroAgg?.agg.displayText
-                }
-                achievedForBand={heroAgg?.agg.achieved ?? null}
-                targetForBand={heroAgg?.agg.target ?? null}
-                periodLabel={periodLabel}
-              />
-
               {showCumulativeCallout ? (
                 <CalloutBox
                   title="Total figure only — not split by month."
