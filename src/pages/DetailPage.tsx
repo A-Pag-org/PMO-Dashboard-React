@@ -26,7 +26,6 @@ import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
 import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
 import {
-  cn,
   formatNumber,
   getBandColors,
   getColorBand,
@@ -506,12 +505,10 @@ export default function DetailPage() {
           aria-label="Initiative metrics"
         >
           <div className="flex flex-col gap-4 p-4">
-            <MetricSection
-              title="Outcome metrics"
-              hint="What this initiative is trying to achieve."
-              count={outcomeMetrics.length}
-              emphasis
-            >
+            {/* Outcome — large tiles. Section labels intentionally
+                removed; the tile-size hierarchy (lg / md / sm) does
+                the grouping. */}
+            <section aria-label="Outcome metrics">
               {outcomeMetrics.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {outcomeMetrics.map((m) => (
@@ -524,17 +521,11 @@ export default function DetailPage() {
                     />
                   ))}
                 </div>
-              ) : (
-                <EmptyRow label="No outcome metrics for this initiative." />
-              )}
-            </MetricSection>
+              ) : null}
+            </section>
 
             {progressMetrics.length > 0 ? (
-              <MetricSection
-                title="Progress metrics"
-                hint="What we are doing to get there."
-                count={progressMetrics.length}
-              >
+              <section aria-label="Progress metrics">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {progressMetrics.map((m) => (
                     <MetricTile
@@ -546,15 +537,11 @@ export default function DetailPage() {
                     />
                   ))}
                 </div>
-              </MetricSection>
+              </section>
             ) : null}
 
             {readinessMetrics.length > 0 ? (
-              <MetricSection
-                title="Readiness metrics"
-                hint="What needs to be in place to succeed."
-                count={readinessMetrics.length}
-              >
+              <section aria-label="Readiness metrics">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {readinessMetrics.map((m) => (
                     <MetricTile
@@ -566,7 +553,7 @@ export default function DetailPage() {
                     />
                   ))}
                 </div>
-              </MetricSection>
+              </section>
             ) : null}
           </div>
         </section>
@@ -692,48 +679,6 @@ export default function DetailPage() {
 
 /* ─────────────────────────────────────────────────────────────────────── */
 
-function MetricSection({
-  title,
-  hint,
-  count,
-  emphasis = false,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  count: number;
-  emphasis?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-2">
-      <header
-        className={cn(
-          'flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-b pb-1.5',
-          emphasis ? 'border-[var(--color-accent)]' : 'border-[var(--color-border-table)]',
-        )}
-      >
-        <h2
-          className={cn(
-            'text-xs font-bold uppercase tracking-[0.08em]',
-            emphasis ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]',
-          )}
-        >
-          {title}
-        </h2>
-        <span className="rounded bg-[var(--color-surface-light)] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-text-secondary)]">
-          {count}
-        </span>
-        {hint ? (
-          <p className="text-[10px] text-[var(--color-text-muted)]">{hint}</p>
-        ) : null}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-
 function OutcomeCumulativeCard({
   achieved,
   target,
@@ -791,10 +736,3 @@ function CalloutBox({ title, body }: { title: string; body: string }) {
   );
 }
 
-function EmptyRow({ label }: { label: string }) {
-  return (
-    <p className="rounded-md border border-dashed border-[var(--color-border-table)] bg-white px-4 py-5 text-center text-xs text-[var(--color-text-muted)]">
-      {label}
-    </p>
-  );
-}

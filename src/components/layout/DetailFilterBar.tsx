@@ -2,13 +2,15 @@
 // PURPOSE: Detail-page filter strip — the navy band that sits directly
 //          below TopBar. Carries every page-scoping filter on a single
 //          line:
-//            Initiative · State · City · RTO · <extras> · Select date
-//            · See all data
+//            Initiative · State · {District|City} · {RTO|Industrial Area}
+//            · <extras> · Period · Full data tables
 //
-//          State / City / RTO render in compact mode (label + chevron
-//          only) when no value is selected; once the user picks a
-//          value, the pill expands to the full label + value chip
-//          treatment used by Initiative so the selection is visible.
+//          State / mid-level / deepest-level use standard dropdown
+//          pills (FilterPill renders a native <select> under the hood
+//          so the menu opens the same way as any browser dropdown).
+//          The mid- and deepest-level labels switch per initiative —
+//          Naya Safar uses "District" + "RTO", CEMS uses
+//          "District" + "Industrial Area", others default to "City".
 
 import { Link } from 'react-router-dom';
 import {
@@ -58,6 +60,9 @@ export default function DetailFilterBar({
   const supportsCity = config?.geographyLevels.includes('city') ?? true;
   const supportsRto = config?.geographyLevels.includes('rto') ?? false;
 
+  const cityLabel = config?.cityLabel ?? 'City';
+  const rtoLabel = config?.rtoLabel ?? 'RTO';
+
   const cityOptions = area.state
     ? UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? []
     : [];
@@ -89,10 +94,14 @@ export default function DetailFilterBar({
 
       {supportsCity ? (
         <FilterPill
-          label="City"
+          label={cityLabel}
           compact={!area.city}
           value={area.city ?? ''}
-          placeholder={area.state ? `All cities in ${area.state}` : 'Choose a state first'}
+          placeholder={
+            area.state
+              ? `All ${cityLabel.toLowerCase()}s in ${area.state}`
+              : 'Choose a state first'
+          }
           options={cityOptions}
           disabled={!area.state}
           onChange={(v) =>
@@ -103,10 +112,14 @@ export default function DetailFilterBar({
 
       {supportsRto ? (
         <FilterPill
-          label="RTO"
+          label={rtoLabel}
           compact={!area.rto}
           value={area.rto ?? ''}
-          placeholder={area.city ? `All RTOs in ${area.city}` : 'Choose a city first'}
+          placeholder={
+            area.city
+              ? `All ${rtoLabel.toLowerCase()}s in ${area.city}`
+              : `Choose a ${cityLabel.toLowerCase()} first`
+          }
           options={rtoOptions}
           disabled={!area.city}
           onChange={(v) =>
