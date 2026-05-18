@@ -36,10 +36,10 @@ export const INITIATIVES: Initiative[] = [
     metrics: [
       { name: 'No. of pre-BS VI trucks converted',                      type: 'outcome',  target: 76496, achieved: 38248, unit: 'vehicles', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'RTO',      dataSource: 'API (MoRTH portal)' },
       { name: 'No. of pre-BS VI buses converted',                       type: 'outcome',  target: 10000, achieved: 6500,  unit: 'vehicles', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'RTO',      dataSource: 'API (MoRTH portal)' },
-      { name: 'No. of events conducted',                                type: 'outcome',  target: 300,   achieved: 81,                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (States)' },
-      { name: 'No. of events planned',                                  type: 'progress', target: 250,   achieved: 175,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (TBD)' },
-      { name: 'No. of outlets activated for fuel voucher acceptance',   type: 'progress', target: 1500,  achieved: 285,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (TBD)' },
-      { name: 'EOIs and Scrapping requests from truckers/bus owners',   type: 'progress', target: null,  achieved: 4820, previousAchieved: 4480,                                format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'District', dataSource: 'API (MoRTH)' },
+      { name: 'No. of events conducted',                                type: 'outcome',  target: 300,   achieved: 81,                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (States)' },
+      { name: 'No. of events planned',                                  type: 'progress', target: 250,   achieved: 175,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'No. of outlets activated for fuel voucher acceptance',   type: 'progress', target: 1500,  achieved: 285,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      { name: 'EOIs and Scrapping requests from truckers/bus owners',   type: 'progress', target: null,  achieved: 4820, previousAchieved: 4480,                                format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoRTH)' },
       { name: 'PSBs / NBFCs onboarded',                                 type: 'progress', target: null,  achieved: 28,   previousAchieved: 26,    geographyLevel: 'central', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'Central', dataSource: 'API (Canara Bank/MoRTH)' },
     ],
   },
@@ -57,12 +57,12 @@ export const INITIATIVES: Initiative[] = [
       ],
     },
     metrics: [
-      { name: 'No. of industrial units where CEMS installation completed',  type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', trackingFrequency: 'overall', lowestLevelLabel: 'Industrial Area', dataSource: 'API (CEMS CPCB portal)' },
-      { name: 'No. of industrial units where APCDs installation completed', type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Industrial Area', dataSource: 'Manual (SPCBs)' },
+      { name: 'No. of industrial units where CEMS installation completed',  type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'API (CEMS CPCB portal)' },
+      { name: 'No. of industrial units where APCDs installation completed', type: 'outcome',  target: 250, achieved: 105,                                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (SPCBs)' },
       // X/Y* per §4.2 — denominator is Total Sites (500), not a target of 0.
-      { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Industrial Area', dataSource: 'API (CEMS CPCB)' },
-      { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320, previousAchieved: 270,                               format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'Industrial Area', dataSource: 'Manual (States)' },
-      { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                                         format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Industrial Area', dataSource: 'Manual (CPCB/MoEFCC)' },
+      { name: 'No. of industries in violation of norms',                    type: 'outcome',  target: 500, achieved: 80,  isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (CEMS CPCB)' },
+      { name: 'No. of high polluting industries identified for APCD',       type: 'progress', target: null, achieved: 320, previousAchieved: 270,                               format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual (States)' },
+      { name: 'Industries with installation in progress',                   type: 'progress', target: 145, achieved: 65,                                                         format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (CPCB/MoEFCC)' },
       { name: 'Vendors empaneled for CEMS/APCD supply and O&M',             type: 'progress', target: null, achieved: 18,  previousAchieved: 14,    geographyLevel: 'central',     format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'Central',         dataSource: 'Manual (CPCB)' },
     ],
   },
@@ -181,11 +181,11 @@ export const INITIATIVES: Initiative[] = [
       donut: { label: 'Sites registered', target: 100, achieved: 45 },
     },
     metrics: [
-      { name: 'No. of sites registered and connected with ICCC',     type: 'outcome',  target: 100, achieved: 45,                                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Delhi (state)', dataSource: 'API (ICCC DPCC)' },
+      { name: 'No. of sites registered and connected with ICCC',     type: 'outcome',  target: 100, achieved: 45,                                       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (ICCC DPCC)' },
       // X/Y* — denominator is Total Sites (200), per §4.2.
-      { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Delhi (state)', dataSource: 'API (ICCC DPCC)' },
-      { name: 'No. of inspections of construction sites conducted',  type: 'progress', target: 300, achieved: 245, isInverse: true,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Delhi (state)', dataSource: 'ICCC DPCC (TBD)' },
-      { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612, previousAchieved: 588,                format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'Delhi (state)', dataSource: 'ICCC DPCC (TBD)' },
+      { name: 'Sites in violation of PM2.5 norms',                   type: 'outcome',  target: 200, achieved: 95, isInverse: true, denominatorLabel: 'Total Sites',       format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (ICCC DPCC)' },
+      { name: 'No. of inspections of construction sites conducted',  type: 'progress', target: 300, achieved: 245, isInverse: true,                      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'ICCC DPCC (TBD)' },
+      { name: 'Total no. of construction sites >500 sqm',            type: 'progress', target: null, achieved: 612, previousAchieved: 588,                format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'ICCC DPCC (TBD)' },
     ],
   },
   {

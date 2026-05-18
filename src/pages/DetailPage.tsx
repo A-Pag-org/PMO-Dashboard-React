@@ -31,7 +31,7 @@ import {
   getColorBand,
   getCompletionPercentage,
 } from '@/lib/utils';
-import { INITIATIVES, CITY_STATE_MAP } from '@/lib/constants';
+import { INITIATIVES, CITY_STATE_MAP, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
 import {
   getMetricByState,
   getMetricValueForArea,
@@ -145,6 +145,62 @@ function buildMapDataForMetricByCity(metric: Metric): MapDataPoint[] {
   });
 }
 
+/**
+ * RTO-level rows for the ranking panel. Uses the same deterministic
+ * per-region noise pattern as the city builder so the numbers are
+ * stable across renders. Honours area filters: state/city narrow the
+ * RTO list, no filter returns every RTO across the NCR.
+ */
+function buildMapDataForMetricByRto(
+  metric: Metric,
+  area: AreaFilterValue,
+): MapDataPoint[] {
+  const rows: { rto: string; city: string; state: string }[] = [];
+  for (const [city, list] of Object.entries(RTO_OPTIONS_BY_CITY)) {
+    const state = CITY_STATE_MAP[city];
+    if (!state) continue;
+    if (area.state && state !== area.state) continue;
+    if (area.city && city !== area.city) continue;
+    for (const rto of list) {
+      if (area.rto && rto !== area.rto) continue;
+      rows.push({ rto, city, state });
+    }
+  }
+
+  return rows.map(({ rto, city, state }) => {
+    const agg = getMetricValueForArea(metric, { state, city, rto }, rto);
+    if (agg.format === 'X/Y') {
+      const noise = (hash01(`${rto}|${metric.name}`) - 0.5) * 70;
+      const pct = Math.max(0, Math.min(100, Math.round(agg.pct + noise)));
+      const target = agg.target ?? 0;
+      const achieved = Math.round((target * pct) / 100);
+      const band = pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN';
+      return {
+        name: rto,
+        value: pct,
+        onTrack: band === 'GREEN',
+        format: 'X/Y' as const,
+        band: metric.isInverse
+          ? band === 'GREEN'
+            ? 'RED'
+            : band === 'RED'
+            ? 'GREEN'
+            : 'YELLOW'
+          : band,
+        label: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')} (${pct}%)`,
+      };
+    }
+    return {
+      name: rto,
+      value: agg.achieved ?? 0,
+      onTrack: agg.band === 'GREEN',
+      format: agg.format,
+      band: agg.band,
+      label: agg.displayText,
+    };
+  });
+}
+
 export default function DetailPage() {
   const {
     area,
@@ -185,15 +241,20 @@ export default function DetailPage() {
   const isCentralLevelMetric = selectedMetric?.geographyLevel === 'central';
 
   const initiativeConfig = getInitiativeConfig(currentInit.slug);
-  const supportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
-  // RTO ranking has no real data yet — the toggle is therefore hidden
-  // until the API delivers RTO-level rows. The RTO *filter* pill in
-  // the navy bar is unaffected; only the in-panel ranking toggle is
-  // gated. Flip this back to `initiativeConfig?.geographyLevels.includes('rto')`
-  // once real data is available.
-  const HAS_RTO_RANKING_DATA = false;
-  const supportsRto =
-    (initiativeConfig?.geographyLevels.includes('rto') ?? false) && HAS_RTO_RANKING_DATA;
+  const initSupportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
+  const initSupportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
+
+  // Per-metric drill restriction. The ranking toggles only expose the
+  // levels the *currently selected metric* actually drills to — so for
+  // Naya Safar trucks/buses (lowest = RTO) the user sees State/City/RTO,
+  // but for Naya Safar events (lowest = City) the RTO toggle is hidden.
+  // Initiative-level support is intersected so a metric can't claim a
+  // level the initiative doesn't have in its drill chain.
+  const metricLowest = selectedMetric?.lowestLevelLabel;
+  const metricSupportsCity = metricLowest === 'City' || metricLowest === 'RTO';
+  const metricSupportsRto = metricLowest === 'RTO';
+  const supportsCity = initSupportsCity && metricSupportsCity;
+  const supportsRto = initSupportsRto && metricSupportsRto;
 
   const delhiOnlyRole = isDelhiOnlyRole(role);
   const isAtIndividualRto = !!area.rto;
@@ -238,16 +299,14 @@ export default function DetailPage() {
     }
 
     if (effectiveViewLevel === 'rto') {
-      if (!area.city) {
-        return {
-          rankingRows: [] as MapDataPoint[],
-          emptyHint: 'Select a city to compare RTOs.',
-        };
-      }
-      return {
-        rankingRows: [] as MapDataPoint[],
-        emptyHint: `RTO-level breakdown for ${area.city} is not yet available.`,
-      };
+      const data = buildMapDataForMetricByRto(selectedMetric, area);
+      const hint =
+        data.length === 0
+          ? area.city
+            ? `No RTOs recorded for ${area.city}.`
+            : 'No RTO-level rows match the current filters.'
+          : undefined;
+      return { rankingRows: data, emptyHint: hint };
     }
 
     let data: MapDataPoint[] = buildMapDataForMetricByCity(selectedMetric);
