@@ -576,15 +576,14 @@ function InitiativeHealthBanner({
   outcomeTally: BandTally;
   totalMetrics: number;
 }) {
-  const verdict = headlineVerdict(outcomeTally);
-  const tracked = outcomeTally.green + outcomeTally.yellow + outcomeTally.red;
+  const verdictColor = headlineVerdictColor(outcomeTally);
 
   return (
     <header
       className="rounded-md border bg-white shadow-sm"
       style={{
         borderLeftWidth: 4,
-        borderLeftColor: verdict.color,
+        borderLeftColor: verdictColor,
         borderTopColor: 'var(--color-border-table)',
         borderRightColor: 'var(--color-border-table)',
         borderBottomColor: 'var(--color-border-table)',
@@ -605,125 +604,58 @@ function InitiativeHealthBanner({
         </div>
 
         <div className="flex flex-col items-end gap-1">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
-            style={{ backgroundColor: verdict.bg, color: verdict.text }}
-            title="Worst-band-wins across outcome metrics."
-          >
-            <span
-              aria-hidden
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: verdict.color }}
-            />
-            {verdict.label}
+          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
+            Colour key
           </span>
-          {tracked > 0 ? (
-            <p className="text-[11px] font-semibold tabular-nums">
-              <OutcomeCount n={outcomeTally.red} label="behind" band="RED" />
-              <OutcomeCount n={outcomeTally.yellow} label="at risk" band="YELLOW" />
-              <OutcomeCount n={outcomeTally.green} label="on track" band="GREEN" />
-            </p>
-          ) : null}
+          <LegendLine band="GREEN" label="On track" range="≥ 60% of target" count={outcomeTally.green} />
+          <LegendLine band="YELLOW" label="At risk"  range="30 – 60%"        count={outcomeTally.yellow} />
+          <LegendLine band="RED"    label="Behind"   range="below 30%"       count={outcomeTally.red} />
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--color-border-table)] bg-[var(--color-surface-light)] px-4 py-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-          Colour key
-        </span>
-        <LegendSwatch band="GREEN" label="On track" range="≥ 60% of target" />
-        <LegendSwatch band="YELLOW" label="At risk" range="30 – 60%" />
-        <LegendSwatch band="RED" label="Behind" range="below 30%" />
       </div>
     </header>
   );
 }
 
-function OutcomeCount({
-  n,
-  label,
-  band,
-}: {
-  n: number;
-  label: string;
-  band: Exclude<ColorBand, 'NA'>;
-}) {
-  if (n === 0) return null;
-  const colors = getBandColors(band);
-  return (
-    <span
-      className="ml-2 first:ml-0"
-      style={{ color: colors.text }}
-      title={
-        label === 'on track'
-          ? 'Outcome metrics at ≥60% of target.'
-          : label === 'at risk'
-          ? 'Outcome metrics at 30–60% of target.'
-          : 'Outcome metrics below 30% of target.'
-      }
-    >
-      <span
-        aria-hidden
-        className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle"
-        style={{ backgroundColor: colors.fg }}
-      />
-      {n} {label}
-    </span>
-  );
-}
-
-function headlineVerdict(t: BandTally): {
-  label: string;
-  color: string;
-  bg: string;
-  text: string;
-} {
-  const tracked = t.green + t.yellow + t.red;
-  if (tracked === 0) {
-    return {
-      label: 'No status',
-      color: 'var(--color-text-muted)',
-      bg: 'var(--color-surface-light)',
-      text: 'var(--color-text-secondary)',
-    };
-  }
-  // Worst-band wins so officials see the laggard, not an average.
-  const band: Exclude<ColorBand, 'NA'> = t.red > 0 ? 'RED' : t.yellow > 0 ? 'YELLOW' : 'GREEN';
-  const colors = getBandColors(band);
-  const label =
-    band === 'GREEN'
-      ? 'On track overall'
-      : band === 'YELLOW'
-      ? 'Watch — at risk'
-      : 'Action needed';
-  return { label, color: colors.fg, bg: colors.bg, text: colors.text };
-}
-
-function LegendSwatch({
+function LegendLine({
   band,
   label,
   range,
+  count,
 }: {
   band: Exclude<ColorBand, 'NA'>;
   label: string;
   range: string;
+  count: number;
 }) {
   const colors = getBandColors(band);
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px]">
+    <span
+      className="inline-flex items-baseline gap-2 text-[11px] leading-tight"
+      title={`${count} outcome metric${count === 1 ? '' : 's'} ${label.toLowerCase()} (${range}).`}
+    >
       <span
         aria-hidden
-        className="inline-block h-2.5 w-2.5 rounded-full ring-1"
-        style={{
-          backgroundColor: colors.fg,
-          // light tinted ring so the swatch reads even on a pale section
-          boxShadow: `0 0 0 2px ${colors.bg}`,
-        }}
+        className="inline-block h-2 w-2 shrink-0 translate-y-px rounded-full"
+        style={{ backgroundColor: colors.fg }}
       />
+      <span
+        className="w-5 text-right font-bold tabular-nums"
+        style={{ color: count > 0 ? colors.text : 'var(--color-text-muted)' }}
+      >
+        {count}
+      </span>
       <span className="font-bold text-[var(--color-text-primary)]">{label}</span>
       <span className="text-[var(--color-text-muted)]">{range}</span>
     </span>
   );
+}
+
+function headlineVerdictColor(t: BandTally): string {
+  const tracked = t.green + t.yellow + t.red;
+  if (tracked === 0) return 'var(--color-text-muted)';
+  // Worst-band wins so the left edge still surfaces the laggard at a glance.
+  const band: Exclude<ColorBand, 'NA'> = t.red > 0 ? 'RED' : t.yellow > 0 ? 'YELLOW' : 'GREEN';
+  return getBandColors(band).fg;
 }
 
 function CalloutBox({ title, body }: { title: string; body: string }) {
