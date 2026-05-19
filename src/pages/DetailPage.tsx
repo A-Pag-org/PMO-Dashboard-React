@@ -99,6 +99,43 @@ function partitionMetricsByCompletion<T extends Metric>(
   return { featured: highest ? [lowest, highest] : [lowest], rest };
 }
 
+/**
+ * Headline-first split. The initiative's configured headline metrics
+ * (INITIATIVE_CONFIGS[*].headlineMetricNames — the results the
+ * initiative is judged on, e.g. Naya Safar's pre-BS VI trucks/buses
+ * converted) are featured large on the left, in config order so the
+ * single most important metric sits at the top. Everything else falls
+ * to the right-hand n×n grid, worst → best so problem areas read first.
+ *
+ * If the initiative has no headline metrics configured (or none match
+ * the current metric set) we fall back to the completion-based split.
+ */
+function partitionMetricsByHeadline<T extends Metric>(
+  metrics: T[],
+  headlineNames: readonly string[],
+): { featured: T[]; rest: T[] } {
+  if (metrics.length === 0) return { featured: [], rest: [] };
+
+  const headlineSet = new Set(headlineNames);
+  const featured = headlineNames
+    .map((n) => metrics.find((m) => m.name === n))
+    .filter((m): m is T => m != null);
+
+  if (featured.length === 0) return partitionMetricsByCompletion(metrics);
+
+  const rest = metrics
+    .map((m, i) => ({ m, i, score: completionScore(m) }))
+    .filter((x) => !headlineSet.has(x.m.name))
+    .sort(
+      (a, b) =>
+        (a.score ?? Number.POSITIVE_INFINITY) -
+          (b.score ?? Number.POSITIVE_INFINITY) || a.i - b.i,
+    )
+    .map((x) => x.m);
+
+  return { featured, rest };
+}
+
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
   return getMetricByState(metric).map(({ name, agg }) => {
     if (agg.format === 'X/Y') {
@@ -334,9 +371,14 @@ export default function DetailPage() {
     [currentInit, area],
   );
 
+  const headlineMetricNames = useMemo(
+    () => getInitiativeConfig(currentInit.slug)?.headlineMetricNames ?? [],
+    [currentInit],
+  );
+
   const { featured: featuredMetrics, rest: gridMetrics } = useMemo(
-    () => partitionMetricsByCompletion(scopedMetrics),
-    [scopedMetrics],
+    () => partitionMetricsByHeadline(scopedMetrics, headlineMetricNames),
+    [scopedMetrics, headlineMetricNames],
   );
 
   // Square-ish grid: 1→1, 2→2, 3-4→2, 5-9→3, 10-16→4 columns, etc.
