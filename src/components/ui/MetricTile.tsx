@@ -133,39 +133,33 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
     );
   }
 
-  // X/Y — value line + progress bar.
+  // X/Y — single line: progress bar (with the % centred inside it)
+  // followed by the achieved / target figure at the end. The bar
+  // flexes to fill whatever width is left after the number, which is
+  // kept on one line so it never wraps under the bar.
   const pct = getCompletionPercentage(metric.target, metric.achieved);
   const { filled, remainder } = getBarColour(pct, metric.isInverse);
+  const band = getColorBand(pct, metric.isInverse);
+  const bandColors = getBandColors(band);
+  // White reads on the green/red fill; yellow's pale gold needs the
+  // dark band text. When the fill hasn't reached the centred label the
+  // % sits on the light track, so fall back to the dark band colour.
+  const pctTextColor =
+    pct >= 50
+      ? band === 'YELLOW'
+        ? bandColors.text
+        : '#fff'
+      : bandColors.text;
   const denomTitle = metric.denominatorLabel
     ? `${metric.denominatorLabel}: ${formatNumber(metric.target)}`
     : undefined;
 
   return (
-    <div className={cn('flex flex-col', size === 'lg' ? 'gap-2.5' : 'gap-1.5')}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span
-          className={cn(
-            'truncate font-bold leading-none tabular-nums text-[var(--color-text-primary)]',
-            size === 'lg' ? 'text-xl' : size === 'sm' ? 'text-sm' : 'text-base',
-          )}
-          title={denomTitle}
-        >
-          {formatNumber(metric.achieved)} / {formatNumber(metric.target)}
-        </span>
-        <span
-          className={cn(
-            'shrink-0 font-bold tabular-nums',
-            size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-sm' : 'text-base',
-          )}
-          style={{ color: getBandColors(getColorBand(pct, metric.isInverse)).text }}
-        >
-          {pct}%
-        </span>
-      </div>
+    <div className="flex items-center gap-2.5">
       <div
         className={cn(
-          'relative w-full overflow-hidden rounded-sm',
-          size === 'lg' ? 'h-3.5' : size === 'sm' ? 'h-2' : 'h-2.5',
+          'relative min-w-0 flex-1 overflow-hidden rounded-sm',
+          size === 'lg' ? 'h-5' : size === 'sm' ? 'h-4' : 'h-[18px]',
         )}
         style={{ backgroundColor: remainder }}
         role="progressbar"
@@ -177,7 +171,25 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
           className="absolute inset-y-0 left-0 rounded-sm"
           style={{ width: `${pct}%`, backgroundColor: filled }}
         />
+        <span
+          className={cn(
+            'absolute inset-0 flex items-center justify-center font-bold tabular-nums',
+            size === 'lg' ? 'text-[13px]' : 'text-[10px]',
+          )}
+          style={{ color: pctTextColor }}
+        >
+          {pct}%
+        </span>
       </div>
+      <span
+        className={cn(
+          'shrink-0 whitespace-nowrap font-bold leading-none tabular-nums text-[var(--color-text-primary)]',
+          size === 'lg' ? 'text-base' : size === 'sm' ? 'text-[11px]' : 'text-sm',
+        )}
+        title={denomTitle}
+      >
+        {formatNumber(metric.achieved)} / {formatNumber(metric.target)}
+      </span>
     </div>
   );
 }
