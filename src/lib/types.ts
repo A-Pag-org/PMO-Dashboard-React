@@ -83,7 +83,7 @@ export interface SummaryCardConfig {
    * Variants per spec §3.2:
    *   'donut'        — single ring (Road Repair, SCC, ICCC, Green Contribution, Greening).
    *   'two-donuts'   — two side-by-side donuts (Naya Safar: Trucks + Buses, CEMS/APCD: CEMS + APCDs).
-   *   'three-donuts' — three side-by-side donuts (MRS: >15m, 10–15m, <10m).
+   *   'three-donuts' — three side-by-side donuts (legacy layout for tri-split initiatives).
    *   'dual-bar'     — DEPRECATED concentric dual ring (kept for back-compat only).
    */
   variant: 'donut' | 'two-donuts' | 'three-donuts' | 'dual-bar';
