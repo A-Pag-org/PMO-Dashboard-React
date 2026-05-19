@@ -203,3 +203,50 @@ export function supportsLevel(slug: string, level: GeographyLevel): boolean {
   const cfg = INITIATIVE_CONFIGS[slug];
   return cfg ? cfg.geographyLevels.includes(level) : false;
 }
+
+/**
+ * Ministry that owns each initiative. Drives the optgroup headers on the
+ * Initiative dropdown (Detail filter strip, All-data page). Mapping is
+ * inferred from the `dataSource` strings already attached to each
+ * initiative's metrics in constants.ts.
+ */
+export type Ministry = 'MoHUA' | 'MoEFCC' | 'MoRTH';
+
+export const INITIATIVE_TO_MINISTRY: Record<string, Ministry> = {
+  'road-repair':        'MoHUA',
+  'mrs':                'MoHUA',
+  'cd-scc':             'MoHUA',
+  'greening':           'MoEFCC',
+  'cems-apcd':          'MoEFCC',
+  'stubble-burning':    'MoEFCC',
+  'cd-iccc':            'MoEFCC',
+  'naya-safar-yojana':  'MoRTH',
+  'green-contribution': 'MoRTH',
+};
+
+/** Order ministries are rendered in (matches the answered preview). */
+export const MINISTRIES: readonly Ministry[] = ['MoHUA', 'MoEFCC', 'MoRTH'];
+
+/**
+ * Group initiative names under their ministries for use in a grouped
+ * <select>. Initiatives missing a ministry mapping land in "Other".
+ */
+export function groupInitiativesByMinistry(
+  initiatives: { name: string; slug: string }[],
+): { label: string; options: string[] }[] {
+  const byMinistry = new Map<string, string[]>();
+  for (const i of initiatives) {
+    const m = INITIATIVE_TO_MINISTRY[i.slug] ?? 'Other';
+    const list = byMinistry.get(m) ?? [];
+    list.push(i.name);
+    byMinistry.set(m, list);
+  }
+  const ordered: { label: string; options: string[] }[] = [];
+  for (const m of MINISTRIES) {
+    const list = byMinistry.get(m);
+    if (list && list.length > 0) ordered.push({ label: m, options: list });
+  }
+  const other = byMinistry.get('Other');
+  if (other && other.length > 0) ordered.push({ label: 'Other', options: other });
+  return ordered;
+}

@@ -11,7 +11,7 @@
 
 import { Link } from 'react-router-dom';
 import { INITIATIVES } from '@/lib/constants';
-import { INITIATIVE_CONFIGS } from '@/lib/initiatives';
+import { INITIATIVE_CONFIGS, groupInitiativesByMinistry } from '@/lib/initiatives';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import FilterPill from '@/components/ui/FilterPill';
 import AreaPicker from '@/components/ui/AreaPicker';
@@ -56,7 +56,7 @@ export default function DetailFilterBar({
       <FilterPill
         label="Initiative"
         value={initiativeName}
-        options={INITIATIVES.map((i) => i.name)}
+        groups={groupInitiativesByMinistry(INITIATIVES)}
         onChange={onInitiativeChange}
       />
 

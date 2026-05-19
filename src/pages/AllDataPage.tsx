@@ -22,7 +22,7 @@ import {
   UPLOAD_CITY_OPTIONS_BY_STATE,
   RTO_OPTIONS_BY_CITY,
 } from '@/lib/constants';
-import { getInitiativeConfig } from '@/lib/initiatives';
+import { getInitiativeConfig, groupInitiativesByMinistry } from '@/lib/initiatives';
 import { getMetricValueForArea, type AreaScope } from '@/lib/aggregation';
 import { getCompletionPercentage } from '@/lib/utils';
 import type { Metric } from '@/lib/types';
@@ -175,7 +175,7 @@ export default function AllDataPage() {
           <div className="flex flex-wrap items-center gap-2">
             <FilterPill
               label="Initiative"
-              options={INITIATIVES.map((i) => i.name)}
+              groups={groupInitiativesByMinistry(INITIATIVES)}
               value={initiative}
               onChange={setInitiative}
             />

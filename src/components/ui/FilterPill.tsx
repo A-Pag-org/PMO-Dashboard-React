@@ -19,12 +19,22 @@
 // actually selected so the user can tell at a glance whether the
 // filter is in use.
 
+import type React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface FilterPillProps {
+export interface FilterPillGroup {
+  /** Header rendered as a native <optgroup> in the dropdown. */
   label: string;
   options: readonly string[] | string[];
+}
+
+interface FilterPillProps {
+  label: string;
+  /** Flat options. Ignored when `groups` is provided. */
+  options?: readonly string[] | string[];
+  /** Grouped options, rendered as <optgroup> sections. Overrides `options`. */
+  groups?: readonly FilterPillGroup[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -39,6 +49,7 @@ interface FilterPillProps {
 export default function FilterPill({
   label,
   options,
+  groups,
   value,
   onChange,
   placeholder,
@@ -104,13 +115,7 @@ export default function FilterPill({
           {placeholder !== undefined ? (
             <option value="">{placeholder}</option>
           ) : null}
-          {(options as string[])
-            .filter((o) => o !== '')
-            .map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
+          {renderSelectChildren(options, groups)}
         </select>
       </label>
     );
@@ -186,4 +191,30 @@ export default function FilterPill({
       </select>
     </label>
   );
+}
+
+function renderSelectChildren(
+  options: readonly string[] | string[] | undefined,
+  groups: readonly FilterPillGroup[] | undefined,
+): React.ReactNode {
+  if (groups && groups.length > 0) {
+    return groups.map((g) => (
+      <optgroup key={g.label} label={g.label}>
+        {(g.options as string[])
+          .filter((o) => o !== '')
+          .map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+      </optgroup>
+    ));
+  }
+  return ((options ?? []) as string[])
+    .filter((o) => o !== '')
+    .map((opt) => (
+      <option key={opt} value={opt}>
+        {opt}
+      </option>
+    ));
 }
