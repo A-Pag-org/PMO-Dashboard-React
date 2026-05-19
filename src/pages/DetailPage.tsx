@@ -100,35 +100,41 @@ function partitionMetricsByCompletion<T extends Metric>(
 }
 
 /**
- * Outcome-first split. Outcome metrics are the results an initiative is
- * judged on, so every metric with `type === 'outcome'` is featured
- * large on the left (in definition order), and progress / readiness
- * metrics fall to the right-hand n×n grid, worst → best so problem
- * areas read first.
+ * Detail-page grouping by metric hierarchy. Outcome metrics are the
+ * results an initiative is judged on, so they're featured large on the
+ * left. The right column is then split top-to-bottom by the same
+ * hierarchy — Progress above, Readiness below — each sorted
+ * worst → best so problem areas read first.
  *
- * If the initiative has no outcome metrics we fall back to the
- * completion-based split so the left column is never empty.
+ * Initiatives with no outcome metrics fall back to the completion
+ * split (its featured on the left, everything else as the progress
+ * band) so the left column is never empty.
  */
-function partitionMetricsByType<T extends Metric>(
+function groupMetricsForDetail<T extends Metric>(
   metrics: T[],
-): { featured: T[]; rest: T[] } {
-  if (metrics.length === 0) return { featured: [], rest: [] };
+): { featured: T[]; progress: T[]; readiness: T[] } {
+  if (metrics.length === 0)
+    return { featured: [], progress: [], readiness: [] };
+
+  const worstFirst = (a: T, b: T) =>
+    (completionScore(a) ?? Number.POSITIVE_INFINITY) -
+    (completionScore(b) ?? Number.POSITIVE_INFINITY);
 
   const featured = metrics.filter((m) => m.type === 'outcome');
 
-  if (featured.length === 0) return partitionMetricsByCompletion(metrics);
+  if (featured.length === 0) {
+    const split = partitionMetricsByCompletion(metrics);
+    return { featured: split.featured, progress: split.rest, readiness: [] };
+  }
 
-  const rest = metrics
-    .map((m, i) => ({ m, i, score: completionScore(m) }))
-    .filter((x) => x.m.type !== 'outcome')
-    .sort(
-      (a, b) =>
-        (a.score ?? Number.POSITIVE_INFINITY) -
-          (b.score ?? Number.POSITIVE_INFINITY) || a.i - b.i,
-    )
-    .map((x) => x.m);
+  const progress = metrics
+    .filter((m) => m.type === 'progress')
+    .sort(worstFirst);
+  const readiness = metrics
+    .filter((m) => m.type === 'readiness')
+    .sort(worstFirst);
 
-  return { featured, rest };
+  return { featured, progress, readiness };
 }
 
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
@@ -366,13 +372,18 @@ export default function DetailPage() {
     [currentInit, area],
   );
 
-  const { featured: featuredMetrics, rest: gridMetrics } = useMemo(
-    () => partitionMetricsByType(scopedMetrics),
-    [scopedMetrics],
-  );
+  const {
+    featured: featuredMetrics,
+    progress: progressMetrics,
+    readiness: readinessMetrics,
+  } = useMemo(() => groupMetricsForDetail(scopedMetrics), [scopedMetrics]);
 
-  // Square-ish grid: 1→1, 2→2, 3-4→2, 5-9→3, 10-16→4 columns, etc.
-  const gridCols = Math.max(1, Math.ceil(Math.sqrt(gridMetrics.length || 1)));
+  const rightCount = progressMetrics.length + readinessMetrics.length;
+
+  // A small band stays a single readable row; a large band wraps into
+  // a balanced square-ish grid so tiles never get razor-thin.
+  const bandCols = (n: number) =>
+    n <= 3 ? Math.max(1, n) : Math.ceil(Math.sqrt(n));
 
   const defaultSelectedMetricName =
     featuredMetrics[0]?.name ?? scopedMetrics[0]?.name ?? '';
@@ -546,7 +557,8 @@ export default function DetailPage() {
             : 'minmax(0, 1fr) 32px',
         }}
       >
-        {/* ── LEFT (primary): featured tile(s) + n×n grid ───────────── */}
+        {/* ── LEFT (primary): outcome featured · progress band over
+            readiness band on the right ──────────────────────────────── */}
         <section
           className="flex min-h-0 flex-col overflow-hidden bg-[var(--color-surface-light)]"
           aria-label="Initiative metrics"
@@ -555,13 +567,13 @@ export default function DetailPage() {
             className="grid min-h-0 flex-1 gap-3 p-3"
             style={{
               gridTemplateColumns:
-                featuredMetrics.length > 0 && gridMetrics.length > 0
+                featuredMetrics.length > 0 && rightCount > 0
                   ? 'minmax(0, 5fr) minmax(0, 7fr)'
                   : 'minmax(0, 1fr)',
             }}
           >
             {featuredMetrics.length > 0 ? (
-              <div className="flex min-h-0 flex-col gap-3" aria-label="Featured metrics">
+              <div className="flex min-h-0 flex-col gap-3" aria-label="Outcome metrics">
                 {featuredMetrics.map((m) => (
                   <MetricTile
                     key={m.name}
@@ -575,25 +587,58 @@ export default function DetailPage() {
               </div>
             ) : null}
 
-            {gridMetrics.length > 0 ? (
+            {rightCount > 0 ? (
               <div
-                className="grid min-h-0 gap-3"
-                style={{
-                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-                  gridAutoRows: 'minmax(0, 1fr)',
-                }}
-                aria-label="Other metrics"
+                className="flex min-h-0 flex-col gap-3"
+                aria-label="Supporting metrics"
               >
-                {gridMetrics.map((m) => (
-                  <MetricTile
-                    key={m.name}
-                    metric={m}
-                    size="sm"
-                    selected={selectedMetric?.name === m.name}
-                    onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                    className="min-h-0"
-                  />
-                ))}
+                {progressMetrics.length > 0 ? (
+                  <div
+                    className="grid min-h-0 flex-[3] gap-3"
+                    style={{
+                      gridTemplateColumns: `repeat(${bandCols(
+                        progressMetrics.length,
+                      )}, minmax(0, 1fr))`,
+                      gridAutoRows: 'minmax(0, 1fr)',
+                    }}
+                    aria-label="Progress metrics"
+                  >
+                    {progressMetrics.map((m) => (
+                      <MetricTile
+                        key={m.name}
+                        metric={m}
+                        size="md"
+                        selected={selectedMetric?.name === m.name}
+                        onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
+                        className="min-h-0"
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {readinessMetrics.length > 0 ? (
+                  <div
+                    className="grid min-h-0 flex-[2] gap-3"
+                    style={{
+                      gridTemplateColumns: `repeat(${bandCols(
+                        readinessMetrics.length,
+                      )}, minmax(0, 1fr))`,
+                      gridAutoRows: 'minmax(0, 1fr)',
+                    }}
+                    aria-label="Readiness metrics"
+                  >
+                    {readinessMetrics.map((m) => (
+                      <MetricTile
+                        key={m.name}
+                        metric={m}
+                        size="sm"
+                        selected={selectedMetric?.name === m.name}
+                        onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
+                        className="min-h-0"
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
