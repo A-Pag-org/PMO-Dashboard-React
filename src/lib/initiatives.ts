@@ -216,7 +216,7 @@ export const INITIATIVE_TO_MINISTRY: Record<string, Ministry> = {
   'road-repair':        'MoHUA',
   'mrs':                'MoHUA',
   'cd-scc':             'MoHUA',
-  'greening':           'MoEFCC',
+  'greening':           'MoHUA',
   'cems-apcd':          'MoEFCC',
   'stubble-burning':    'MoEFCC',
   'cd-iccc':            'MoEFCC',
