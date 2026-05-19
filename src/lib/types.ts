@@ -63,6 +63,14 @@ export interface Metric {
   /** Free-text data source label (API / Manual / TBD etc.). */
   dataSource?: string;
   /**
+   * Optional visibility gate for the Detail-page tile. When set, the
+   * tile only appears once the user has narrowed the filters enough:
+   *   · 'state+city'        — a specific state and city are selected
+   *   · 'state+city+agency' — also a specific Agency extra filter
+   * Unset → always visible.
+   */
+  visibleWhen?: 'state+city' | 'state+city+agency';
+  /**
    * Override label for the X/Y "denominator" — used by violation/inverse
    * metrics where the denominator is "total sites" rather than a target
    * the team is trying to hit. Defaults to "Target".
