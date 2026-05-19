@@ -58,11 +58,11 @@ export default function MetricTile({
         className,
       )}
     >
-      <header className="flex items-start justify-between gap-2">
+      <header className="flex shrink-0 items-start justify-between gap-2">
         <p
           className={cn(
             'flex-1 font-bold leading-snug text-[var(--color-text-primary)]',
-            size === 'lg' ? 'text-[15px]' : size === 'sm' ? 'text-[13px]' : 'text-[14px]',
+            size === 'lg' ? 'text-[18px]' : size === 'sm' ? 'text-[13px]' : 'text-[15px]',
           )}
           title={metric.name}
         >
@@ -78,11 +78,11 @@ export default function MetricTile({
         ) : null}
       </header>
 
-      <div className={size === 'sm' ? 'mt-1.5' : 'mt-2.5'}>
+      <div className="flex min-h-0 flex-1 flex-col justify-center py-2">
         <Value metric={metric} size={size} />
       </div>
 
-      <Footer metric={metric} frequency={frequency} isCentral={isCentral} />
+      <Footer metric={metric} frequency={frequency} isCentral={isCentral} size={size} />
     </Container>
   );
 }
@@ -95,7 +95,10 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
     const colors = getBandColors(isYes ? 'GREEN' : 'RED');
     return (
       <div
-        className="flex h-7 w-full items-center justify-center rounded-sm text-[11px] font-bold uppercase tracking-wide"
+        className={cn(
+          'flex w-full items-center justify-center rounded-sm font-bold uppercase tracking-wide',
+          size === 'lg' ? 'h-12 text-base' : size === 'sm' ? 'h-7 text-[11px]' : 'h-9 text-sm',
+        )}
         style={{ backgroundColor: colors.bg, color: colors.text }}
       >
         {isYes ? 'Yes' : 'No'}
@@ -113,13 +116,18 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
         <span
           className={cn(
             'font-bold leading-none tabular-nums text-[var(--color-text-primary)]',
-            size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-base' : 'text-xl',
+            size === 'lg' ? 'text-4xl' : size === 'sm' ? 'text-lg' : 'text-2xl',
           )}
         >
           {metric.achieved == null ? '—' : formatNumber(metric.achieved)}
         </span>
         {metric.unit ? (
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+          <span
+            className={cn(
+              'font-semibold uppercase tracking-wide text-[var(--color-text-muted)]',
+              size === 'lg' ? 'text-xs' : 'text-[10px]',
+            )}
+          >
             {metric.unit}
           </span>
         ) : null}
@@ -136,12 +144,12 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
     : undefined;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn('flex flex-col', size === 'lg' ? 'gap-2.5' : 'gap-1.5')}>
       <div className="flex items-baseline justify-between gap-2">
         <span
           className={cn(
             'truncate font-bold leading-none tabular-nums text-[var(--color-text-primary)]',
-            size === 'lg' ? 'text-base' : size === 'sm' ? 'text-xs' : 'text-sm',
+            size === 'lg' ? 'text-xl' : size === 'sm' ? 'text-sm' : 'text-base',
           )}
           title={denomTitle}
         >
@@ -150,7 +158,7 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
         <span
           className={cn(
             'shrink-0 font-bold tabular-nums',
-            size === 'lg' ? 'text-sm' : 'text-xs',
+            size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-sm' : 'text-base',
           )}
           style={{ color: getBandColors(getColorBand(pct, metric.isInverse)).text }}
         >
@@ -158,7 +166,10 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
         </span>
       </div>
       <div
-        className="relative h-2 w-full overflow-hidden rounded-sm"
+        className={cn(
+          'relative w-full overflow-hidden rounded-sm',
+          size === 'lg' ? 'h-3.5' : size === 'sm' ? 'h-2' : 'h-2.5',
+        )}
         style={{ backgroundColor: remainder }}
         role="progressbar"
         aria-valuenow={pct}
@@ -204,10 +215,12 @@ function Footer({
   metric,
   frequency,
   isCentral,
+  size,
 }: {
   metric: Metric;
   frequency: 'monthly' | 'overall';
   isCentral: boolean;
+  size: 'lg' | 'md' | 'sm';
 }) {
   const lowestLevel = isCentral ? 'No regional split' : metric.lowestLevelLabel;
 
@@ -232,7 +245,10 @@ function Footer({
 
   return (
     <p
-      className="mt-2 text-[10px] font-semibold text-[var(--color-text-muted)]"
+      className={cn(
+        'shrink-0 font-semibold text-[var(--color-text-muted)]',
+        size === 'lg' ? 'text-[12px]' : 'text-[10px]',
+      )}
       title="How often this metric is updated, and the lowest geography it splits by."
     >
       {freqLabel}

@@ -1,7 +1,7 @@
 // FILE: src/components/layout/DetailFilterBar.tsx
 // PURPOSE: Detail-page filter strip — the navy band that sits directly
 //          below TopBar. Single line:
-//            Initiative · Area · <extras> · Period · Full data tables
+//            Initiative · Area · <extras> · Full data tables
 //
 //          State / mid-level / deepest-level live behind a single
 //          "Area" pill (AreaPicker) — clicking opens a card with three
@@ -15,11 +15,8 @@ import { INITIATIVE_CONFIGS } from '@/lib/initiatives';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import FilterPill from '@/components/ui/FilterPill';
 import AreaPicker from '@/components/ui/AreaPicker';
-import TimePeriodPill from '@/components/ui/TimePeriodPill';
-import type { TimePeriod } from '@/components/ui/TimePeriodPill';
 
 export type ViewLabel = 'State' | 'City' | 'RTO';
-export type { TimePeriod };
 
 interface DetailFilterBarProps {
   area: AreaFilterValue;
@@ -28,9 +25,6 @@ interface DetailFilterBarProps {
   onAreaChange: (area: AreaFilterValue) => void;
   onInitiativeChange: (name: string) => void;
   onExtraChange: (key: string, value: string) => void;
-
-  period?: TimePeriod;
-  onPeriodChange?: (p: TimePeriod) => void;
 
   seeAllHref: string;
 }
@@ -42,8 +36,6 @@ export default function DetailFilterBar({
   onAreaChange,
   onInitiativeChange,
   onExtraChange,
-  period,
-  onPeriodChange,
   seeAllHref,
 }: DetailFilterBarProps) {
   const slug = INITIATIVES.find((i) => i.name === initiativeName)?.slug ?? '';
@@ -89,8 +81,6 @@ export default function DetailFilterBar({
           onChange={(v) => onExtraChange(f.key, v)}
         />
       ))}
-
-      <TimePeriodPill period={period} onChange={onPeriodChange} />
 
       <Link
         to={seeAllHref}
