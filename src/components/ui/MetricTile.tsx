@@ -3,7 +3,7 @@
 //          Each tile carries:
 //            · metric name (large, bold)
 //            · format-aware value display (X/Y bar · Xx big number · Y/N pill)
-//            · tracking-frequency / lowest-level metadata
+//            · the metric's type (Outcome / Progress / Readiness)
 //          Colour-coding lives on the bar / pill itself; the page-level
 //          legend explains what each band means.
 
@@ -37,9 +37,6 @@ export default function MetricTile({
 }: MetricTileProps) {
   const isInteractive = Boolean(onSelect);
   const Container = isInteractive ? 'button' : 'div';
-  const frequency =
-    metric.trackingFrequency ?? (metric.format === 'Y/N' ? 'overall' : 'monthly');
-  const isCentral = metric.geographyLevel === 'central';
 
   return (
     <Container
@@ -82,7 +79,7 @@ export default function MetricTile({
         <Value metric={metric} size={size} />
       </div>
 
-      <Footer metric={metric} frequency={frequency} isCentral={isCentral} size={size} />
+      <Footer metric={metric} size={size} />
     </Container>
   );
 }
@@ -213,46 +210,34 @@ function DeltaChip({ delta }: { delta: number }) {
 
 function Footer({
   metric,
-  frequency,
-  isCentral,
   size,
 }: {
   metric: Metric;
-  frequency: 'monthly' | 'overall';
-  isCentral: boolean;
   size: 'lg' | 'md' | 'sm';
 }) {
-  const lowestLevel = isCentral ? 'No regional split' : metric.lowestLevelLabel;
-
-  // Plain-English meta. "Updated monthly" / "Cumulative only" reads
-  // straight; the drill-level part uses "Drills to X" so officials know
-  // immediately how deep they can go. The band label is intentionally
-  // *not* shown here — the progress bar, sparkline and Y/N badge
-  // already carry the colour; the page-level legend explains it.
-  const freqLabel =
-    metric.format === 'Y/N'
-      ? 'Yes/No status'
-      : frequency === 'overall'
-      ? 'Cumulative only'
-      : 'Updated monthly';
-  const drillLabel = isCentral
-    ? 'No regional split'
-    : lowestLevel === 'State'
-    ? 'By state'
-    : lowestLevel
-    ? `Drills to ${lowestLevel}`
-    : undefined;
+  // The tile's job at the bottom is to declare what *kind* of metric
+  // this is. Outcome metrics are the results the initiative is judged
+  // on, so they carry the accent treatment; progress / readiness stay
+  // muted to keep the visual hierarchy honest.
+  const isOutcome = metric.type === 'outcome';
+  const typeLabel =
+    metric.type === 'outcome'
+      ? 'Outcome metric'
+      : metric.type === 'progress'
+      ? 'Progress metric'
+      : 'Readiness metric';
 
   return (
     <p
       className={cn(
-        'shrink-0 font-semibold text-[var(--color-text-muted)]',
-        size === 'lg' ? 'text-[12px]' : 'text-[10px]',
+        'shrink-0 font-bold uppercase tracking-[0.08em]',
+        size === 'lg' ? 'text-[11px]' : 'text-[9px]',
+        isOutcome
+          ? 'text-[var(--color-blue-link)]'
+          : 'text-[var(--color-text-muted)]',
       )}
-      title="How often this metric is updated, and the lowest geography it splits by."
     >
-      {freqLabel}
-      {drillLabel ? ` · ${drillLabel}` : ''}
+      {typeLabel}
     </p>
   );
 }

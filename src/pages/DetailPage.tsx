@@ -100,32 +100,27 @@ function partitionMetricsByCompletion<T extends Metric>(
 }
 
 /**
- * Headline-first split. The initiative's configured headline metrics
- * (INITIATIVE_CONFIGS[*].headlineMetricNames — the results the
- * initiative is judged on, e.g. Naya Safar's pre-BS VI trucks/buses
- * converted) are featured large on the left, in config order so the
- * single most important metric sits at the top. Everything else falls
- * to the right-hand n×n grid, worst → best so problem areas read first.
+ * Outcome-first split. Outcome metrics are the results an initiative is
+ * judged on, so every metric with `type === 'outcome'` is featured
+ * large on the left (in definition order), and progress / readiness
+ * metrics fall to the right-hand n×n grid, worst → best so problem
+ * areas read first.
  *
- * If the initiative has no headline metrics configured (or none match
- * the current metric set) we fall back to the completion-based split.
+ * If the initiative has no outcome metrics we fall back to the
+ * completion-based split so the left column is never empty.
  */
-function partitionMetricsByHeadline<T extends Metric>(
+function partitionMetricsByType<T extends Metric>(
   metrics: T[],
-  headlineNames: readonly string[],
 ): { featured: T[]; rest: T[] } {
   if (metrics.length === 0) return { featured: [], rest: [] };
 
-  const headlineSet = new Set(headlineNames);
-  const featured = headlineNames
-    .map((n) => metrics.find((m) => m.name === n))
-    .filter((m): m is T => m != null);
+  const featured = metrics.filter((m) => m.type === 'outcome');
 
   if (featured.length === 0) return partitionMetricsByCompletion(metrics);
 
   const rest = metrics
     .map((m, i) => ({ m, i, score: completionScore(m) }))
-    .filter((x) => !headlineSet.has(x.m.name))
+    .filter((x) => x.m.type !== 'outcome')
     .sort(
       (a, b) =>
         (a.score ?? Number.POSITIVE_INFINITY) -
@@ -371,14 +366,9 @@ export default function DetailPage() {
     [currentInit, area],
   );
 
-  const headlineMetricNames = useMemo(
-    () => getInitiativeConfig(currentInit.slug)?.headlineMetricNames ?? [],
-    [currentInit],
-  );
-
   const { featured: featuredMetrics, rest: gridMetrics } = useMemo(
-    () => partitionMetricsByHeadline(scopedMetrics, headlineMetricNames),
-    [scopedMetrics, headlineMetricNames],
+    () => partitionMetricsByType(scopedMetrics),
+    [scopedMetrics],
   );
 
   // Square-ish grid: 1→1, 2→2, 3-4→2, 5-9→3, 10-16→4 columns, etc.
