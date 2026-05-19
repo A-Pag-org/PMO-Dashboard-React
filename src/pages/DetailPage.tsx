@@ -19,8 +19,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
-import type { TimePeriod, ViewLabel } from '@/components/layout/DetailFilterBar';
-import { DEFAULT_TIME_PERIOD } from '@/components/ui/TimePeriodPill';
+import type { ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricTile from '@/components/ui/MetricTile';
 import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
@@ -98,13 +97,6 @@ function partitionMetricsByCompletion<T extends Metric>(
     .map((x) => x.m);
 
   return { featured: highest ? [lowest, highest] : [lowest], rest };
-}
-
-function formatMonthKey(key: string): string {
-  const [y, m] = key.split('-').map((s) => Number(s));
-  if (!y || !m) return key;
-  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${names[m - 1]} '${String(y).slice(-2)}`;
 }
 
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
@@ -320,7 +312,6 @@ export default function DetailPage() {
   const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
     Record<string, string>
   >({});
-  const [period, setPeriod] = useState<TimePeriod>(DEFAULT_TIME_PERIOD);
   // Right-hand drill drawer (ranking + trend) is collapsed by default
   // and only opens when the user clicks the chevron handle. Selecting
   // a metric tile updates which metric the drawer will show, but does
@@ -477,19 +468,6 @@ export default function DetailPage() {
     !!selectedMetric &&
     selectedMetric.format !== 'Y/N';
 
-  const metricFrequency =
-    selectedMetric?.trackingFrequency ??
-    (selectedMetric?.format === 'Y/N' ? 'overall' : 'monthly');
-  const monthsActive = !period.overall && period.months.length > 0;
-  const showCumulativeCallout =
-    !!selectedMetric && metricFrequency === 'overall' && monthsActive;
-
-  const periodLabel = period.overall || period.months.length === 0
-    ? 'All months to date'
-    : period.months.length === 1
-    ? formatMonthKey(period.months[0])
-    : `${formatMonthKey(period.months[0])} + ${period.months.length - 1} more`;
-
   // Cumulative outcome roll-up — sums the initiative's *headline*
   // outcome X/Y metrics (per INITIATIVE_CONFIGS.headlineMetricNames),
   // filtered to non-inverse. So Naya Safar clubs only trucks + buses
@@ -525,8 +503,6 @@ export default function DetailPage() {
         onAreaChange={setArea}
         onInitiativeChange={setInitiativeName}
         onExtraChange={setExtra}
-        period={period}
-        onPeriodChange={setPeriod}
         seeAllHref={seeAllHref}
       />
 
@@ -655,13 +631,6 @@ export default function DetailPage() {
                   target={outcomeCumulative.target}
                   pct={outcomeCumulative.pct}
                   count={outcomeCumulative.count}
-                />
-              ) : null}
-
-              {showCumulativeCallout ? (
-                <CalloutBox
-                  title="Total figure only — not split by month."
-                  body={`This metric isn't reported month-by-month. The number you see is the cumulative total, even though you have ${periodLabel} selected.`}
                 />
               ) : null}
 
