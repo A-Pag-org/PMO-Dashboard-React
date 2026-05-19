@@ -181,13 +181,7 @@ export default function FilterPill({
         {placeholder !== undefined ? (
           <option value="">{placeholder}</option>
         ) : null}
-        {(options as string[])
-          .filter((o) => o !== '')
-          .map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
+        {renderSelectChildren(options, groups)}
       </select>
     </label>
   );
