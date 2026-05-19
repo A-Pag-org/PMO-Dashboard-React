@@ -38,20 +38,40 @@ export default function MetricTile({
   const isInteractive = Boolean(onSelect);
   const Container = isInteractive ? 'button' : 'div';
 
+  // Status-keyed 4px left accent (same language as the page's
+  // OutcomeCumulativeCard). It both separates one tile from the next
+  // and surfaces the traffic-light status at a glance. Xx metrics have
+  // no target to pass/fail against, so they get a calm neutral edge.
+  const accentColor =
+    metric.format === 'Xx'
+      ? 'var(--color-text-muted)'
+      : getBandColors(
+          metric.format === 'Y/N'
+            ? metric.achieved === 1
+              ? 'GREEN'
+              : 'RED'
+            : getColorBand(
+                getCompletionPercentage(metric.target, metric.achieved),
+                metric.isInverse,
+              ),
+        ).fg;
+
   return (
     <Container
       type={isInteractive ? 'button' : undefined}
       onClick={onSelect}
       aria-pressed={isInteractive ? selected : undefined}
+      style={{ borderLeftWidth: 4, borderLeftColor: accentColor }}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-lg border bg-white text-left transition-colors',
+        'group relative flex flex-col overflow-hidden rounded-lg bg-white text-left shadow-sm transition-all duration-150',
+        'border border-[var(--color-border-table)]',
         size === 'lg' ? 'p-3.5' : size === 'sm' ? 'p-2.5' : 'p-3',
         selected
-          ? 'border-[var(--color-blue-link)] ring-1 ring-[var(--color-blue-link)] bg-[var(--color-blue-pale)]/40'
-          : metric.type === 'outcome'
-          ? 'border-[var(--color-border-table)] hover:border-[var(--color-accent)]'
-          : 'border-[var(--color-border-table)] hover:border-[var(--color-blue-link)]',
-        isInteractive && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-1',
+          ? 'bg-[var(--color-blue-pale)]/50 shadow-md ring-2 ring-[var(--color-blue-link)]'
+          : isInteractive &&
+              'hover:border-[var(--color-text-secondary)] hover:shadow-md',
+        isInteractive &&
+          'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-1',
         className,
       )}
     >
