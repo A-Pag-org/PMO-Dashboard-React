@@ -71,16 +71,20 @@ export default function DetailFilterBar({
         />
       ) : null}
 
-      {extraFilters.map((f) => (
-        <FilterPill
-          key={f.key}
-          label={f.label}
-          value={extras[f.key] ?? ''}
-          placeholder={`All ${f.label.toLowerCase()}`}
-          options={f.options}
-          onChange={(v) => onExtraChange(f.key, v)}
-        />
-      ))}
+      {extraFilters
+        .filter(
+          (f) => !f.requiresStateCity || (!!area.state && !!area.city),
+        )
+        .map((f) => (
+          <FilterPill
+            key={f.key}
+            label={f.label}
+            value={extras[f.key] ?? ''}
+            placeholder={`All ${f.label.toLowerCase()}`}
+            options={f.options}
+            onChange={(v) => onExtraChange(f.key, v)}
+          />
+        ))}
 
       <Link
         to={seeAllHref}

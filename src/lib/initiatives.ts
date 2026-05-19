@@ -14,6 +14,12 @@ export interface ExtraFilter {
   label: string;
   /** Enum options. */
   options: string[];
+  /**
+   * When true the filter is only offered once the user has narrowed
+   * to a specific state *and* city (it's meaningless / too broad
+   * before that). Defaults to always-visible.
+   */
+  requiresStateCity?: boolean;
 }
 
 export interface InitiativeConfig {
@@ -97,11 +103,9 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
         key: 'agency',
         label: 'Agency',
         options: ['MCD', 'NDMC', 'PWD-Delhi', 'NHAI'],
-      },
-      {
-        key: 'roadType',
-        label: 'Road Type',
-        options: ['National Highway', 'State Highway', 'Major District', 'Other'],
+        // Agencies are city-specific, so only offer this once the
+        // user has drilled to a particular state + city.
+        requiresStateCity: true,
       },
     ],
     headlineMetricNames: [
