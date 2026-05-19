@@ -24,6 +24,8 @@ interface MetricTileProps {
   onSelect?: () => void;
   /** Visual density. Outcome → 'lg', Progress → 'md', Readiness → 'sm'. */
   size?: 'lg' | 'md' | 'sm';
+  /** Extra classes merged onto the tile container (e.g. `flex-1` to stretch). */
+  className?: string;
 }
 
 export default function MetricTile({
@@ -31,6 +33,7 @@ export default function MetricTile({
   selected = false,
   onSelect,
   size = 'md',
+  className,
 }: MetricTileProps) {
   const isInteractive = Boolean(onSelect);
   const Container = isInteractive ? 'button' : 'div';
@@ -52,6 +55,7 @@ export default function MetricTile({
           ? 'border-[var(--color-border-table)] hover:border-[var(--color-accent)]'
           : 'border-[var(--color-border-table)] hover:border-[var(--color-blue-link)]',
         isInteractive && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-1',
+        className,
       )}
     >
       <header className="flex items-start justify-between gap-2">

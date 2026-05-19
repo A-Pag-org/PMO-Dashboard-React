@@ -45,24 +45,59 @@ import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 
 
 /**
- * Rank for ordering tiles within a section:
- *   GREEN = 0, YELLOW = 1, RED = 2, no-band (Xx) = 3.
- * Y/N treats Y as GREEN and N as RED. The sort itself is stable via
- * Array.prototype.sort so ties preserve the original definition order.
+ * Completion score in [0, 100] used to pick the featured tile(s) and
+ * order the n×n grid. X/Y metrics use raw completion %; Y/N metrics
+ * map N → 0 and Y → 100. Xx metrics have no target to complete against
+ * and return null so they're never featured (they fall to the end of
+ * the grid).
  */
-function statusRank(m: Metric): number {
-  if (m.format === 'Y/N') return m.achieved === 1 ? 0 : 2;
-  if (m.format === 'Xx') return 3;
-  if (m.format === 'X/Y') {
-    const pct = getCompletionPercentage(m.target, m.achieved);
-    const band = getColorBand(pct, m.isInverse);
-    return band === 'GREEN' ? 0 : band === 'YELLOW' ? 1 : 2;
-  }
-  return 3;
+function completionScore(m: Metric): number | null {
+  if (m.format === 'X/Y') return getCompletionPercentage(m.target, m.achieved);
+  if (m.format === 'Y/N') return m.achieved === 1 ? 100 : 0;
+  return null;
 }
 
-function sortByStatusBand<T extends Metric>(metrics: T[]): T[] {
-  return [...metrics].sort((a, b) => statusRank(a) - statusRank(b));
+/**
+ * Split the initiative's metrics into:
+ *   · `featured` — the tile(s) shown large on the left.
+ *       Even total → [lowest completion %, highest completion %].
+ *       Odd total  → [lowest completion %].
+ *       If fewer than 2 metrics are rankable, we feature only the
+ *       worst (or nothing, if none are rankable).
+ *   · `rest` — the remaining metrics for the right-hand n×n grid,
+ *       sorted worst → best (unrankable Xx metrics last).
+ */
+function partitionMetricsByCompletion<T extends Metric>(
+  metrics: T[],
+): { featured: T[]; rest: T[] } {
+  if (metrics.length === 0) return { featured: [], rest: [] };
+
+  const scored = metrics.map((m, i) => ({ m, i, score: completionScore(m) }));
+  const rankable = scored.filter(
+    (x): x is { m: T; i: number; score: number } => x.score != null,
+  );
+  rankable.sort((a, b) => a.score - b.score || a.i - b.i);
+
+  if (rankable.length === 0) return { featured: [], rest: [...metrics] };
+
+  const isEven = metrics.length % 2 === 0;
+  const lowest = rankable[0].m;
+  const wantTwoFeatured = isEven && rankable.length >= 2;
+  const highest = wantTwoFeatured
+    ? rankable[rankable.length - 1].m
+    : null;
+
+  const featuredSet = new Set<T>([lowest, ...(highest ? [highest] : [])]);
+  const rest = scored
+    .filter((x) => !featuredSet.has(x.m))
+    .sort(
+      (a, b) =>
+        (a.score ?? Number.POSITIVE_INFINITY) -
+          (b.score ?? Number.POSITIVE_INFINITY) || a.i - b.i,
+    )
+    .map((x) => x.m);
+
+  return { featured: highest ? [lowest, highest] : [lowest], rest };
 }
 
 function formatMonthKey(key: string): string {
@@ -308,12 +343,16 @@ export default function DetailPage() {
     [currentInit, area],
   );
 
-  const outcomeMetrics  = sortByStatusBand(scopedMetrics.filter((m) => m.type === 'outcome'));
-  const progressMetrics = sortByStatusBand(scopedMetrics.filter((m) => m.type === 'progress'));
-  const readinessMetrics = sortByStatusBand(scopedMetrics.filter((m) => m.type === 'readiness'));
+  const { featured: featuredMetrics, rest: gridMetrics } = useMemo(
+    () => partitionMetricsByCompletion(scopedMetrics),
+    [scopedMetrics],
+  );
+
+  // Square-ish grid: 1→1, 2→2, 3-4→2, 5-9→3, 10-16→4 columns, etc.
+  const gridCols = Math.max(1, Math.ceil(Math.sqrt(gridMetrics.length || 1)));
 
   const defaultSelectedMetricName =
-    outcomeMetrics[0]?.name ?? currentInit.metrics[0]?.name ?? '';
+    featuredMetrics[0]?.name ?? scopedMetrics[0]?.name ?? '';
   const selectedMetricName =
     selectedMetricByInitiative[currentInit.slug] ?? defaultSelectedMetricName;
   const selectedMetric =
@@ -499,61 +538,55 @@ export default function DetailPage() {
             : 'minmax(0, 1fr) 32px',
         }}
       >
-        {/* ── LEFT (primary): metric groups ─────────────────────────── */}
+        {/* ── LEFT (primary): featured tile(s) + n×n grid ───────────── */}
         <section
-          className="flex min-h-0 flex-col overflow-y-auto bg-[var(--color-surface-light)]"
+          className="flex min-h-0 flex-col overflow-hidden bg-[var(--color-surface-light)]"
           aria-label="Initiative metrics"
         >
-          <div className="flex flex-col gap-4 p-4">
-            {/* Outcome — large tiles. Section labels intentionally
-                removed; the tile-size hierarchy (lg / md / sm) does
-                the grouping. */}
-            <section aria-label="Outcome metrics">
-              {outcomeMetrics.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {outcomeMetrics.map((m) => (
-                    <MetricTile
-                      key={m.name}
-                      metric={m}
-                      size="lg"
-                      selected={selectedMetric?.name === m.name}
-                      onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </section>
-
-            {progressMetrics.length > 0 ? (
-              <section aria-label="Progress metrics">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {progressMetrics.map((m) => (
-                    <MetricTile
-                      key={m.name}
-                      metric={m}
-                      size="md"
-                      selected={selectedMetric?.name === m.name}
-                      onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                    />
-                  ))}
-                </div>
-              </section>
+          <div
+            className="grid min-h-0 flex-1 gap-3 p-3"
+            style={{
+              gridTemplateColumns:
+                featuredMetrics.length > 0 && gridMetrics.length > 0
+                  ? 'minmax(0, 5fr) minmax(0, 7fr)'
+                  : 'minmax(0, 1fr)',
+            }}
+          >
+            {featuredMetrics.length > 0 ? (
+              <div className="flex min-h-0 flex-col gap-3" aria-label="Featured metrics">
+                {featuredMetrics.map((m) => (
+                  <MetricTile
+                    key={m.name}
+                    metric={m}
+                    size="lg"
+                    selected={selectedMetric?.name === m.name}
+                    onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
+                    className="min-h-0 flex-1"
+                  />
+                ))}
+              </div>
             ) : null}
 
-            {readinessMetrics.length > 0 ? (
-              <section aria-label="Readiness metrics">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {readinessMetrics.map((m) => (
-                    <MetricTile
-                      key={m.name}
-                      metric={m}
-                      size="sm"
-                      selected={selectedMetric?.name === m.name}
-                      onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                    />
-                  ))}
-                </div>
-              </section>
+            {gridMetrics.length > 0 ? (
+              <div
+                className="grid min-h-0 gap-3"
+                style={{
+                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                  gridAutoRows: 'minmax(0, 1fr)',
+                }}
+                aria-label="Other metrics"
+              >
+                {gridMetrics.map((m) => (
+                  <MetricTile
+                    key={m.name}
+                    metric={m}
+                    size="sm"
+                    selected={selectedMetric?.name === m.name}
+                    onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
+                    className="min-h-0"
+                  />
+                ))}
+              </div>
             ) : null}
           </div>
         </section>
