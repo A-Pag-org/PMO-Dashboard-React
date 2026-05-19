@@ -73,32 +73,23 @@ export const INITIATIVES: Initiative[] = [
     primaryMetric: 'Route coverage achieved',
     summaryCard: {
       description: 'Route coverage achieved (km)',
-      variant: 'two-donuts',
-      bars: [
-        { label: '>15m',     target: 800, achieved: 560 },
-        { label: '10–15m',   target: 600, achieved: 300 },
-      ],
+      variant: 'donut',
+      donut: { label: 'ROUTE COVERAGE', target: 1800, achieved: 960 },
     },
     metrics: [
-      // Outcome — route coverage, by road width
-      { name: 'Route coverage achieved (>15m)',     type: 'outcome',   target: 800, achieved: 560, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
-      { name: 'Route coverage achieved (10–15m)',   type: 'outcome',   target: 600, achieved: 300, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
-      { name: 'Route coverage achieved (<10m)',     type: 'outcome',   target: 400, achieved: 100, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
+      // Outcome — overall route coverage. Road-width bifurcation
+      // (>15m / 10–15m / <10m) isn't reported by source agencies yet,
+      // so we surface a single all-width metric.
+      { name: 'Route coverage achieved', type: 'outcome', target: 1800, achieved: 960, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (MoHUA/PWD/MCD/DDA)' },
 
-      // Progress — target road length to be covered (Xx)
-      { name: 'Target road length to be covered (>15m)',   type: 'progress', target: null, achieved: 800, previousAchieved: 760, unit: 'km', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
-      { name: 'Target road length to be covered (10–15m)', type: 'progress', target: null, achieved: 600, previousAchieved: 580, unit: 'km', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
-      { name: 'Target road length to be covered (<10m)',   type: 'progress', target: null, achieved: 400, previousAchieved: 380, unit: 'km', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      // Progress — target road length to cover (Xx).
+      { name: 'Target road length to be covered', type: 'progress', target: null, achieved: 1800, previousAchieved: 1720, unit: 'km', format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
 
-      // Progress — MRS operational, by road width
-      { name: 'No. of MRS operational (>15m)',     type: 'progress', target: 60, achieved: 38, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS operational (10–15m)',   type: 'progress', target: 45, achieved: 18, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS operational (<10m)',     type: 'progress', target: 30, achieved: 6,  format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      // Progress — total MRS operational.
+      { name: 'No. of MRS operational', type: 'progress', target: 135, achieved: 62, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
 
-      // Readiness — MRS required (Xx)
-      { name: 'No. of MRS required (>15m)',     type: 'readiness', target: null, achieved: 60, previousAchieved: 60, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS required (10–15m)',   type: 'readiness', target: null, achieved: 45, previousAchieved: 45, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
-      { name: 'No. of MRS required (<10m)',     type: 'readiness', target: null, achieved: 30, previousAchieved: 30, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
+      // Readiness — total MRS required (Xx).
+      { name: 'No. of MRS required', type: 'readiness', target: null, achieved: 135, previousAchieved: 135, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
 
       // Readiness — Y/N
       { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
@@ -491,18 +482,17 @@ export const MOCK_DETAIL_TABLE = MOCK_DETAIL_TABLE_ALL;
 //
 // Date fields are editable for ONLY two metrics per spec §7.3:
 //   - "Total quantum of malba received at SCC"
-//   - MRS Route coverage outcome metrics (>15m / 10–15m / <10m)
-// (The MRS route-coverage metrics aren't strictly Manual per §5, but
-//  §7.3 explicitly grants them date-edit access, so we surface them on
+//   - MRS "Route coverage achieved" (the road-width bifurcation
+//     isn't reported by source agencies yet — one all-width metric).
+// (The MRS route-coverage metric isn't strictly Manual per §5, but
+//  §7.3 explicitly grants it date-edit access, so we surface it on
 //  the upload screen with hasDates=true and value-fields locked.)
 
 const ALL_CITIES_ORDERED = ['Delhi', 'Noida', 'Greater Noida', 'Ghaziabad', 'Gurugram', 'Rohtak', 'Panipat', 'Neemrana', 'Alwar'];
 
 const DATE_METRIC_NAMES = new Set<string>([
   'Total quantum of malba received at SCC',
-  'Route coverage achieved (>15m)',
-  'Route coverage achieved (10–15m)',
-  'Route coverage achieved (<10m)',
+  'Route coverage achieved',
 ]);
 
 /** True iff the metric is meant to surface on the Manual Upload screen. */

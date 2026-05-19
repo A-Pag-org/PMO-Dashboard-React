@@ -113,16 +113,11 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
   mrs: {
     slug: 'mrs',
     geographyLevels: ['state', 'city'],
-    // No Road Width filter — the metrics grid already shows route
-    // coverage / operational / required as separate tiles per width
-    // (>15m, 10–15m, <10m), so the top-bar bifurcation would repeat
-    // what the tiles already make explicit.
+    // No Road Width filter — source agencies don't yet report MRS data
+    // split by road width (>15m / 10–15m / <10m), so the metrics here
+    // are surfaced as single all-width figures.
     extraFilters: [],
-    headlineMetricNames: [
-      'Route coverage achieved (>15m)',
-      'Route coverage achieved (10–15m)',
-      'Route coverage achieved (<10m)',
-    ],
+    headlineMetricNames: ['Route coverage achieved'],
   },
 
   'cd-scc': {
