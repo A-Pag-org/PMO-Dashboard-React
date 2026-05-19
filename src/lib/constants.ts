@@ -136,8 +136,8 @@ export const INITIATIVES: Initiative[] = [
       { name: 'Road length surveyed (km)',                        type: 'progress',  target: 1800, achieved: 1320, unit: 'km', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (311 Apps)' },
       { name: 'Roads identified for repair after survey',         type: 'progress',  target: null, achieved: 612, previousAchieved: 540,     format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'API (311 Apps)' },
       // Y/N — target = 1, achieved = 1 (Y) or 0 (N)
-      { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
-      { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
+      { name: 'Road asset baseline completed',                    type: 'readiness', target: 1,    achieved: 1,                              format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state+city' },
+      { name: 'Digital tool to track resolution progress exists', type: 'readiness', target: 1,    achieved: 0,                              format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state+city+agency' },
     ],
   },
   {

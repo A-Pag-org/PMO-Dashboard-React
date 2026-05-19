@@ -137,6 +137,26 @@ function groupMetricsForDetail<T extends Metric>(
   return { featured, progress, readiness };
 }
 
+/**
+ * Detail-page tile visibility gate. A metric with `visibleWhen` only
+ * shows once the user has drilled far enough — e.g. road-repair's
+ * "Road asset baseline" needs a specific state + city, and "Digital
+ * tool exists" additionally needs a specific Agency. Ungated metrics
+ * are always visible.
+ */
+function passesVisibilityGate(
+  m: Metric,
+  area: AreaFilterValue,
+  extras: Record<string, string>,
+): boolean {
+  if (!m.visibleWhen) return true;
+  const hasStateCity = !!area.state && !!area.city;
+  if (m.visibleWhen === 'state+city') return hasStateCity;
+  if (m.visibleWhen === 'state+city+agency')
+    return hasStateCity && !!extras['agency'];
+  return true;
+}
+
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
   return getMetricByState(metric).map(({ name, agg }) => {
     if (agg.format === 'X/Y') {
@@ -372,11 +392,16 @@ export default function DetailPage() {
     [currentInit, area],
   );
 
+  const visibleMetrics = useMemo(
+    () => scopedMetrics.filter((m) => passesVisibilityGate(m, area, extras)),
+    [scopedMetrics, area, extras],
+  );
+
   const {
     featured: featuredMetrics,
     progress: progressMetrics,
     readiness: readinessMetrics,
-  } = useMemo(() => groupMetricsForDetail(scopedMetrics), [scopedMetrics]);
+  } = useMemo(() => groupMetricsForDetail(visibleMetrics), [visibleMetrics]);
 
   const rightCount = progressMetrics.length + readinessMetrics.length;
 
