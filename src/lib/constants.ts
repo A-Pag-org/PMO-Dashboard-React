@@ -92,8 +92,8 @@ export const INITIATIVES: Initiative[] = [
       { name: 'No. of MRS required', type: 'readiness', target: null, achieved: 135, previousAchieved: 135, format: 'Xx', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'API (TBD)' },
 
       // Readiness — Y/N
-      { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
-      { name: 'Digital tool to track road covered exists',    type: 'readiness', target: 1, achieved: 1, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
+      { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state' },
+      { name: 'Digital tool to track road covered exists',    type: 'readiness', target: 1, achieved: 1, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state+city+agency' },
     ],
   },
   {

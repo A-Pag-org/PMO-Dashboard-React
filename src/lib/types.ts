@@ -65,11 +65,12 @@ export interface Metric {
   /**
    * Optional visibility gate for the Detail-page tile. When set, the
    * tile only appears once the user has narrowed the filters enough:
+   *   · 'state'             — a specific state is selected
    *   · 'state+city'        — a specific state and city are selected
    *   · 'state+city+agency' — also a specific Agency extra filter
    * Unset → always visible.
    */
-  visibleWhen?: 'state+city' | 'state+city+agency';
+  visibleWhen?: 'state' | 'state+city' | 'state+city+agency';
   /**
    * Override label for the X/Y "denominator" — used by violation/inverse
    * metrics where the denominator is "total sites" rather than a target

@@ -150,7 +150,9 @@ function passesVisibilityGate(
   extras: Record<string, string>,
 ): boolean {
   if (!m.visibleWhen) return true;
-  const hasStateCity = !!area.state && !!area.city;
+  const hasState = !!area.state;
+  const hasStateCity = hasState && !!area.city;
+  if (m.visibleWhen === 'state') return hasState;
   if (m.visibleWhen === 'state+city') return hasStateCity;
   if (m.visibleWhen === 'state+city+agency')
     return hasStateCity && !!extras['agency'];
