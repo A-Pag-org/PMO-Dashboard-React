@@ -38,38 +38,47 @@ export default function MetricTile({
   const isInteractive = Boolean(onSelect);
   const Container = isInteractive ? 'button' : 'div';
 
-  // Status-keyed 4px left accent (same language as the page's
-  // OutcomeCumulativeCard). It both separates one tile from the next
-  // and surfaces the traffic-light status at a glance. Xx metrics have
-  // no target to pass/fail against, so they get a calm neutral edge.
-  const accentColor =
+  // Status-keyed hover tint. The status itself is already encoded in
+  // the bar fill / donut / Y-N pill, so the resting tile stays plain
+  // white. On hover the whole card picks up the band's pale wash and
+  // its strong outline, gently nudging the eye toward what's
+  // currently under the cursor — and what state it's in.
+  // Xx metrics have no target to score against, so they get a calm
+  // neutral hover instead.
+  const band =
     metric.format === 'Xx'
-      ? 'var(--color-text-muted)'
-      : getBandColors(
-          metric.format === 'Y/N'
-            ? metric.achieved === 1
-              ? 'GREEN'
-              : 'RED'
-            : getColorBand(
-                getCompletionPercentage(metric.target, metric.achieved),
-                metric.isInverse,
-              ),
-        ).fg;
+      ? null
+      : metric.format === 'Y/N'
+      ? metric.achieved === 1
+        ? ('GREEN' as const)
+        : ('RED' as const)
+      : getColorBand(
+          getCompletionPercentage(metric.target, metric.achieved),
+          metric.isInverse,
+        );
+  const hoverBg = band ? getBandColors(band).bg : 'var(--color-surface-light)';
+  const hoverBorder = band
+    ? getBandColors(band).fg
+    : 'var(--color-text-secondary)';
 
   return (
     <Container
       type={isInteractive ? 'button' : undefined}
       onClick={onSelect}
       aria-pressed={isInteractive ? selected : undefined}
-      style={{ borderLeftWidth: 4, borderLeftColor: accentColor }}
+      style={
+        {
+          '--tile-hover-bg': hoverBg,
+          '--tile-hover-border': hoverBorder,
+        } as React.CSSProperties
+      }
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-lg bg-white text-left shadow-sm transition-all duration-150',
-        'border border-[var(--color-border-table)]',
+        'group relative flex flex-col overflow-hidden rounded-lg border border-[var(--color-border-table)] bg-white text-left shadow-sm transition-all duration-150',
         size === 'lg' ? 'p-3.5' : size === 'sm' ? 'p-2.5' : 'p-3',
         selected
           ? 'bg-[var(--color-blue-pale)]/50 shadow-md ring-2 ring-[var(--color-blue-link)]'
           : isInteractive &&
-              'hover:border-[var(--color-text-secondary)] hover:shadow-md',
+              'hover:border-[var(--tile-hover-border)] hover:bg-[var(--tile-hover-bg)] hover:shadow-md',
         isInteractive &&
           'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-1',
         className,
