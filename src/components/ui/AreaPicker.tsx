@@ -105,8 +105,20 @@ export default function AreaPicker({
   const rtoOptions = area.city ? RTO_OPTIONS_BY_CITY[area.city] ?? [] : [];
 
   function pickState(state: string) {
-    // Changing state clears the levels below it.
-    onChange(state ? { state } : {});
+    if (!state) {
+      onChange({});
+      return;
+    }
+    // Delhi is both a state and a city in the NCR data, so there's
+    // no separate city choice to make below it. Auto-bind city so
+    // everything downstream (Agency dropdown gating, agency
+    // options-by-city, scoped metric values, tile visibility) reads
+    // as if the user had drilled to Delhi → Delhi explicitly.
+    if (state === 'Delhi') {
+      onChange({ state: 'Delhi', city: 'Delhi' });
+      return;
+    }
+    onChange({ state });
   }
   function pickCity(city: string) {
     onChange({ state: area.state, city: city || undefined });
@@ -185,7 +197,7 @@ export default function AreaPicker({
                   </select>
                 </Field>
 
-                {supportsCity ? (
+                {supportsCity && area.state !== 'Delhi' ? (
                   <Field label={cityLabel}>
                     <select
                       value={area.city ?? ''}
