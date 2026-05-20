@@ -10,7 +10,7 @@
 //          Road Repair reads State · City).
 
 import { Link } from 'react-router-dom';
-import { INITIATIVES } from '@/lib/constants';
+import { INITIATIVES, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
 import { INITIATIVE_CONFIGS, groupInitiativesByMinistry } from '@/lib/initiatives';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import FilterPill from '@/components/ui/FilterPill';
@@ -65,11 +65,30 @@ export default function DetailFilterBar({
           area={area}
           onChange={onAreaChange}
           supportsCity={supportsCity}
-          supportsRto={supportsRto}
           cityLabel={cityLabel}
-          rtoLabel={rtoLabel}
         />
       ) : null}
+
+      {/* RTO (or Industrial Area) lives as its own pill on the bar —
+          gated behind state + city, matching the Agency pattern on
+          road-repair / MRS. Hidden when the city has no listed RTOs. */}
+      {supportsRto && area.state && area.city
+        ? (() => {
+            const rtoOptions = RTO_OPTIONS_BY_CITY[area.city] ?? [];
+            if (rtoOptions.length === 0) return null;
+            return (
+              <FilterPill
+                label={rtoLabel}
+                value={area.rto ?? ''}
+                placeholder={`All ${rtoLabel.toLowerCase()}s`}
+                options={rtoOptions}
+                onChange={(v) =>
+                  onAreaChange({ ...area, rto: v || undefined })
+                }
+              />
+            );
+          })()
+        : null}
 
       {extraFilters
         .filter(

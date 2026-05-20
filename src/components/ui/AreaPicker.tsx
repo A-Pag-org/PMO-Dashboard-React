@@ -18,11 +18,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
-import {
-  RTO_OPTIONS_BY_CITY,
-  STATES,
-  UPLOAD_CITY_OPTIONS_BY_STATE,
-} from '@/lib/constants';
+import { STATES, UPLOAD_CITY_OPTIONS_BY_STATE } from '@/lib/constants';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { cn } from '@/lib/utils';
 
@@ -30,9 +26,7 @@ interface AreaPickerProps {
   area: AreaFilterValue;
   onChange: (area: AreaFilterValue) => void;
   supportsCity?: boolean;
-  supportsRto?: boolean;
   cityLabel?: string;
-  rtoLabel?: string;
   className?: string;
 }
 
@@ -50,9 +44,7 @@ export default function AreaPicker({
   area,
   onChange,
   supportsCity = true,
-  supportsRto = false,
   cityLabel = 'City',
-  rtoLabel = 'RTO',
   className,
 }: AreaPickerProps) {
   const [open, setOpen] = useState(false);
@@ -97,12 +89,11 @@ export default function AreaPicker({
     };
   }, [open]);
 
-  // Cascading option lists — city options depend on selected state,
-  // RTO options depend on selected city.
+  // City options depend on selected state. (RTO selection lives as
+  // its own pill on the navy bar, gated by state + city.)
   const cityOptions = area.state
     ? UPLOAD_CITY_OPTIONS_BY_STATE[area.state] ?? []
     : [];
-  const rtoOptions = area.city ? RTO_OPTIONS_BY_CITY[area.city] ?? [] : [];
 
   function pickState(state: string) {
     if (!state) {
@@ -122,9 +113,6 @@ export default function AreaPicker({
   }
   function pickCity(city: string) {
     onChange({ state: area.state, city: city || undefined });
-  }
-  function pickRto(rto: string) {
-    onChange({ state: area.state, city: area.city, rto: rto || undefined });
   }
   function clearAll() {
     onChange({});
@@ -213,28 +201,6 @@ export default function AreaPicker({
                       {cityOptions.map((c) => (
                         <option key={c} value={c}>
                           {c}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                ) : null}
-
-                {supportsRto ? (
-                  <Field label={rtoLabel}>
-                    <select
-                      value={area.rto ?? ''}
-                      onChange={(e) => pickRto(e.target.value)}
-                      disabled={!area.city}
-                      className={selectClass}
-                    >
-                      <option value="">
-                        {area.city
-                          ? `All ${rtoLabel.toLowerCase()}s in ${area.city}`
-                          : `Choose a ${cityLabel.toLowerCase()} first`}
-                      </option>
-                      {rtoOptions.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
                         </option>
                       ))}
                     </select>
