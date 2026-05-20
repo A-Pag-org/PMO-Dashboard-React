@@ -190,8 +190,8 @@ export const INITIATIVES: Initiative[] = [
       donut: { label: 'Tolls active', target: 50, achieved: 32 },
     },
     metrics: [
-      { name: 'Tolls with Green Contribution collection initiated',         type: 'outcome',  target: 50, achieved: 32, geographyLevel: 'central', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Central', dataSource: 'API (MoRTH / IHMCL)' },
-      { name: 'Identified tolls with Infra setup done (ANPR + FASTag)',     type: 'progress', target: 50, achieved: 38, geographyLevel: 'central', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Central', dataSource: 'API (MoRTH / IHMCL)' },
+      { name: 'Tolls with Green Contribution collection initiated',         type: 'outcome',  target: 50, achieved: 32, geographyLevel: 'central', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Central', dataSource: 'API (MoRTH / IHMCL)', displayAs: 'donut' },
+      { name: 'Identified tolls with Infra setup done (ANPR + FASTag)',     type: 'progress', target: 50, achieved: 38, geographyLevel: 'central', format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'Central', dataSource: 'API (MoRTH / IHMCL)', displayAs: 'donut' },
     ],
   },
   {

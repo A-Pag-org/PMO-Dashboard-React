@@ -91,6 +91,13 @@ export interface Metric {
    */
   visibleWhen?: 'state' | 'state+city' | 'state+city+agency';
   /**
+   * Detail-page tile rendering variant for X/Y metrics. Defaults to
+   * 'bar' (inline horizontal bar). 'donut' renders the percentage
+   * inside a donut chart instead — used where two tiles sit side by
+   * side and the donut reads cleaner (e.g. Green Contribution).
+   */
+  displayAs?: 'bar' | 'donut';
+  /**
    * Override label for the X/Y "denominator" — used by violation/inverse
    * metrics where the denominator is "total sites" rather than a target
    * the team is trying to hit. Defaults to "Target".

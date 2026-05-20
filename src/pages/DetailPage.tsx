@@ -503,6 +503,17 @@ export default function DetailPage() {
 
   const rightCount = progressItems.length + readinessItems.length;
 
+  // When an initiative has exactly one outcome + one progress tile
+  // (no readiness), the asymmetric 5fr/7fr split looks unbalanced and
+  // the progress tile gets demoted to size 'md'. Treat them as equal
+  // peers instead — 1fr/1fr layout, both at 'lg' — so the eye reads
+  // them as a matched pair (e.g. Green Contribution's two donuts).
+  const isPairLayout =
+    featuredItems.length === 1 &&
+    progressItems.length === 1 &&
+    readinessItems.length === 0;
+  const progressSize: 'lg' | 'md' = isPairLayout ? 'lg' : 'md';
+
   // A small band stays a single readable row; a large band wraps into
   // a balanced square-ish grid so tiles never get razor-thin.
   const bandCols = (n: number) =>
@@ -725,10 +736,11 @@ export default function DetailPage() {
           <div
             className="grid min-h-0 flex-1 gap-3 p-3"
             style={{
-              gridTemplateColumns:
-                featuredItems.length > 0 && rightCount > 0
-                  ? 'minmax(0, 5fr) minmax(0, 7fr)'
-                  : 'minmax(0, 1fr)',
+              gridTemplateColumns: isPairLayout
+                ? 'minmax(0, 1fr) minmax(0, 1fr)'
+                : featuredItems.length > 0 && rightCount > 0
+                ? 'minmax(0, 5fr) minmax(0, 7fr)'
+                : 'minmax(0, 1fr)',
             }}
           >
             {featuredItems.length > 0 ? (
@@ -756,7 +768,7 @@ export default function DetailPage() {
                     aria-label="Progress metrics"
                   >
                     {progressItems.map((item) =>
-                      renderTile(item, 'md', 'min-h-0'),
+                      renderTile(item, progressSize, 'min-h-0'),
                     )}
                   </div>
                 ) : null}
