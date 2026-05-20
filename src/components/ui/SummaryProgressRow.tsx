@@ -1,8 +1,6 @@
 // FILE: components/ui/SummaryProgressRow.tsx
 // PURPOSE: Summary-card progress row — fixed-width label · flexible bar
-//          with inline % · fixed-width achieved/target. The three columns
-//          live in a flex row with `gap-3` so they cannot overlap.
-// DESIGN REF: Figma "Air-Pollution / Final for review" (Frame 45-12763).
+//          with % centered inside · fixed-width achieved/target at end.
 
 import { formatNumber, getBarColour, getCompletionPercentage } from '@/lib/utils';
 
@@ -20,11 +18,6 @@ export default function SummaryProgressRow({
   const pct = getCompletionPercentage(target, achieved);
   const { filled, remainder } = getBarColour(pct);
 
-  // Clamp the inline %-label horizontal position so it always stays
-  // visually inside the bar (label is ~28px wide; clamp at 75% keeps it
-  // safely inside even on narrow card widths).
-  const labelLeft = Math.min(Math.max(pct, 0), 75);
-
   const hasTarget = target > 0;
 
   return (
@@ -36,9 +29,9 @@ export default function SummaryProgressRow({
         {label}
       </span>
 
-      <div className="relative h-3 flex-1">
+      <div className="relative h-4 flex-1 overflow-hidden rounded-full">
         <div
-          className="absolute inset-0 rounded-full"
+          className="absolute inset-0"
           style={{ backgroundColor: remainder }}
           role="progressbar"
           aria-valuenow={pct}
@@ -47,14 +40,13 @@ export default function SummaryProgressRow({
           aria-label={`${label}: ${pct}% complete`}
         />
         <div
-          className="absolute inset-y-0 left-0 rounded-full"
+          className="absolute inset-y-0 left-0"
           style={{ width: `${pct}%`, backgroundColor: filled }}
         />
-        <span
-          className="pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[9px] font-semibold leading-none text-[#111827]"
-          style={{ left: `calc(${labelLeft}% + 6px)` }}
-        >
-          {pct}%
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums text-[#111827] bg-white/75">
+            {pct}%
+          </span>
         </span>
       </div>
 
