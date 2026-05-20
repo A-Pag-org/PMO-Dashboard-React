@@ -63,6 +63,25 @@ export interface Metric {
   /** Free-text data source label (API / Manual / TBD etc.). */
   dataSource?: string;
   /**
+   * Cluster id — when set, every metric sharing this id is rendered
+   * inside a single combined "cluster tile" on the Detail page,
+   * instead of one tile per metric.
+   */
+  cluster?: string;
+  /**
+   * Display title for the combined cluster tile. Set on at least one
+   * metric in the cluster; the first non-empty value wins.
+   */
+  clusterLabel?: string;
+  /**
+   * Type override for the combined cluster tile (defaults to the
+   * first metric's `type`). Lets a cluster mix a stray outcome with
+   * a progress metric and still land in the right page band.
+   */
+  clusterType?: MetricType;
+  /** Sub-row label inside the cluster tile (e.g. "Trucks", "Buses"). */
+  clusterSubLabel?: string;
+  /**
    * Optional visibility gate for the Detail-page tile. When set, the
    * tile only appears once the user has narrowed the filters enough:
    *   · 'state'             — a specific state is selected

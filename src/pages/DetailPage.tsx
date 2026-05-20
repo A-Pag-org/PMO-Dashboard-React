@@ -21,6 +21,7 @@ import TopBar from '@/components/layout/TopBar';
 import DetailFilterBar from '@/components/layout/DetailFilterBar';
 import type { ViewLabel } from '@/components/layout/DetailFilterBar';
 import MetricTile from '@/components/ui/MetricTile';
+import ClusterTile from '@/components/ui/ClusterTile';
 import RankingPanel from '@/components/ui/RankingPanel';
 import TrendPanel from '@/components/ui/TrendPanel';
 import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
@@ -37,7 +38,7 @@ import {
   getMetricValueForArea,
 } from '@/lib/aggregation';
 import { getInitiativeConfig } from '@/lib/initiatives';
-import type { MapDataPoint, ViewLevel, Metric } from '@/lib/types';
+import type { MapDataPoint, ViewLevel, Metric, MetricType } from '@/lib/types';
 import type { AreaFilterValue } from '@/lib/useDetailFilters';
 import { useDetailFilters } from '@/lib/useDetailFilters';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
@@ -157,6 +158,99 @@ function passesVisibilityGate(
   if (m.visibleWhen === 'state+city+agency')
     return hasStateCity && !!extras['agency'];
   return true;
+}
+
+/**
+ * One Detail-page tile is either a single metric or a "cluster" of
+ * related metrics rendered together (e.g. Naya Safar's Trucks +
+ * Buses converted under one tile). Clusters declare their own label
+ * and type so a stray outcome can be re-homed under a progress
+ * combined tile.
+ */
+type TileItem =
+  | { kind: 'single'; type: MetricType; metric: Metric }
+  | {
+      kind: 'cluster';
+      id: string;
+      label: string;
+      type: MetricType;
+      metrics: Metric[];
+    };
+
+function buildTileItems(metrics: Metric[]): TileItem[] {
+  const byCluster = new Map<string, Extract<TileItem, { kind: 'cluster' }>>();
+  const items: TileItem[] = [];
+  for (const m of metrics) {
+    if (!m.cluster) {
+      items.push({ kind: 'single', type: m.type, metric: m });
+      continue;
+    }
+    const existing = byCluster.get(m.cluster);
+    if (existing) {
+      existing.metrics.push(m);
+      continue;
+    }
+    const item: Extract<TileItem, { kind: 'cluster' }> = {
+      kind: 'cluster',
+      id: m.cluster,
+      label: m.clusterLabel ?? m.cluster,
+      type: m.clusterType ?? m.type,
+      metrics: [m],
+    };
+    byCluster.set(m.cluster, item);
+    items.push(item);
+  }
+  return items;
+}
+
+function tileItemScore(item: TileItem): number {
+  if (item.kind === 'single') {
+    return completionScore(item.metric) ?? Number.POSITIVE_INFINITY;
+  }
+  let worst = Number.POSITIVE_INFINITY;
+  for (const m of item.metrics) {
+    const s = completionScore(m);
+    if (s != null && s < worst) worst = s;
+  }
+  return worst;
+}
+
+function tileItemContainsMetric(item: TileItem, name: string): boolean {
+  if (item.kind === 'single') return item.metric.name === name;
+  return item.metrics.some((m) => m.name === name);
+}
+
+function tileItemFirstMetricName(item: TileItem): string {
+  return item.kind === 'single' ? item.metric.name : item.metrics[0].name;
+}
+
+/**
+ * Group TileItems by metric hierarchy — same shape as
+ * groupMetricsForDetail but operating on cluster-aware items.
+ * Outcome → featured (left, big); progress → top-right band;
+ * readiness → bottom-right band. Sorted worst → best within each
+ * band so problem tiles read first.
+ */
+function groupTileItemsForDetail(items: TileItem[]): {
+  featured: TileItem[];
+  progress: TileItem[];
+  readiness: TileItem[];
+} {
+  if (items.length === 0)
+    return { featured: [], progress: [], readiness: [] };
+  const featured = items.filter((i) => i.type === 'outcome');
+  if (featured.length === 0) {
+    return { featured: [], progress: [...items], readiness: [] };
+  }
+  const worstFirst = (a: TileItem, b: TileItem) =>
+    tileItemScore(a) - tileItemScore(b);
+  const progress = items
+    .filter((i) => i.type === 'progress')
+    .sort(worstFirst);
+  const readiness = items
+    .filter((i) => i.type === 'readiness')
+    .sort(worstFirst);
+  return { featured, progress, readiness };
 }
 
 function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
@@ -399,13 +493,15 @@ export default function DetailPage() {
     [scopedMetrics, area, extras],
   );
 
-  const {
-    featured: featuredMetrics,
-    progress: progressMetrics,
-    readiness: readinessMetrics,
-  } = useMemo(() => groupMetricsForDetail(visibleMetrics), [visibleMetrics]);
+  const tileItems = useMemo(() => buildTileItems(visibleMetrics), [visibleMetrics]);
 
-  const rightCount = progressMetrics.length + readinessMetrics.length;
+  const {
+    featured: featuredItems,
+    progress: progressItems,
+    readiness: readinessItems,
+  } = useMemo(() => groupTileItemsForDetail(tileItems), [tileItems]);
+
+  const rightCount = progressItems.length + readinessItems.length;
 
   // A small band stays a single readable row; a large band wraps into
   // a balanced square-ish grid so tiles never get razor-thin.
@@ -413,7 +509,9 @@ export default function DetailPage() {
     n <= 3 ? Math.max(1, n) : Math.ceil(Math.sqrt(n));
 
   const defaultSelectedMetricName =
-    featuredMetrics[0]?.name ?? scopedMetrics[0]?.name ?? '';
+    (featuredItems[0] && tileItemFirstMetricName(featuredItems[0])) ??
+    scopedMetrics[0]?.name ??
+    '';
   const selectedMetricName =
     selectedMetricByInitiative[currentInit.slug] ?? defaultSelectedMetricName;
   const selectedMetric =
@@ -510,6 +608,40 @@ export default function DetailPage() {
     setSelectedMetricByInitiative((prev) => ({ ...prev, [slug]: name }));
   }
 
+  function renderTile(
+    item: TileItem,
+    size: 'lg' | 'md' | 'sm',
+    extraClass: string,
+  ) {
+    const isSelected = selectedMetric
+      ? tileItemContainsMetric(item, selectedMetric.name)
+      : false;
+    const firstName = tileItemFirstMetricName(item);
+    if (item.kind === 'cluster') {
+      return (
+        <ClusterTile
+          key={`cluster:${item.id}`}
+          label={item.label}
+          metrics={item.metrics}
+          size={size}
+          selected={isSelected}
+          onSelect={() => handleSelectMetric(currentInit.slug, firstName)}
+          className={extraClass}
+        />
+      );
+    }
+    return (
+      <MetricTile
+        key={item.metric.name}
+        metric={item.metric}
+        size={size}
+        selected={isSelected}
+        onSelect={() => handleSelectMetric(currentInit.slug, item.metric.name)}
+        className={extraClass}
+      />
+    );
+  }
+
   const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
 
   const trendUnit: 'pct' | 'count' =
@@ -594,23 +726,16 @@ export default function DetailPage() {
             className="grid min-h-0 flex-1 gap-3 p-3"
             style={{
               gridTemplateColumns:
-                featuredMetrics.length > 0 && rightCount > 0
+                featuredItems.length > 0 && rightCount > 0
                   ? 'minmax(0, 5fr) minmax(0, 7fr)'
                   : 'minmax(0, 1fr)',
             }}
           >
-            {featuredMetrics.length > 0 ? (
+            {featuredItems.length > 0 ? (
               <div className="flex min-h-0 flex-col gap-3" aria-label="Outcome metrics">
-                {featuredMetrics.map((m) => (
-                  <MetricTile
-                    key={m.name}
-                    metric={m}
-                    size="lg"
-                    selected={selectedMetric?.name === m.name}
-                    onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                    className="min-h-0 flex-1"
-                  />
-                ))}
+                {featuredItems.map((item) =>
+                  renderTile(item, 'lg', 'min-h-0 flex-1'),
+                )}
               </div>
             ) : null}
 
@@ -619,51 +744,37 @@ export default function DetailPage() {
                 className="flex min-h-0 flex-col gap-3"
                 aria-label="Supporting metrics"
               >
-                {progressMetrics.length > 0 ? (
+                {progressItems.length > 0 ? (
                   <div
                     className="grid min-h-0 flex-[3] gap-3"
                     style={{
                       gridTemplateColumns: `repeat(${bandCols(
-                        progressMetrics.length,
+                        progressItems.length,
                       )}, minmax(0, 1fr))`,
                       gridAutoRows: 'minmax(0, 1fr)',
                     }}
                     aria-label="Progress metrics"
                   >
-                    {progressMetrics.map((m) => (
-                      <MetricTile
-                        key={m.name}
-                        metric={m}
-                        size="md"
-                        selected={selectedMetric?.name === m.name}
-                        onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                        className="min-h-0"
-                      />
-                    ))}
+                    {progressItems.map((item) =>
+                      renderTile(item, 'md', 'min-h-0'),
+                    )}
                   </div>
                 ) : null}
 
-                {readinessMetrics.length > 0 ? (
+                {readinessItems.length > 0 ? (
                   <div
                     className="grid min-h-0 flex-[2] gap-3"
                     style={{
                       gridTemplateColumns: `repeat(${bandCols(
-                        readinessMetrics.length,
+                        readinessItems.length,
                       )}, minmax(0, 1fr))`,
                       gridAutoRows: 'minmax(0, 1fr)',
                     }}
                     aria-label="Readiness metrics"
                   >
-                    {readinessMetrics.map((m) => (
-                      <MetricTile
-                        key={m.name}
-                        metric={m}
-                        size="sm"
-                        selected={selectedMetric?.name === m.name}
-                        onSelect={() => handleSelectMetric(currentInit.slug, m.name)}
-                        className="min-h-0"
-                      />
-                    ))}
+                    {readinessItems.map((item) =>
+                      renderTile(item, 'sm', 'min-h-0'),
+                    )}
                   </div>
                 ) : null}
               </div>
