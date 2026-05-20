@@ -3,7 +3,6 @@
 //          Each tile carries:
 //            · metric name (large, bold)
 //            · format-aware value display (X/Y bar · Xx big number · Y/N pill)
-//            · the metric's type (Outcome / Progress / Readiness)
 //          Colour-coding lives on the bar / pill itself; the page-level
 //          legend explains what each band means.
 
@@ -98,8 +97,6 @@ export default function MetricTile({
       <div className="flex min-h-0 flex-1 flex-col justify-center py-2">
         <Value metric={metric} size={size} />
       </div>
-
-      <Footer metric={metric} size={size} />
     </Container>
   );
 }
@@ -238,39 +235,4 @@ function DeltaChip({ delta }: { delta: number }) {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────── */
-
-function Footer({
-  metric,
-  size,
-}: {
-  metric: Metric;
-  size: 'lg' | 'md' | 'sm';
-}) {
-  // The tile's job at the bottom is to declare what *kind* of metric
-  // this is. Outcome metrics are the results the initiative is judged
-  // on, so they carry the accent treatment; progress / readiness stay
-  // muted to keep the visual hierarchy honest.
-  const isOutcome = metric.type === 'outcome';
-  const typeLabel =
-    metric.type === 'outcome'
-      ? 'Outcome metric'
-      : metric.type === 'progress'
-      ? 'Progress metric'
-      : 'Readiness metric';
-
-  return (
-    <p
-      className={cn(
-        'shrink-0 font-bold uppercase tracking-[0.08em]',
-        size === 'lg' ? 'text-[11px]' : 'text-[9px]',
-        isOutcome
-          ? 'text-[var(--color-blue-link)]'
-          : 'text-[var(--color-text-muted)]',
-      )}
-    >
-      {typeLabel}
-    </p>
-  );
-}
 
