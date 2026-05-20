@@ -117,7 +117,7 @@ export default function InitiativeCard({
         className,
       )}
     >
-      <div className="w-full rounded-lg bg-[#2E4B8F] px-4 py-2">
+      <div className="inline-block rounded-lg bg-[#2E4B8F] px-4 py-2">
         <h3 className="text-sm font-bold leading-tight text-white">
           {initiative.name}
         </h3>
