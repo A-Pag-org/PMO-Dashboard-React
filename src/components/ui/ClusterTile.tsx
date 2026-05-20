@@ -106,7 +106,7 @@ export default function ClusterTile({
 
       <div
         className={cn(
-          'flex min-h-0 flex-1 flex-col justify-center',
+          'flex min-h-0 flex-1 flex-col',
           size === 'lg' ? 'gap-3 py-2' : 'gap-2 py-1.5',
         )}
       >
@@ -165,18 +165,14 @@ function XyRow({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
   const subLabel = metric.clusterSubLabel ?? metric.name;
 
   return (
-    <div className="flex items-center gap-2">
-      <div
-        className={cn(
-          'w-12 shrink-0 sm:w-14',
-        )}
-      >
+    <div className="flex min-h-0 flex-1 items-center gap-3">
+      <div className={cn(size === 'lg' ? 'w-16' : 'w-14')}>
         <SubLabel text={subLabel} size={size} />
       </div>
       <div
         className={cn(
           'relative min-w-0 flex-1 overflow-hidden rounded-sm',
-          size === 'lg' ? 'h-5' : size === 'sm' ? 'h-4' : 'h-[18px]',
+          size === 'lg' ? 'h-7' : size === 'sm' ? 'h-5' : 'h-6',
         )}
         style={{ backgroundColor: remainder }}
         role="progressbar"
@@ -192,7 +188,7 @@ function XyRow({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
         <span
           className={cn(
             'absolute inset-0 flex items-center justify-center font-bold tabular-nums',
-            size === 'lg' ? 'text-[13px]' : 'text-[10px]',
+            size === 'lg' ? 'text-[14px]' : size === 'sm' ? 'text-[11px]' : 'text-[12px]',
           )}
           style={{ color: pctTextColor }}
         >
@@ -202,7 +198,7 @@ function XyRow({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
       <span
         className={cn(
           'shrink-0 whitespace-nowrap font-bold leading-none tabular-nums text-[var(--color-text-primary)]',
-          size === 'lg' ? 'text-sm' : size === 'sm' ? 'text-[10px]' : 'text-[12px]',
+          size === 'lg' ? 'text-base' : size === 'sm' ? 'text-[11px]' : 'text-[13px]',
         )}
       >
         {formatNumber(metric.achieved)} / {formatNumber(metric.target)}
@@ -214,12 +210,12 @@ function XyRow({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
 function XxRow({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
   const subLabel = metric.clusterSubLabel ?? metric.name;
   return (
-    <div className="flex items-baseline justify-between gap-2">
+    <div className="flex min-h-0 flex-1 items-center justify-between gap-2">
       <SubLabel text={subLabel} size={size} />
       <span
         className={cn(
           'shrink-0 whitespace-nowrap font-bold tabular-nums text-[var(--color-text-primary)]',
-          size === 'lg' ? 'text-base' : size === 'sm' ? 'text-[11px]' : 'text-sm',
+          size === 'lg' ? 'text-lg' : size === 'sm' ? 'text-[12px]' : 'text-base',
         )}
       >
         {metric.achieved == null ? '—' : formatNumber(metric.achieved)}
@@ -238,7 +234,7 @@ function YnRow({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
   const isYes = metric.achieved === 1;
   const colors = getBandColors(isYes ? 'GREEN' : 'RED');
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex min-h-0 flex-1 items-center justify-between gap-2">
       <SubLabel text={subLabel} size={size} />
       <span
         className={cn(
