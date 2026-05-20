@@ -51,7 +51,7 @@ export default function DetailFilterBar({
     <div
       role="region"
       aria-label="Filters"
-      className="flex shrink-0 flex-nowrap items-center gap-[8px] overflow-x-auto bg-[#2E4B8F] px-[24px] py-[10px]"
+      className="flex shrink-0 flex-nowrap items-center gap-[8px] overflow-x-auto px-[24px] py-[10px] shadow-[inset_0_-1px_0_rgba(255,255,255,0.08),0_2px_8px_rgba(31,58,117,0.18)] [background:linear-gradient(180deg,#3D5DA9_0%,#2E4B8F_55%,#1F3A75_100%)]"
     >
       <FilterPill
         label="Initiative"
@@ -118,7 +118,7 @@ export default function DetailFilterBar({
       <Link
         to={seeAllHref}
         title="Open the full data tables for this initiative."
-        className="ml-auto inline-flex h-9 shrink-0 items-center rounded-[4px] bg-white/[0.92] px-3 font-['Roboto',sans-serif] text-[12px] font-semibold text-[#2E4B8F] shadow-sm hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        className="ml-auto inline-flex h-9 shrink-0 items-center rounded-[6px] bg-white px-3 font-['Roboto',sans-serif] text-[12px] font-semibold text-[#2E4B8F] shadow-[0_1px_3px_rgba(15,28,67,0.25)] transition-colors hover:bg-[#F7F9FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
       >
         Full data tables →
       </Link>
