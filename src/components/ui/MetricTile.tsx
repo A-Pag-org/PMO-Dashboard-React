@@ -16,6 +16,7 @@ import {
   getCompletionPercentage,
 } from '@/lib/utils';
 import type { Metric } from '@/lib/types';
+import DonutProgress from '@/components/ui/DonutProgress';
 
 interface MetricTileProps {
   metric: Metric;
@@ -146,6 +147,34 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
           </span>
         ) : null}
         {delta != null ? <DeltaChip delta={delta} /> : null}
+      </div>
+    );
+  }
+
+  // X/Y donut variant — centred donut chart with the % in the middle
+  // and achieved / target below. Used for tiles where the donut reads
+  // cleaner than an inline bar (e.g. Green Contribution).
+  if (metric.displayAs === 'donut') {
+    const pct = getCompletionPercentage(metric.target, metric.achieved);
+    const donutSize = size === 'lg' ? 140 : size === 'sm' ? 70 : 104;
+    const donutThickness = size === 'lg' ? 16 : size === 'sm' ? 9 : 12;
+    return (
+      <div className="flex flex-col items-center justify-center gap-2.5">
+        <DonutProgress value={pct} size={donutSize} thickness={donutThickness} />
+        <span
+          className={cn(
+            'whitespace-nowrap font-bold tabular-nums text-[var(--color-text-primary)]',
+            size === 'lg' ? 'text-base' : size === 'sm' ? 'text-[11px]' : 'text-sm',
+          )}
+          title={metric.denominatorLabel ?? undefined}
+        >
+          {formatNumber(metric.achieved)} / {formatNumber(metric.target)}
+          {metric.unit ? (
+            <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              {metric.unit}
+            </span>
+          ) : null}
+        </span>
       </div>
     );
   }
