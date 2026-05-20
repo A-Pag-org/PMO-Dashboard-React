@@ -71,14 +71,16 @@ export default function TopBar({ className }: TopBarProps) {
               />
             </button>
 
-            <div className="flex items-center gap-[18px]">
+            <div className="flex items-center gap-[14px]">
               <span
-                className="hidden h-[34px] w-[34px] items-center justify-center rounded-[4px] bg-[#111111] sm:flex"
+                className="hidden h-[40px] w-[40px] items-center justify-center sm:flex"
                 aria-hidden
               >
-                <span className="font-['Poppins',sans-serif] text-[16px] font-semibold leading-[24px] text-[#DDE624]">
-                  A
-                </span>
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg"
+                  alt="State Emblem of India"
+                  className="h-full w-full object-contain"
+                />
               </span>
               <h1 className="font-['Poppins',sans-serif] text-[14px] font-semibold leading-[21px] tracking-wide text-[#2E4B8F]">
                 IMPACT DASHBOARD

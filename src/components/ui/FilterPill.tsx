@@ -69,10 +69,10 @@ export default function FilterPill({
     return (
       <label
         className={cn(
-          'relative flex h-[38px] w-fit items-center gap-[6px] rounded-full px-[14px]',
+          'relative flex h-[38px] w-fit items-center gap-[6px] rounded-full px-[14px] transition-colors',
           isLight
             ? 'border border-[var(--color-border)] bg-white shadow-sm'
-            : '[background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)]',
+            : 'border border-white/15 bg-white/10 backdrop-blur-md [box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.12)] hover:bg-white/15',
           disabled ? 'opacity-60' : 'cursor-pointer',
           className,
         )}
@@ -124,10 +124,10 @@ export default function FilterPill({
   return (
     <label
       className={cn(
-        'relative flex h-[38px] w-fit items-center rounded-full pl-[9px] pr-[6px]',
+        'relative flex h-[38px] w-fit items-center rounded-full pl-[9px] pr-[6px] transition-colors',
         isLight
           ? 'border border-[var(--color-border)] bg-white shadow-sm'
-          : '[background:rgba(193,193,193,0.32)] [box-shadow:inset_0_3px_20px_rgba(0,0,0,0.15)]',
+          : 'border border-white/15 bg-white/10 backdrop-blur-md [box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.12)] hover:bg-white/15',
         disabled ? 'opacity-60' : 'cursor-pointer',
         className,
       )}
@@ -150,8 +150,10 @@ export default function FilterPill({
       />
       <span
         className={cn(
-          'flex h-[28px] min-w-0 flex-1 items-center rounded-full px-3 font-["Roboto",sans-serif] text-[12px] font-semibold leading-[18px] text-[#2E4B8F]',
-          '[background:linear-gradient(180deg,#ECECEC_20.59%,#FFFFFF_85.35%)]',
+          'flex h-[28px] min-w-0 flex-1 items-center rounded-full px-3 font-["Roboto",sans-serif] text-[12px] font-semibold leading-[18px] text-[#1F3A75]',
+          isLight
+            ? 'bg-[var(--color-surface-light)]'
+            : 'bg-white shadow-[0_1px_2px_rgba(15,28,67,0.18),inset_0_-1px_0_rgba(15,28,67,0.05)]',
         )}
       >
         <span className="truncate">{visibleText}</span>
