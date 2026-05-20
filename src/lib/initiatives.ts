@@ -80,6 +80,14 @@ const MRS_AGENCY_OPTIONS_BY_CITY: Record<string, string[]> = {
   'Greater Noida': ['GNIDA'],
 };
 
+const CD_SCC_AGENCY_OPTIONS_BY_CITY: Record<string, string[]> = {
+  Delhi:           ['MCD', 'NDMC'],
+  Gurugram:        ['GMDA'],
+  Noida:           ['NMC'],
+  Ghaziabad:       ['GZN'],
+  'Greater Noida': ['GBN'],
+};
+
 export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
   // Naya Safar — fleet conversion + outreach. RTO is meaningful here only.
   'naya-safar-yojana': {
@@ -164,12 +172,13 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
 
   'cd-scc': {
     slug: 'cd-scc',
-    geographyLevels: ['state', 'city', 'ulb'],
+    geographyLevels: ['state', 'city'],
     extraFilters: [
       {
-        key: 'ulb',
-        label: 'ULB',
-        options: ['MCD', 'NDMC', 'GMDA', 'NMC', 'GBN', 'GZN'],
+        key: 'agency',
+        label: 'Agency',
+        optionsByCity: CD_SCC_AGENCY_OPTIONS_BY_CITY,
+        requiresStateCity: true,
       },
     ],
     headlineMetricNames: [

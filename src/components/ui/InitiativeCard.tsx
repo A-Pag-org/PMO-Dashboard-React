@@ -17,7 +17,7 @@ import { TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DualDonutProgress from './DualDonutProgress';
 import SummaryProgressRow from './SummaryProgressRow';
-import { cn } from '@/lib/utils';
+import { cn, getBandColors, getColorBand, getCompletionPercentage } from '@/lib/utils';
 import { MOCK_SUMMARY_BY_INITIATIVE } from '@/lib/constants';
 import type { Initiative, SummaryCardBar, SummaryCardConfig } from '@/lib/types';
 
@@ -69,6 +69,26 @@ function deriveCardConfig(
   return base;
 }
 
+function cardHoverColors(initiative: Initiative): { bg: string; border: string } {
+  const primary =
+    initiative.metrics.find((m) => m.name === initiative.primaryMetric) ??
+    initiative.metrics[0];
+  if (!primary) return { bg: '#F3F4F6', border: '#9CA3AF' };
+  if (primary.format === 'Y/N') {
+    const c = getBandColors(primary.achieved === 1 ? 'GREEN' : 'RED');
+    return { bg: c.bg, border: c.fg };
+  }
+  if (primary.format === 'X/Y') {
+    const band = getColorBand(
+      getCompletionPercentage(primary.target, primary.achieved),
+      primary.isInverse,
+    );
+    const c = getBandColors(band);
+    return { bg: c.bg, border: c.fg };
+  }
+  return { bg: '#F3F4F6', border: '#9CA3AF' };
+}
+
 export default function InitiativeCard({
   initiative,
   selectedState = null,
@@ -76,6 +96,7 @@ export default function InitiativeCard({
 }: InitiativeCardProps) {
   const cfg = deriveCardConfig(initiative, selectedState);
   const geographyLabel = selectedState ?? 'All Delhi-NCR';
+  const hover = cardHoverColors(initiative);
 
   const detailHref = `/dashboard/detail?initiative=${encodeURIComponent(initiative.name)}`;
 
@@ -83,9 +104,15 @@ export default function InitiativeCard({
     <Link
       to={detailHref}
       aria-label={`${initiative.name} – open detailed view for ${geographyLabel}`}
+      style={
+        {
+          '--tile-hover-bg': hover.bg,
+          '--tile-hover-border': hover.border,
+        } as React.CSSProperties
+      }
       className={cn(
-        'group relative flex h-full min-h-[260px] flex-col rounded-xl border border-[#E2E2EA] bg-white p-6 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)] transition-shadow',
-        'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
+        'group relative flex h-full min-h-[260px] flex-col rounded-xl border border-[#E2E2EA] bg-white p-6 text-left shadow-[0_1px_2px_rgba(17,24,39,0.04)] transition-all duration-150',
+        'hover:border-[var(--tile-hover-border)] hover:bg-[var(--tile-hover-bg)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-2',
         className,
       )}
     >
