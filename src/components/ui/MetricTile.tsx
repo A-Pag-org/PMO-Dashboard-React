@@ -37,8 +37,6 @@ export default function MetricTile({
 }: MetricTileProps) {
   const isInteractive = Boolean(onSelect);
   const Container = isInteractive ? 'button' : 'div';
-  const isDonutVariant =
-    metric.format === 'X/Y' && metric.displayAs === 'donut';
 
   // Status-keyed 4px left accent (same language as the page's
   // OutcomeCumulativeCard). It both separates one tile from the next
@@ -77,63 +75,10 @@ export default function MetricTile({
         className,
       )}
     >
-      {isDonutVariant ? (
-        <DonutLayout metric={metric} size={size} />
-      ) : (
-        <>
-          <header className="flex shrink-0 items-start justify-between gap-2">
-            <p
-              className={cn(
-                'flex-1 font-bold leading-snug text-[var(--color-text-primary)]',
-                size === 'lg' ? 'text-[18px]' : size === 'sm' ? 'text-[13px]' : 'text-[15px]',
-              )}
-              title={metric.name}
-            >
-              {metric.name}
-            </p>
-            {metric.isInverse ? (
-              <span
-                className="shrink-0 rounded bg-[var(--color-tl-red-bg)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[var(--color-tl-red-text)]"
-                title="For this metric, lower values are better (e.g. fewer violations)."
-              >
-                Lower is better
-              </span>
-            ) : null}
-          </header>
-
-          <div className="flex min-h-0 flex-1 flex-col justify-center py-2">
-            <Value metric={metric} size={size} />
-          </div>
-        </>
-      )}
-    </Container>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-
-/**
- * Donut-variant layout — text column on the left (metric name +
- * achieved/target stacked, vertically centred against the donut) and
- * the donut chart on the right. Lets paired donut tiles read as
- * twins, with the eye landing on the text first.
- */
-function DonutLayout({
-  metric,
-  size,
-}: {
-  metric: Metric;
-  size: 'lg' | 'md' | 'sm';
-}) {
-  const pct = getCompletionPercentage(metric.target, metric.achieved);
-  const donutSize = size === 'lg' ? 132 : size === 'sm' ? 64 : 96;
-  const donutThickness = size === 'lg' ? 15 : size === 'sm' ? 8 : 11;
-  return (
-    <div className="flex min-h-0 flex-1 items-center gap-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <header className="flex shrink-0 flex-col items-center gap-1">
         <p
           className={cn(
-            'font-bold leading-snug text-[var(--color-text-primary)]',
+            'w-full text-center font-bold leading-snug text-[var(--color-text-primary)]',
             size === 'lg' ? 'text-[18px]' : size === 'sm' ? 'text-[13px]' : 'text-[15px]',
           )}
           title={metric.name}
@@ -142,29 +87,18 @@ function DonutLayout({
         </p>
         {metric.isInverse ? (
           <span
-            className="w-fit rounded bg-[var(--color-tl-red-bg)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[var(--color-tl-red-text)]"
-            title="For this metric, lower values are better."
+            className="rounded bg-[var(--color-tl-red-bg)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-[var(--color-tl-red-text)]"
+            title="For this metric, lower values are better (e.g. fewer violations)."
           >
             Lower is better
           </span>
         ) : null}
-        <span
-          className={cn(
-            'whitespace-nowrap font-bold tabular-nums text-[var(--color-text-primary)]',
-            size === 'lg' ? 'text-lg' : size === 'sm' ? 'text-[12px]' : 'text-base',
-          )}
-          title={metric.denominatorLabel ?? undefined}
-        >
-          {formatNumber(metric.achieved)} / {formatNumber(metric.target)}
-          {metric.unit ? (
-            <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-              {metric.unit}
-            </span>
-          ) : null}
-        </span>
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col justify-center py-2">
+        <Value metric={metric} size={size} />
       </div>
-      <DonutProgress value={pct} size={donutSize} thickness={donutThickness} />
-    </div>
+    </Container>
   );
 }
 
@@ -217,6 +151,34 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
     );
   }
 
+
+  // X/Y donut variant — centred donut chart with the % in the middle
+  // and achieved / target below. Used for tiles where the donut reads
+  // cleaner than an inline bar (e.g. Green Contribution).
+  if (metric.displayAs === 'donut') {
+    const pct = getCompletionPercentage(metric.target, metric.achieved);
+    const donutSize = size === 'lg' ? 140 : size === 'sm' ? 70 : 104;
+    const donutThickness = size === 'lg' ? 16 : size === 'sm' ? 9 : 12;
+    return (
+      <div className="flex flex-col items-center justify-center gap-2.5">
+        <DonutProgress value={pct} size={donutSize} thickness={donutThickness} />
+        <span
+          className={cn(
+            'whitespace-nowrap font-bold tabular-nums text-[var(--color-text-primary)]',
+            size === 'lg' ? 'text-base' : size === 'sm' ? 'text-[11px]' : 'text-sm',
+          )}
+          title={metric.denominatorLabel ?? undefined}
+        >
+          {formatNumber(metric.achieved)} / {formatNumber(metric.target)}
+          {metric.unit ? (
+            <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+              {metric.unit}
+            </span>
+          ) : null}
+        </span>
+      </div>
+    );
+  }
 
   // X/Y — single line: progress bar (with the % centred inside it)
   // followed by the achieved / target figure at the end. The bar
