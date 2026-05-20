@@ -96,7 +96,7 @@ export default function ClusterTile({
     >
       <p
         className={cn(
-          'shrink-0 font-bold leading-snug text-[var(--color-text-primary)]',
+          'w-full shrink-0 text-center font-bold leading-snug text-[var(--color-text-primary)]',
           size === 'lg' ? 'text-[18px]' : size === 'sm' ? 'text-[13px]' : 'text-[15px]',
         )}
         title={label}

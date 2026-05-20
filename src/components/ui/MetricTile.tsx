@@ -127,7 +127,7 @@ function Value({ metric, size }: { metric: Metric; size: 'lg' | 'md' | 'sm' }) {
         ? metric.achieved - metric.previousAchieved
         : null;
     return (
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1">
         <span
           className={cn(
             'font-bold leading-none tabular-nums text-[var(--color-text-primary)]',
