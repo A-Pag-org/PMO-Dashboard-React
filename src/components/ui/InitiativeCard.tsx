@@ -16,6 +16,7 @@
 import { TrendingUp, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import DualDonutProgress from './DualDonutProgress';
+import SummaryDualBar from './SummaryDualBar';
 import SummaryProgressRow from './SummaryProgressRow';
 import { cn, getBandColors, getColorBand, getCompletionPercentage } from '@/lib/utils';
 import { MOCK_SUMMARY_BY_INITIATIVE } from '@/lib/constants';
@@ -163,18 +164,7 @@ function CardChart({
     );
   }
   if (cfg.variant === 'two-donuts' && cfg.bars) {
-    return (
-      <>
-        {cfg.bars.map((bar) => (
-          <SummaryProgressRow
-            key={bar.label}
-            label={bar.label}
-            achieved={bar.achieved}
-            target={bar.target}
-          />
-        ))}
-      </>
-    );
+    return <SummaryDualBar bars={cfg.bars} />;
   }
   if (cfg.variant === 'three-donuts' && cfg.trio) {
     return (
