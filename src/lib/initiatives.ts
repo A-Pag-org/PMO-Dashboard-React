@@ -139,17 +139,8 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
     geographyLevels: ['state', 'city'],
     // No Road Width filter — source agencies don't yet report MRS data
     // split by road width (>15m / 10–15m / <10m), so the metrics here
-    // are surfaced as single all-width figures. Agency mirrors the
-    // road-repair city→agency map (same ULB / state authorities own
-    // both road repair and mechanical road sweeping).
-    extraFilters: [
-      {
-        key: 'agency',
-        label: 'Agency',
-        optionsByCity: AGENCY_OPTIONS_BY_CITY,
-        requiresStateCity: true,
-      },
-    ],
+    // are surfaced as single all-width figures.
+    extraFilters: [],
     headlineMetricNames: ['Route coverage achieved'],
   },
 
