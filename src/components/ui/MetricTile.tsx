@@ -75,10 +75,9 @@ export default function MetricTile({
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-lg border border-[var(--color-border-table)] bg-white text-left shadow-sm transition-all duration-150',
         size === 'lg' ? 'p-3.5' : size === 'sm' ? 'p-2.5' : 'p-3',
-        selected
-          ? 'bg-[var(--color-blue-pale)]/50 shadow-md ring-2 ring-[var(--color-blue-link)]'
-          : isInteractive &&
-              'hover:border-[var(--tile-hover-border)] hover:bg-[var(--tile-hover-bg)] hover:shadow-md',
+        isInteractive &&
+          !selected &&
+          'hover:border-[var(--tile-hover-border)] hover:bg-[var(--tile-hover-bg)] hover:shadow-md',
         isInteractive &&
           'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-1',
         className,
