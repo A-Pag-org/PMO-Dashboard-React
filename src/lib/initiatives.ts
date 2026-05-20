@@ -58,16 +58,26 @@ export interface InitiativeConfig {
 }
 
 /**
- * Source-of-truth city → owning-agency mapping for road-repair and
- * MRS. Cities omitted here intentionally have no agency listed in the
- * source list, so the Agency dropdown hides itself for them.
+ * Source-of-truth city → owning-agency mappings. Road repair and MRS
+ * each have their own list (the responsible agencies for road sweeping
+ * are a subset of the road-repair authorities in most cities), so we
+ * keep them separate. Cities omitted in a map have no listed agency
+ * and the Agency dropdown hides itself for them.
  */
-const AGENCY_OPTIONS_BY_CITY: Record<string, string[]> = {
+const RR_AGENCY_OPTIONS_BY_CITY: Record<string, string[]> = {
   Delhi:           ['MCD', 'PWD', 'DDA', 'I&FC', 'DSIIDC'],
   Gurugram:        ['MCG', 'GMDA'],
   Ghaziabad:       ['GNN'],
   Noida:           ['NOIDA Authority'],
   'Greater Noida': ['Greater NOIDA Industrial Development Authority (GNIDA)'],
+};
+
+const MRS_AGENCY_OPTIONS_BY_CITY: Record<string, string[]> = {
+  Delhi:           ['MCD', 'PWD', 'DDA'],
+  Gurugram:        ['MCG'],
+  Ghaziabad:       ['GNN'],
+  Noida:           ['NOIDA'],
+  'Greater Noida': ['GNIDA'],
 };
 
 export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
@@ -122,7 +132,7 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
       {
         key: 'agency',
         label: 'Agency',
-        optionsByCity: AGENCY_OPTIONS_BY_CITY,
+        optionsByCity: RR_AGENCY_OPTIONS_BY_CITY,
         // Agencies are city-specific, so only offer this once the
         // user has drilled to a particular state + city.
         requiresStateCity: true,
@@ -139,8 +149,16 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
     geographyLevels: ['state', 'city'],
     // No Road Width filter — source agencies don't yet report MRS data
     // split by road width (>15m / 10–15m / <10m), so the metrics here
-    // are surfaced as single all-width figures.
-    extraFilters: [],
+    // are surfaced as single all-width figures. Agency uses the MRS-
+    // specific per-city map (smaller list than road-repair).
+    extraFilters: [
+      {
+        key: 'agency',
+        label: 'Agency',
+        optionsByCity: MRS_AGENCY_OPTIONS_BY_CITY,
+        requiresStateCity: true,
+      },
+    ],
     headlineMetricNames: ['Route coverage achieved'],
   },
 
