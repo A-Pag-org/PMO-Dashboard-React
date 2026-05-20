@@ -117,9 +117,11 @@ export default function InitiativeCard({
         className,
       )}
     >
-      <h3 className="text-base font-bold leading-tight text-[#1F2937]">
-        {initiative.name}
-      </h3>
+      <div className="w-full rounded-lg bg-[#2E4B8F] px-4 py-2">
+        <h3 className="text-sm font-bold leading-tight text-white">
+          {initiative.name}
+        </h3>
+      </div>
 
       <div className="mt-5 flex min-h-[5rem] flex-col justify-center gap-2.5">
         <CardChart cfg={cfg} fallback={<FallbackFromMetrics initiative={initiative} />} />
