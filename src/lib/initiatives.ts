@@ -12,8 +12,15 @@ export interface ExtraFilter {
   key: string;
   /** UI label, e.g. "Vehicle Type". */
   label: string;
-  /** Enum options. */
-  options: string[];
+  /** Flat enum options. Used when the choices don't depend on city. */
+  options?: string[];
+  /**
+   * Per-city option lists. When the user has selected a specific city
+   * and an entry exists for it, these options take precedence over
+   * `options`. Cities without an entry (or with an empty list) hide
+   * the filter entirely — it has nothing meaningful to offer.
+   */
+  optionsByCity?: Record<string, string[]>;
   /**
    * When true the filter is only offered once the user has narrowed
    * to a specific state *and* city (it's meaningless / too broad
@@ -49,6 +56,19 @@ export interface InitiativeConfig {
    */
   rtoLabel?: string;
 }
+
+/**
+ * Source-of-truth city → owning-agency mapping for road-repair and
+ * MRS. Cities omitted here intentionally have no agency listed in the
+ * source list, so the Agency dropdown hides itself for them.
+ */
+const AGENCY_OPTIONS_BY_CITY: Record<string, string[]> = {
+  Delhi:           ['MCD', 'PWD', 'DDA', 'I&FC', 'DSIIDC'],
+  Gurugram:        ['MCG', 'GMDA'],
+  Ghaziabad:       ['GNN'],
+  Noida:           ['NOIDA Authority'],
+  'Greater Noida': ['Greater NOIDA Industrial Development Authority (GNIDA)'],
+};
 
 export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
   // Naya Safar — fleet conversion + outreach. RTO is meaningful here only.
@@ -102,7 +122,7 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
       {
         key: 'agency',
         label: 'Agency',
-        options: ['MCD', 'NDMC', 'PWD-Delhi', 'NHAI'],
+        optionsByCity: AGENCY_OPTIONS_BY_CITY,
         // Agencies are city-specific, so only offer this once the
         // user has drilled to a particular state + city.
         requiresStateCity: true,
@@ -119,8 +139,17 @@ export const INITIATIVE_CONFIGS: Record<string, InitiativeConfig> = {
     geographyLevels: ['state', 'city'],
     // No Road Width filter — source agencies don't yet report MRS data
     // split by road width (>15m / 10–15m / <10m), so the metrics here
-    // are surfaced as single all-width figures.
-    extraFilters: [],
+    // are surfaced as single all-width figures. Agency mirrors the
+    // road-repair city→agency map (same ULB / state authorities own
+    // both road repair and mechanical road sweeping).
+    extraFilters: [
+      {
+        key: 'agency',
+        label: 'Agency',
+        optionsByCity: AGENCY_OPTIONS_BY_CITY,
+        requiresStateCity: true,
+      },
+    ],
     headlineMetricNames: ['Route coverage achieved'],
   },
 

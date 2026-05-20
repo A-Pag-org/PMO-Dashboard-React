@@ -75,16 +75,26 @@ export default function DetailFilterBar({
         .filter(
           (f) => !f.requiresStateCity || (!!area.state && !!area.city),
         )
-        .map((f) => (
-          <FilterPill
-            key={f.key}
-            label={f.label}
-            value={extras[f.key] ?? ''}
-            placeholder={`All ${f.label.toLowerCase()}`}
-            options={f.options}
-            onChange={(v) => onExtraChange(f.key, v)}
-          />
-        ))}
+        .map((f) => {
+          // Per-city options (when the user has picked a city and the
+          // filter declares a map) take precedence over the flat list.
+          // An empty effective list = nothing to offer, so hide it.
+          const effective =
+            f.optionsByCity && area.city
+              ? f.optionsByCity[area.city] ?? []
+              : f.options ?? [];
+          if (effective.length === 0) return null;
+          return (
+            <FilterPill
+              key={f.key}
+              label={f.label}
+              value={extras[f.key] ?? ''}
+              placeholder={`All ${f.label.toLowerCase()}`}
+              options={effective}
+              onChange={(v) => onExtraChange(f.key, v)}
+            />
+          );
+        })}
 
       <Link
         to={seeAllHref}

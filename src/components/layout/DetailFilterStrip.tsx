@@ -90,7 +90,7 @@ export default function DetailFilterStrip({
               label={f.label}
               value={extras[f.key] ?? ''}
               onChange={(v) => onExtraChange(f.key, v)}
-              options={f.options.map((o) => ({ value: o, label: o }))}
+              options={(f.options ?? []).map((o) => ({ value: o, label: o }))}
               placeholder={`All ${f.label.toLowerCase()}`}
             />
           ))}
