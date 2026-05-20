@@ -512,7 +512,16 @@ export default function DetailPage() {
     featuredItems.length === 1 &&
     progressItems.length === 1 &&
     readinessItems.length === 0;
-  const progressSize: 'lg' | 'md' = isPairLayout ? 'lg' : 'md';
+
+  // When all tiles fit in a 2×2 grid (2 outcome + 2 progress, no
+  // readiness), render them as four equal cells rather than the
+  // asymmetric feature-left / progress-right split (e.g. C&D - ICCC).
+  const isQuadLayout =
+    featuredItems.length === 2 &&
+    progressItems.length === 2 &&
+    readinessItems.length === 0;
+
+  const progressSize: 'lg' | 'md' = isPairLayout || isQuadLayout ? 'lg' : 'md';
 
   // A small band stays a single readable row; a large band wraps into
   // a balanced square-ish grid so tiles never get razor-thin.
@@ -733,6 +742,21 @@ export default function DetailPage() {
           className="flex min-h-0 flex-col overflow-hidden bg-[var(--color-surface-light)]"
           aria-label="Initiative metrics"
         >
+          {isQuadLayout ? (
+            // 2×2 equal grid — all four tiles share the same cell size
+            <div
+              className="grid min-h-0 flex-1 gap-3 p-3"
+              style={{
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
+              }}
+              aria-label="Initiative metrics"
+            >
+              {[...featuredItems, ...progressItems].map((item) =>
+                renderTile(item, 'lg', 'min-h-0'),
+              )}
+            </div>
+          ) : (
           <div
             className="grid min-h-0 flex-1 gap-3 p-3"
             style={{
@@ -792,6 +816,7 @@ export default function DetailPage() {
               </div>
             ) : null}
           </div>
+          )}
         </section>
 
         {/* ── RIGHT (drill drawer): selected-metric details ─────────── */}
