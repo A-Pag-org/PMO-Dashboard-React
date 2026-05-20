@@ -16,8 +16,8 @@ import type {
 // ─── 9 Initiatives (grid order — two-bar tiles first, then single-bar) ─
 
 // Grid layout (3 columns, left→right, top→bottom):
-//   Row 1:  Naya Safar Yojana | CEMS/APCD          | MRS
-//   Row 2:  Stubble Burning   | Road Repair        | C&D - SCC
+//   Row 1:  Naya Safar Yojana | CEMS/APCD          | Stubble Burning   ← all two-bar tiles
+//   Row 2:  MRS               | Road Repair        | C&D - SCC
 //   Row 3:  C&D - ICCC        | Green Contribution | Greening
 export const INITIATIVES: Initiative[] = [
   {
@@ -67,6 +67,28 @@ export const INITIATIVES: Initiative[] = [
     ],
   },
   {
+    // ─── Stubble Burning (added per Figma final design) ─────────────────
+    name: 'Stubble Burning',
+    slug: 'stubble-burning',
+    primaryMetric: 'Reduction in farm fires & area under mechanized harvesting',
+    summaryCard: {
+      description: 'Farm fires reduced & paddy area covered by mechanized harvesting',
+      variant: 'two-donuts',
+      bars: [
+        { label: 'Fires',    target: 50000,  achieved: 32000 },
+        { label: 'Area',     target: 100000, achieved: 45000 },
+      ],
+    },
+    metrics: [
+      { name: 'Reduction in farm fires vs baseline',           type: 'outcome',  target: 50000,  achieved: 32000, isInverse: true, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (ISRO / CREAMS)' },
+      { name: 'Paddy area covered by mechanized harvesting',   type: 'outcome',  target: 100000, achieved: 45000, unit: 'ha',      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (State Agri. Dept)' },
+      { name: 'Happy/Super Seeders distributed to farmers',    type: 'progress', target: 12000,  achieved: 7800,                   format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (State Agri. Dept)' },
+      { name: 'Pusa decomposer sprays conducted (acres)',      type: 'progress', target: 80000,  achieved: 52000, unit: 'acres',   format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (IARI / States)' },
+      { name: 'Farmers sensitized via outreach',               type: 'progress', target: null,   achieved: 26500, previousAchieved: 21000, format: 'Xx', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (KVKs)' },
+      { name: 'State stubble-burning action plan published',   type: 'readiness', target: 1, achieved: 1,                          format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual' },
+    ],
+  },
+  {
     // ─── Spec §5 rows 21–34 ─────────────────────────────────────────────
     name: 'MRS',
     slug: 'mrs',
@@ -94,28 +116,6 @@ export const INITIATIVES: Initiative[] = [
       // Readiness — Y/N
       { name: 'Procurement of all additional MRS initiated',  type: 'readiness', target: 1, achieved: 0, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state' },
       { name: 'Digital tool to track road covered exists',    type: 'readiness', target: 1, achieved: 1, format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state+city+agency' },
-    ],
-  },
-  {
-    // ─── Stubble Burning (added per Figma final design) ─────────────────
-    name: 'Stubble Burning',
-    slug: 'stubble-burning',
-    primaryMetric: 'Reduction in farm fires & area under mechanized harvesting',
-    summaryCard: {
-      description: 'Farm fires reduced & paddy area covered by mechanized harvesting',
-      variant: 'two-donuts',
-      bars: [
-        { label: 'Fires',    target: 50000,  achieved: 32000 },
-        { label: 'Area',     target: 100000, achieved: 45000 },
-      ],
-    },
-    metrics: [
-      { name: 'Reduction in farm fires vs baseline',           type: 'outcome',  target: 50000,  achieved: 32000, isInverse: true, format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (ISRO / CREAMS)' },
-      { name: 'Paddy area covered by mechanized harvesting',   type: 'outcome',  target: 100000, achieved: 45000, unit: 'ha',      format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'API (State Agri. Dept)' },
-      { name: 'Happy/Super Seeders distributed to farmers',    type: 'progress', target: 12000,  achieved: 7800,                   format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (State Agri. Dept)' },
-      { name: 'Pusa decomposer sprays conducted (acres)',      type: 'progress', target: 80000,  achieved: 52000, unit: 'acres',   format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (IARI / States)' },
-      { name: 'Farmers sensitized via outreach',               type: 'progress', target: null,   achieved: 26500, previousAchieved: 21000, format: 'Xx', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual (KVKs)' },
-      { name: 'State stubble-burning action plan published',   type: 'readiness', target: 1, achieved: 1,                          format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual' },
     ],
   },
   {
