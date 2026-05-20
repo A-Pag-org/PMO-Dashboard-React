@@ -57,10 +57,15 @@ function worstBand(metrics: Metric[]): ClusterBand {
   return worst;
 }
 
-function accentFor(metrics: Metric[]): string {
+function hoverColorsFor(metrics: Metric[]): { bg: string; border: string } {
   const worst = worstBand(metrics);
-  if (worst === 'NA') return 'var(--color-text-muted)';
-  return getBandColors(worst).fg;
+  if (worst === 'NA')
+    return {
+      bg: 'var(--color-surface-light)',
+      border: 'var(--color-text-secondary)',
+    };
+  const c = getBandColors(worst);
+  return { bg: c.bg, border: c.fg };
 }
 
 export default function ClusterTile({
@@ -73,22 +78,26 @@ export default function ClusterTile({
 }: ClusterTileProps) {
   const isInteractive = Boolean(onSelect);
   const Container = isInteractive ? 'button' : 'div';
-  const accentColor = accentFor(metrics);
+  const hover = hoverColorsFor(metrics);
 
   return (
     <Container
       type={isInteractive ? 'button' : undefined}
       onClick={onSelect}
       aria-pressed={isInteractive ? selected : undefined}
-      style={{ borderLeftWidth: 4, borderLeftColor: accentColor }}
+      style={
+        {
+          '--tile-hover-bg': hover.bg,
+          '--tile-hover-border': hover.border,
+        } as React.CSSProperties
+      }
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-lg bg-white text-left shadow-sm transition-all duration-150',
-        'border border-[var(--color-border-table)]',
+        'group relative flex flex-col overflow-hidden rounded-lg border border-[var(--color-border-table)] bg-white text-left shadow-sm transition-all duration-150',
         size === 'lg' ? 'p-3.5' : size === 'sm' ? 'p-2.5' : 'p-3',
         selected
           ? 'bg-[var(--color-blue-pale)]/50 shadow-md ring-2 ring-[var(--color-blue-link)]'
           : isInteractive &&
-              'hover:border-[var(--color-text-secondary)] hover:shadow-md',
+              'hover:border-[var(--tile-hover-border)] hover:bg-[var(--tile-hover-bg)] hover:shadow-md',
         isInteractive &&
           'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)] focus-visible:ring-offset-1',
         className,
