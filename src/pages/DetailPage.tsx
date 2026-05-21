@@ -90,8 +90,14 @@ function groupMetrics(metrics: Metric[]): MetricGroup[] {
       renderedClusters.add(m.cluster);
       const siblings = metrics.filter((x) => x.cluster === m.cluster);
       const leader = siblings.find((s) => s.clusterLabel) ?? siblings[0];
+      // Render mode is opt-in per cluster — defaults to 'cluster'
+      // (side-by-side). Only the Events cluster opts into the 'ratio'
+      // render (Conducted / Planned over one bar). Two parallel counts
+      // like Trucks/Buses or Trees/Shrubs each carry their own target
+      // and must stay side-by-side; otherwise the bar would compute
+      // num/den across unrelated denominators and report nonsense.
       const kind: MetricGroup['kind'] =
-        leader.clusterType === 'progress' ? 'ratio' : 'cluster';
+        leader.clusterRender === 'ratio' ? 'ratio' : 'cluster';
       groups.push({
         kind,
         label: leader.clusterLabel ?? leader.name,
