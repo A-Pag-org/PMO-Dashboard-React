@@ -113,6 +113,20 @@ function groupMetrics(metrics: Metric[]): MetricGroup[] {
  * onboarded" can show different state values for the demo. Real data
  * will override this entirely.
  */
+/**
+ * Spec §8 visibility gate. Some readiness Y/N metrics (e.g. Road Repair's
+ * "Road asset baseline completed", MRS / C&D-SCC's digital-tool flags)
+ * only carry meaning at the city level — they should disappear from the
+ * NCR aggregate strip and the state columns, and re-appear inside the
+ * city sub-columns and the RTO modal. The data model encodes this via
+ * `Metric.visibleWhen`; anything tighter than 'state' requires a city.
+ */
+function visibleForArea(metric: Metric, area: AreaScope): boolean {
+  const gate = metric.visibleWhen;
+  if (!gate || gate === 'state') return true;
+  return !!area.city;
+}
+
 /** Small deterministic int hash for jitter seeding. */
 function hashStr(s: string): number {
   let h = 0;
@@ -629,7 +643,22 @@ export default function DetailPage() {
   const supportsCity = config?.geographyLevels.includes('city') ?? false;
   const supportsRto = config?.geographyLevels.includes('rto') ?? false;
 
-  const groups = useMemo(() => groupMetrics(init.metrics), [init]);
+  // Two group lists per the spec's visibility gate (see visibleForArea):
+  //   · stateGroups — city-only readiness metrics are excluded. Used in
+  //     the NCR aggregate strip and the state-column stack.
+  //   · cityGroups  — full metric set. Used inside the expanded state's
+  //     city sub-columns and the RTO modal, where the city scope is set.
+  const stateGroups = useMemo(
+    () => groupMetrics(init.metrics.filter((m) => visibleForArea(m, {}))),
+    [init],
+  );
+  const cityGroups = useMemo(
+    () =>
+      groupMetrics(
+        init.metrics.filter((m) => visibleForArea(m, { city: '*' })),
+      ),
+    [init],
+  );
 
   const [expandedState, setExpandedState] = useState<NcrState | null>(null);
   const [modalCity, setModalCity] = useState<{ state: NcrState; city: string } | null>(null);
@@ -704,7 +733,7 @@ export default function DetailPage() {
               title={aggregate.title}
               subtitle={aggregate.subtitle}
               area={aggregate.area}
-              groups={groups}
+              groups={stateGroups}
             />
 
             {/* State columns */}
@@ -720,7 +749,7 @@ export default function DetailPage() {
                       key={s}
                       state={s}
                       cities={STATE_CITIES[s]}
-                      groups={groups}
+                      groups={cityGroups}
                       supportsRto={supportsRto}
                       onClose={() => setExpandedState(null)}
                       onCityClick={(city) => setModalCity({ state: s, city })}
@@ -731,7 +760,7 @@ export default function DetailPage() {
                   <StateColumn
                     key={s}
                     state={s}
-                    groups={groups}
+                    groups={stateGroups}
                     expandable={supportsCity}
                     dimmed={expandedState !== null}
                     onToggle={() => setExpandedState(s)}
@@ -757,7 +786,7 @@ export default function DetailPage() {
           <RtoModal
             state={modalCity.state}
             city={modalCity.city}
-            groups={groups}
+            groups={cityGroups}
             onClose={() => setModalCity(null)}
           />
         ) : null}
