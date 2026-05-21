@@ -6,12 +6,14 @@
 // Layout:
 //   - Top app bar (TopBar).
 //   - Cream surface (matches DetailPage's SURFACE constant).
-//   - Inline "State" select styled like DetailPage's "Initiative" select.
-//   - Yellow aggregate bar (DELHI NCR / selected state) summarising
-//     cross-initiative completion at a glance.
-//   - Main grid of initiative tiles (3 cols on lg, 2 on md, 1 on sm).
-//   - Footer with the COMPLETION BANDS label + legend on the right
-//     (mirrors DetailPage footer).
+//   - Sticky chrome strip (does not scroll):
+//       · "Region" label + native <select>.
+//       · Aggregate title rendered as a fit-to-text blue pill
+//         ("DELHI NCR" or selected state) + descriptive subtitle.
+//       · Yellow aggregate bar — metric cells only (title/subtitle have
+//         been promoted up into the strip above to keep the bar short).
+//   - Scrollable area below: 3-column grid of initiative tiles.
+//   - Footer with COMPLETION BANDS label + legend (mirrors DetailPage).
 
 import { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
@@ -27,15 +29,18 @@ import type { StateName } from '@/lib/constants';
 import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
 import { cn, getBandColors, getColorBand } from '@/lib/utils';
 
-const STATE_FILTER_OPTIONS = ['All - Delhi NCR', ...STATES] as const;
-type StateFilter = (typeof STATE_FILTER_OPTIONS)[number];
+const REGION_FILTER_OPTIONS = ['All - Delhi NCR', ...STATES] as const;
+type RegionFilter = (typeof REGION_FILTER_OPTIONS)[number];
 
 // Surface and aggregate-bar colours are intentionally copied from
 // DetailPage so the two pages render against the same palette.
 const SURFACE = '#F6F1E8';
 const RAIL_YELLOW = '#F2EA00';
+// The same navy used for the initiative-name pill on InitiativeCard, so
+// every geographic-hierarchy chip on the dashboard reads as one family.
+const NAVY_PILL = '#2E4B8F';
 
-function defaultStateForRole(): StateFilter {
+function defaultRegionForRole(): RegionFilter {
   return isDelhiOnlyRole(getCurrentRole()) ? 'Delhi' : 'All - Delhi NCR';
 }
 
@@ -71,13 +76,9 @@ function initiativeCompletion(
 
 interface AggregateCell {
   label: string;
-  /** Large number rendered above the bar. */
   big: string;
-  /** Caption under the bar. */
   caption?: string;
-  /** Completion % driving the bar fill & colour band. */
   pct: number;
-  /** Whether the band inverts (high = bad). */
   isInverse?: boolean;
 }
 
@@ -93,7 +94,6 @@ function buildAggregateCells(state: StateName | null): AggregateCell[] {
   const onTrack = completions.filter((c) => c >= 60).length;
   const atRisk = completions.filter((c) => c < 30).length;
   const onTrackPct = total > 0 ? Math.round((onTrack / total) * 100) : 0;
-  // At-risk is inverse-banded: more red as the risk count grows.
   const atRiskPct = total > 0 ? Math.round((atRisk / total) * 100) : 0;
 
   return [
@@ -120,26 +120,15 @@ function buildAggregateCells(state: StateName | null): AggregateCell[] {
 }
 
 interface AggregateBarProps {
-  title: string;
-  subtitle: string;
   cells: AggregateCell[];
 }
 
-function AggregateBar({ title, subtitle, cells }: AggregateBarProps) {
+function AggregateBar({ cells }: AggregateBarProps) {
   return (
     <div
-      className="rounded-md border border-[#D9CF22] px-4 py-4 shadow-sm"
+      className="rounded-md border border-[#D9CF22] px-4 py-2.5 shadow-sm"
       style={{ backgroundColor: RAIL_YELLOW }}
     >
-      <div className="mb-3 flex items-center gap-3">
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-navy)]">
-          {title}
-        </span>
-        <span className="h-px flex-1 bg-[var(--color-navy)] opacity-20" />
-        <span className="text-[11px] font-medium text-[var(--color-navy)] opacity-70">
-          {subtitle}
-        </span>
-      </div>
       <div
         className="grid divide-x divide-[var(--color-navy)]/15"
         style={{
@@ -160,7 +149,7 @@ function AggregateCellView({ cell }: { cell: AggregateCell }) {
   const band = getColorBand(cell.pct, cell.isInverse ?? false);
   const colors = getBandColors(band);
   return (
-    <div className="flex flex-col gap-1 py-1.5">
+    <div className="flex flex-col gap-1 py-0.5">
       <div
         className="truncate text-[10.5px] font-medium leading-tight text-[var(--color-text-secondary)]"
         title={cell.label}
@@ -202,13 +191,35 @@ function AggregateCellView({ cell }: { cell: AggregateCell }) {
   );
 }
 
+/**
+ * Fit-to-text navy pill used to highlight a geographic-hierarchy label
+ * (DELHI NCR / state / city / RTO). Visually mirrors the initiative
+ * pill on InitiativeCard.
+ */
+function GeoPill({ label, className }: { label: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex max-w-full items-center self-start truncate rounded-lg px-3 py-1 text-[12px] font-bold leading-tight text-white',
+        className,
+      )}
+      style={{ backgroundColor: NAVY_PILL }}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function SummaryPage() {
-  const [selectedState, setSelectedState] = useState<StateFilter>(() =>
-    defaultStateForRole(),
+  const [selectedRegion, setSelectedRegion] = useState<RegionFilter>(() =>
+    defaultRegionForRole(),
   );
 
   const stateForCards: StateName | null =
-    selectedState === 'All - Delhi NCR' ? null : (selectedState as StateName);
+    selectedRegion === 'All - Delhi NCR'
+      ? null
+      : (selectedRegion as StateName);
 
   const aggregate = stateForCards
     ? {
@@ -233,27 +244,31 @@ export default function SummaryPage() {
       <TopBar activePage="summary" pageTitle="SUMMARY PAGE" />
 
       <main className="relative flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-auto">
-          <div className="flex flex-col gap-4 p-5 pb-3">
-            <h1 className="sr-only">{aggregate.title}</h1>
+        {/* ── Sticky chrome (does not scroll) ── */}
+        <div
+          className="shrink-0 border-b border-[var(--color-border)] px-5 pt-4 pb-3"
+          style={{ backgroundColor: SURFACE }}
+        >
+          <h1 className="sr-only">{aggregate.title}</h1>
 
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <div className="flex items-center gap-3">
               <label
-                htmlFor="state-select"
+                htmlFor="region-select"
                 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]"
               >
-                State
+                Region
               </label>
               <div className="relative">
                 <select
-                  id="state-select"
-                  value={selectedState}
+                  id="region-select"
+                  value={selectedRegion}
                   onChange={(e) =>
-                    setSelectedState(e.target.value as StateFilter)
+                    setSelectedRegion(e.target.value as RegionFilter)
                   }
                   className="appearance-none rounded-md border border-[var(--color-border)] bg-white py-1.5 pl-3 pr-9 text-[13px] font-semibold text-[var(--color-navy)] shadow-sm focus:border-[var(--color-blue-link)] focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-link)]/30"
                 >
-                  {STATE_FILTER_OPTIONS.map((opt) => (
+                  {REGION_FILTER_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
                     </option>
@@ -263,12 +278,23 @@ export default function SummaryPage() {
               </div>
             </div>
 
-            <AggregateBar
-              title={aggregate.title}
-              subtitle={aggregate.subtitle}
-              cells={cells}
-            />
+            {/* Title pill + subtitle promoted out of the yellow bar so
+                the yellow strip can stay short. The pill uses the same
+                navy as the InitiativeCard title pill. */}
+            <div className="flex min-w-0 items-center gap-3">
+              <GeoPill label={aggregate.title} />
+              <span className="truncate text-[11px] font-medium text-[var(--color-text-secondary)]">
+                {aggregate.subtitle}
+              </span>
+            </div>
+          </div>
 
+          <AggregateBar cells={cells} />
+        </div>
+
+        {/* ── Scrollable area: tile grid ── */}
+        <div className="flex-1 overflow-auto">
+          <div className="px-5 pt-3 pb-5">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               {INITIATIVES.map((init) => (
                 <InitiativeCard
