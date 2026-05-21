@@ -24,13 +24,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
+import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
 import { INITIATIVES, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
 import { getMetricValueForArea } from '@/lib/aggregation';
 import type { AreaScope } from '@/lib/aggregation';
 import { getInitiativeConfig } from '@/lib/initiatives';
 import type { Metric } from '@/lib/types';
 import { useDetailFilters } from '@/lib/useDetailFilters';
-import { cn, formatNumber } from '@/lib/utils';
+import { cn, formatNumber, getBandColors, getColorBand } from '@/lib/utils';
 
 // ─── Constants ──────────────────────────────────────────────────────────
 
@@ -48,9 +49,7 @@ const STATE_CITIES: Record<NcrState, string[]> = {
 const RAIL_YELLOW = '#F2EA00';
 // Background tint behind the columns.
 const SURFACE = '#F6F1E8';
-// Accent for thin metric progress bars.
-const BAR_ACCENT = '#B85628';
-const BAR_TRACK = '#E8DACD';
+// Bar colours come from the spec's traffic-light band (utils.getBandColors).
 
 // ─── Metric grouping ────────────────────────────────────────────────────
 
@@ -173,24 +172,28 @@ interface ValueDisplay {
   big: string;
   denominator: string | null;
   pct: number | null;
+  isInverse: boolean;
 }
 
 function metricValue(metric: Metric, area: AreaScope): ValueDisplay {
   const agg = aggregateForArea(metric, area);
+  const isInverse = metric.isInverse ?? false;
   if (agg.format === 'Y/N') {
-    return { big: agg.displayText, denominator: null, pct: null };
+    return { big: agg.displayText, denominator: null, pct: null, isInverse };
   }
   if (agg.format === 'Xx') {
     return {
       big: formatNumber(agg.achieved ?? 0),
       denominator: null,
       pct: null,
+      isInverse,
     };
   }
   return {
     big: formatNumber(agg.achieved ?? 0),
     denominator: `of ${formatNumber(agg.target ?? 0)}`,
     pct: agg.pct,
+    isInverse,
   };
 }
 
@@ -218,6 +221,7 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
                 big={v.big}
                 denominator={v.denominator}
                 pct={v.pct}
+                isInverse={v.isInverse}
                 subLabel={m.clusterSubLabel ?? null}
                 dense={dense}
               />
@@ -250,6 +254,7 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
           big={`${formatNumber(num)} / ${formatNumber(den)}`}
           denominator={null}
           pct={pct}
+          isInverse={leader.isInverse ?? false}
           subLabel={ratioSubLabel}
           dense={dense}
         />
@@ -266,6 +271,7 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
         big={v.big}
         denominator={v.denominator}
         pct={v.pct}
+        isInverse={v.isInverse}
         subLabel={null}
         dense={dense}
       />
@@ -288,6 +294,7 @@ interface ValueCellProps {
   big: string;
   denominator: string | null;
   pct: number | null;
+  isInverse: boolean;
   subLabel: string | null;
   dense?: boolean;
 }
@@ -296,9 +303,16 @@ function ValueCell({
   big,
   denominator,
   pct,
+  isInverse,
   subLabel,
   dense,
 }: ValueCellProps) {
+  // Bar colour follows the spec's traffic-light band:
+  //   standard:  <30 RED · 30-60 YELLOW · ≥60 GREEN
+  //   inverse:   ≥60 RED · 30-60 YELLOW · <30 GREEN
+  const band = pct !== null ? getColorBand(pct, isInverse) : null;
+  const bandColors = band ? getBandColors(band) : null;
+
   return (
     <div className="flex flex-col gap-1">
       <div
@@ -310,21 +324,24 @@ function ValueCell({
       >
         {big}
       </div>
-      {pct !== null ? (
+      {pct !== null && bandColors ? (
         <div
           className="relative h-[12px] w-full overflow-hidden rounded-[2px]"
-          style={{ backgroundColor: BAR_TRACK }}
+          style={{ backgroundColor: bandColors.bg }}
         >
           <div
             className="absolute inset-y-0 left-0"
             style={{
               width: `${Math.max(0, Math.min(100, pct))}%`,
-              backgroundColor: BAR_ACCENT,
+              backgroundColor: bandColors.fg,
             }}
           />
           <span
+            // mix-blend-difference keeps the % readable on both the
+            // saturated fill and the light remainder — white text inverts
+            // to a dark, contrasty colour over any band tint.
             className="absolute inset-0 flex items-center justify-end pr-1.5 text-[9px] font-bold leading-none text-white"
-            style={{ textShadow: '0 0 1.5px rgba(0,0,0,0.45)' }}
+            style={{ mixBlendMode: 'difference' }}
           >
             {pct}%
           </span>
@@ -688,6 +705,11 @@ export default function DetailPage() {
                   />
                 );
               })}
+            </div>
+
+            {/* Completion-threshold legend (spec §8 colour bands). */}
+            <div className="flex justify-end pt-1">
+              <CompletionThresholdsLegend />
             </div>
           </div>
         </div>
