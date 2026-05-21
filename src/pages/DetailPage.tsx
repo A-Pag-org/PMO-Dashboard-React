@@ -49,7 +49,39 @@ const STATE_CITIES: Record<NcrState, string[]> = {
 const RAIL_YELLOW = '#F2EA00';
 // Background tint behind the columns.
 const SURFACE = '#F6F1E8';
+// Same navy used by the initiative-name pill on InitiativeCard. We
+// reuse it for every geographic-hierarchy label (NCR / state / city /
+// RTO / agency) so the chips read as one family across both pages.
+const NAVY_PILL = '#2E4B8F';
 // Bar colours come from the spec's traffic-light band (utils.getBandColors).
+
+/**
+ * Fit-to-text navy pill used to highlight a geographic-hierarchy
+ * label. Mirrors the initiative-name pill on InitiativeCard.
+ */
+function GeoPill({
+  label,
+  size = 'md',
+  className,
+}: {
+  label: string;
+  size?: 'sm' | 'md';
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-flex max-w-full items-center self-start truncate rounded-lg font-bold leading-tight text-white',
+        size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1 text-[12px]',
+        className,
+      )}
+      style={{ backgroundColor: NAVY_PILL }}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
 
 // ─── Metric grouping ────────────────────────────────────────────────────
 
@@ -456,10 +488,8 @@ function StateColumn({
           clickable ? `${helpText ?? `Open ${state}`}` : state
         }
       >
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[13px] font-semibold text-[var(--color-navy)]">
-            {state}
-          </span>
+        <div className="flex min-w-0 flex-col items-start gap-1">
+          <GeoPill label={state} />
           {clickable && helpText ? (
             <span className="truncate text-[9.5px] font-medium uppercase tracking-wide text-[var(--color-blue-link)]">
               {helpText}
@@ -509,9 +539,7 @@ function ExpandedState({
       className="flex h-full flex-col rounded-md border-2 border-[var(--color-navy)] bg-white shadow-md ring-2 ring-[#F2EA00]/40"
     >
       <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[#FFFCE6] px-3 py-2.5">
-        <span className="text-[13px] font-semibold text-[var(--color-navy)]">
-          {state}
-        </span>
+        <GeoPill label={state} />
         <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">
           City wise
         </span>
@@ -537,7 +565,7 @@ function ExpandedState({
                 type="button"
                 onClick={drillable ? () => onCityClick(city) : undefined}
                 className={cn(
-                  'flex flex-col gap-0.5 border-b border-[var(--color-border)] px-3 py-1.5 text-left',
+                  'flex flex-col items-start gap-1 border-b border-[var(--color-border)] px-3 py-1.5 text-left',
                   drillable
                     ? 'cursor-pointer hover:bg-[var(--color-blue-pale)]'
                     : 'cursor-default',
@@ -546,9 +574,7 @@ function ExpandedState({
                   drillable ? `View ${leafLabel} breakdown for ${city}` : undefined
                 }
               >
-                <span className="truncate text-[12px] font-semibold text-[var(--color-navy)]">
-                  {city}
-                </span>
+                <GeoPill label={city} size="sm" />
                 {drillable ? (
                   <span className="truncate text-[9.5px] font-medium uppercase tracking-wide text-[var(--color-blue-link)]">
                     Click to enter {leafLabel} level
@@ -574,29 +600,22 @@ function ExpandedState({
 }
 
 // ─── Top aggregate bar (NCR or selected state) ──────────────────────────
+//
+// Cells-only — the title ("DELHI NCR" / "DELHI") and subtitle have been
+// promoted up into the sticky chrome strip on the page so this bar can
+// stay short. See DetailPage below for the strip layout.
 
 interface AggregateBarProps {
-  title: string;
-  subtitle: string;
   area: PageAreaScope;
   groups: MetricGroup[];
 }
 
-function AggregateBar({ title, subtitle, area, groups }: AggregateBarProps) {
+function AggregateBar({ area, groups }: AggregateBarProps) {
   return (
     <div
-      className="rounded-md border border-[#D9CF22] px-4 py-4 shadow-sm"
+      className="rounded-md border border-[#D9CF22] px-4 py-2.5 shadow-sm"
       style={{ backgroundColor: RAIL_YELLOW }}
     >
-      <div className="mb-3 flex items-center gap-3">
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-navy)]">
-          {title}
-        </span>
-        <span className="h-px flex-1 bg-[var(--color-navy)] opacity-20" />
-        <span className="text-[11px] font-medium text-[var(--color-navy)] opacity-70">
-          {subtitle}
-        </span>
-      </div>
       <div
         // Thin vertical dividers between metric groups so the eye can
         // count the columns at a glance, especially when one of the
@@ -695,8 +714,8 @@ function DrillModal({
                   : { state, city, agency: item };
               return (
                 <div key={item} className="flex flex-col">
-                  <div className="border-b border-[var(--color-border)] px-3 py-2 text-[12px] font-semibold text-[var(--color-navy)]">
-                    {item}
+                  <div className="border-b border-[var(--color-border)] px-3 py-2">
+                    <GeoPill label={item} size="sm" />
                   </div>
                   <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
                     {groups.map((g, i) => (
@@ -820,10 +839,14 @@ export default function DetailPage() {
       <TopBar />
 
       <main className="relative flex flex-1 flex-col overflow-hidden">
-        {/* ── Scrollable content ── */}
-        <div className="flex-1 overflow-auto">
-          <div className="flex flex-col gap-4 p-5 pb-3">
-            {/* Initiative dropdown */}
+        {/* ── Sticky chrome (Initiative selector + scope pill + yellow
+            aggregate bar). The state columns scroll independently
+            below. Mirrors the sticky chrome on SummaryPage. ── */}
+        <div
+          className="shrink-0 border-b border-[var(--color-border)] px-5 pt-4 pb-3"
+          style={{ backgroundColor: SURFACE }}
+        >
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <div className="flex items-center gap-3">
               <label
                 htmlFor="initiative-select"
@@ -848,16 +871,30 @@ export default function DetailPage() {
               </div>
             </div>
 
-            {/* Aggregate yellow bar — NCR scope by default, state scope
-                when one is expanded. State-only metrics appear only in
-                the state-scope variant. */}
-            <AggregateBar
-              title={aggregate.title}
-              subtitle={aggregate.subtitle}
-              area={aggregate.area}
-              groups={expandedState ? stateGroups : ncrGroups}
-            />
+            {/* Aggregate scope pill + subtitle promoted out of the yellow
+                bar so the bar stays short and the current scope
+                ("DELHI NCR" / selected state) is anchored visibly next
+                to the Initiative selector. */}
+            <div className="flex min-w-0 items-center gap-3">
+              <GeoPill label={aggregate.title} />
+              <span className="truncate text-[11px] font-medium text-[var(--color-text-secondary)]">
+                {aggregate.subtitle}
+              </span>
+            </div>
+          </div>
 
+          {/* Yellow aggregate bar — NCR scope by default, state scope
+              when one is expanded. State-only metrics appear only in
+              the state-scope variant. */}
+          <AggregateBar
+            area={aggregate.area}
+            groups={expandedState ? stateGroups : ncrGroups}
+          />
+        </div>
+
+        {/* ── Scrollable content: state columns ── */}
+        <div className="flex-1 overflow-auto">
+          <div className="px-5 pt-3 pb-3">
             {/* State columns */}
             <div
               className="grid gap-3"
