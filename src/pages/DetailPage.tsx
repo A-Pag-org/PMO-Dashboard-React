@@ -1,992 +1,687 @@
 // FILE: src/pages/DetailPage.tsx
-// PURPOSE: Detailed View — metric-first layout designed for senior officials.
-//          · TopBar + filter strip stay unchanged.
-//          · LEFT (primary, ~60%): three metric groups laid out as rich
-//            tiles — Outcome (2-col, prominent) · Progress (3-col) ·
-//            Readiness (3-col, compact). Each tile shows the value, the
-//            traffic-light band, a 6-month sparkline (when meaningful)
-//            and "Monthly · {lowest-level}" metadata. Clicking a tile
-//            selects it for the drill drawer.
-//          · RIGHT (~360px): drill drawer for the selected metric —
-//            hero strip + central / cumulative-only callouts + ranking
-//            by State/City/RTO + 6-month trend chart.
+// PURPOSE: Per-initiative detail view, laid out as a 4-column NCR state
+//          comparison with click-to-expand drill into cities and a modal
+//          drill into RTO-level data. Mirrors the wireframes signed off
+//          for the Naya Safar Yojana initiative; degrades gracefully for
+//          initiatives whose data model stops at the state level.
 //
-//          Business logic preserved: same metric data, same aggregation
-//          helpers, same filters. The map is gone; ranking + trend are
-//          first-class but secondary to the metric grid.
+// Layout (from spec wireframes):
+//   ┌────────────────────────────────────────────────────────────┐
+//   │  Yellow rail  │  Initiative dropdown                       │
+//   │  ↑ All        │  ┌──────────────────────────────────────┐  │
+//   │   programmes  │  │  DELHI NCR — aggregate metrics       │  │
+//   │  NSY · Naya   │  └──────────────────────────────────────┘  │
+//   │  Safar        │  ┌─────────┬─────────┬─────────┬─────────┐ │
+//   │               │  │ Delhi   │   UP    │ Rajasth │ Haryana │ │
+//   │               │  │ metrics │ metrics │ metrics │ metrics │ │
+//   │               │  └─────────┴─────────┴─────────┴─────────┘ │
+//   └────────────────────────────────────────────────────────────┘
+//
+//   Clicking a state header expands that column to a 3-fr wide panel
+//   showing city sub-columns. Clicking a city name opens a modal with
+//   the city's RTO breakdown.
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
-import DetailFilterBar from '@/components/layout/DetailFilterBar';
-import type { ViewLabel } from '@/components/layout/DetailFilterBar';
-import MetricTile from '@/components/ui/MetricTile';
-import ClusterTile from '@/components/ui/ClusterTile';
-import RankingPanel from '@/components/ui/RankingPanel';
-import TrendPanel from '@/components/ui/TrendPanel';
-import CompletionThresholdsLegend from '@/components/ui/CompletionThresholdsLegend';
-import {
-  formatNumber,
-  getBandColors,
-  getColorBand,
-  getCompletionPercentage,
-} from '@/lib/utils';
-import { INITIATIVES, CITY_STATE_MAP, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
-import {
-  getAreaWeight,
-  getMetricByState,
-  getMetricValueForArea,
-} from '@/lib/aggregation';
+import { INITIATIVES, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
+import { getMetricValueForArea } from '@/lib/aggregation';
+import type { AreaScope } from '@/lib/aggregation';
 import { getInitiativeConfig } from '@/lib/initiatives';
-import type { MapDataPoint, ViewLevel, Metric, MetricType } from '@/lib/types';
-import type { AreaFilterValue } from '@/lib/useDetailFilters';
+import type { Metric } from '@/lib/types';
 import { useDetailFilters } from '@/lib/useDetailFilters';
-import { getCurrentRole, isDelhiOnlyRole } from '@/lib/auth';
+import { cn, formatNumber } from '@/lib/utils';
 
+// ─── Constants ──────────────────────────────────────────────────────────
 
-/**
- * Completion score in [0, 100] used to pick the featured tile(s) and
- * order the n×n grid. X/Y metrics use raw completion %; Y/N metrics
- * map N → 0 and Y → 100. Xx metrics have no target to complete against
- * and return null so they're never featured (they fall to the end of
- * the grid).
- */
-function completionScore(m: Metric): number | null {
-  if (m.format === 'X/Y') return getCompletionPercentage(m.target, m.achieved);
-  if (m.format === 'Y/N') return m.achieved === 1 ? 100 : 0;
-  return null;
+const NCR_STATES = ['Delhi', 'Uttar Pradesh', 'Rajasthan', 'Haryana'] as const;
+type NcrState = (typeof NCR_STATES)[number];
+
+const STATE_CITIES: Record<NcrState, string[]> = {
+  Delhi: ['Delhi'],
+  'Uttar Pradesh': ['Noida', 'Greater Noida', 'Ghaziabad'],
+  Rajasthan: ['Neemrana', 'Alwar'],
+  Haryana: ['Gurugram', 'Rohtak', 'Panipat'],
+};
+
+// Yellow rail + aggregate panel color (mango yellow from the wireframe).
+const RAIL_YELLOW = '#F2EA00';
+// Background tint behind the columns.
+const SURFACE = '#F6F1E8';
+// Accent for thin metric progress bars.
+const BAR_ACCENT = '#B85628';
+const BAR_TRACK = '#E8DACD';
+
+// ─── Metric grouping ────────────────────────────────────────────────────
+
+interface MetricGroup {
+  /** Either a clustered pair (e.g. Trucks + Buses under "Pre-BS VI converted")
+   *  or a single metric row. */
+  kind: 'cluster' | 'single';
+  /** Display label rendered above the value(s). */
+  label: string;
+  metrics: Metric[];
 }
 
 /**
- * Split the initiative's metrics into:
- *   · `featured` — the tile(s) shown large on the left.
- *       Even total → [lowest completion %, highest completion %].
- *       Odd total  → [lowest completion %].
- *       If fewer than 2 metrics are rankable, we feature only the
- *       worst (or nothing, if none are rankable).
- *   · `rest` — the remaining metrics for the right-hand n×n grid,
- *       sorted worst → best (unrankable Xx metrics last).
+ * Collapses an initiative's metric list into the row groups rendered in
+ * each column. Outcome metrics that share a `cluster` key are merged
+ * into a single side-by-side "Trucks | Buses" row (matching the design's
+ * "Pre-BS VI converted" headline). Progress / readiness clusters stay
+ * as separate single rows so events-conducted and events-planned still
+ * read as distinct line items, mirroring the wireframe.
  */
-function partitionMetricsByCompletion<T extends Metric>(
-  metrics: T[],
-): { featured: T[]; rest: T[] } {
-  if (metrics.length === 0) return { featured: [], rest: [] };
-
-  const scored = metrics.map((m, i) => ({ m, i, score: completionScore(m) }));
-  const rankable = scored.filter(
-    (x): x is { m: T; i: number; score: number } => x.score != null,
-  );
-  rankable.sort((a, b) => a.score - b.score || a.i - b.i);
-
-  if (rankable.length === 0) return { featured: [], rest: [...metrics] };
-
-  const isEven = metrics.length % 2 === 0;
-  const lowest = rankable[0].m;
-  const wantTwoFeatured = isEven && rankable.length >= 2;
-  const highest = wantTwoFeatured
-    ? rankable[rankable.length - 1].m
-    : null;
-
-  const featuredSet = new Set<T>([lowest, ...(highest ? [highest] : [])]);
-  const rest = scored
-    .filter((x) => !featuredSet.has(x.m))
-    .sort(
-      (a, b) =>
-        (a.score ?? Number.POSITIVE_INFINITY) -
-          (b.score ?? Number.POSITIVE_INFINITY) || a.i - b.i,
-    )
-    .map((x) => x.m);
-
-  return { featured: highest ? [lowest, highest] : [lowest], rest };
-}
-
-/**
- * Detail-page grouping by metric hierarchy. Outcome metrics are the
- * results an initiative is judged on, so they're featured large on the
- * left. The right column is then split top-to-bottom by the same
- * hierarchy — Progress above, Readiness below — each sorted
- * worst → best so problem areas read first.
- *
- * Initiatives with no outcome metrics fall back to the completion
- * split (its featured on the left, everything else as the progress
- * band) so the left column is never empty.
- */
-function groupMetricsForDetail<T extends Metric>(
-  metrics: T[],
-): { featured: T[]; progress: T[]; readiness: T[] } {
-  if (metrics.length === 0)
-    return { featured: [], progress: [], readiness: [] };
-
-  const worstFirst = (a: T, b: T) =>
-    (completionScore(a) ?? Number.POSITIVE_INFINITY) -
-    (completionScore(b) ?? Number.POSITIVE_INFINITY);
-
-  const featured = metrics.filter((m) => m.type === 'outcome');
-
-  if (featured.length === 0) {
-    const split = partitionMetricsByCompletion(metrics);
-    return { featured: split.featured, progress: split.rest, readiness: [] };
-  }
-
-  const progress = metrics
-    .filter((m) => m.type === 'progress')
-    .sort(worstFirst);
-  const readiness = metrics
-    .filter((m) => m.type === 'readiness')
-    .sort(worstFirst);
-
-  return { featured, progress, readiness };
-}
-
-/**
- * Detail-page tile visibility gate. A metric with `visibleWhen` only
- * shows once the user has drilled far enough — e.g. road-repair's
- * "Road asset baseline" needs a specific state + city, and "Digital
- * tool exists" additionally needs a specific Agency. Ungated metrics
- * are always visible.
- */
-function passesVisibilityGate(
-  m: Metric,
-  area: AreaFilterValue,
-  extras: Record<string, string>,
-): boolean {
-  if (!m.visibleWhen) return true;
-  const hasState = !!area.state;
-  const hasStateCity = hasState && !!area.city;
-  if (m.visibleWhen === 'state') return hasState;
-  if (m.visibleWhen === 'state+city') return hasStateCity;
-  if (m.visibleWhen === 'state+city+agency')
-    return hasStateCity && !!extras['agency'];
-  return true;
-}
-
-/**
- * One Detail-page tile is either a single metric or a "cluster" of
- * related metrics rendered together (e.g. Naya Safar's Trucks +
- * Buses converted under one tile). Clusters declare their own label
- * and type so a stray outcome can be re-homed under a progress
- * combined tile.
- */
-type TileItem =
-  | { kind: 'single'; type: MetricType; metric: Metric }
-  | {
-      kind: 'cluster';
-      id: string;
-      label: string;
-      type: MetricType;
-      metrics: Metric[];
-    };
-
-function buildTileItems(metrics: Metric[]): TileItem[] {
-  const byCluster = new Map<string, Extract<TileItem, { kind: 'cluster' }>>();
-  const items: TileItem[] = [];
+function groupMetrics(metrics: Metric[]): MetricGroup[] {
+  // Clusters whose leader (the metric carrying clusterLabel / clusterType)
+  // marks them as a side-by-side outcome pair.
+  const outcomeClusterIds = new Set<string>();
   for (const m of metrics) {
-    if (!m.cluster) {
-      items.push({ kind: 'single', type: m.type, metric: m });
-      continue;
+    if (m.cluster && m.clusterType === 'outcome') {
+      outcomeClusterIds.add(m.cluster);
     }
-    const existing = byCluster.get(m.cluster);
-    if (existing) {
-      existing.metrics.push(m);
-      continue;
+  }
+
+  const groups: MetricGroup[] = [];
+  const renderedClusters = new Set<string>();
+
+  for (const m of metrics) {
+    if (m.cluster && outcomeClusterIds.has(m.cluster)) {
+      if (renderedClusters.has(m.cluster)) continue;
+      renderedClusters.add(m.cluster);
+      const siblings = metrics.filter((x) => x.cluster === m.cluster);
+      const leader =
+        siblings.find((s) => s.clusterLabel) ?? siblings[0];
+      groups.push({
+        kind: 'cluster',
+        label: leader.clusterLabel ?? leader.name,
+        metrics: siblings,
+      });
+    } else {
+      groups.push({ kind: 'single', label: m.name, metrics: [m] });
     }
-    const item: Extract<TileItem, { kind: 'cluster' }> = {
-      kind: 'cluster',
-      id: m.cluster,
-      label: m.clusterLabel ?? m.cluster,
-      type: m.clusterType ?? m.type,
-      metrics: [m],
-    };
-    byCluster.set(m.cluster, item);
-    items.push(item);
   }
-  return items;
+
+  return groups;
 }
 
-function tileItemScore(item: TileItem): number {
-  if (item.kind === 'single') {
-    return completionScore(item.metric) ?? Number.POSITIVE_INFINITY;
-  }
-  let worst = Number.POSITIVE_INFINITY;
-  for (const m of item.metrics) {
-    const s = completionScore(m);
-    if (s != null && s < worst) worst = s;
-  }
-  return worst;
-}
-
-function tileItemContainsMetric(item: TileItem, name: string): boolean {
-  if (item.kind === 'single') return item.metric.name === name;
-  return item.metrics.some((m) => m.name === name);
-}
-
-function tileItemFirstMetricName(item: TileItem): string {
-  return item.kind === 'single' ? item.metric.name : item.metrics[0].name;
-}
+// ─── Value rendering helpers ────────────────────────────────────────────
 
 /**
- * Group TileItems by metric hierarchy — same shape as
- * groupMetricsForDetail but operating on cluster-aware items.
- * Outcome → featured (left, big); progress → top-right band;
- * readiness → bottom-right band. Sorted worst → best within each
- * band so problem tiles read first.
+ * Detail-page splits ignore `geographyLevel: 'central'` and always fan
+ * the value down using population weights, so columns like "PSBs / NBFCs
+ * onboarded" can show different state values for the demo. Real data
+ * will override this entirely.
  */
-function groupTileItemsForDetail(items: TileItem[]): {
-  featured: TileItem[];
-  progress: TileItem[];
-  readiness: TileItem[];
-} {
-  if (items.length === 0)
-    return { featured: [], progress: [], readiness: [] };
-  const featured = items.filter((i) => i.type === 'outcome');
-  if (featured.length === 0) {
-    return { featured: [], progress: [...items], readiness: [] };
-  }
-  const worstFirst = (a: TileItem, b: TileItem) =>
-    tileItemScore(a) - tileItemScore(b);
-  const progress = items
-    .filter((i) => i.type === 'progress')
-    .sort(worstFirst);
-  const readiness = items
-    .filter((i) => i.type === 'readiness')
-    .sort(worstFirst);
-  return { featured, progress, readiness };
+/** Small deterministic int hash for jitter seeding. */
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
-function buildMapDataForMetric(metric: Metric): MapDataPoint[] {
-  return getMetricByState(metric).map(({ name, agg }) => {
-    if (agg.format === 'X/Y') {
-      // Deterministic per-state noise so the four NCR states have a
-      // visible spread of completion %, not a near-flat distribution
-      // from population-weight rounding alone. Same seed always
-      // returns the same noised number.
-      const noise = (hash01(`${name}|${metric.name}`) - 0.5) * 60;
-      const pct = Math.max(0, Math.min(100, Math.round(agg.pct + noise)));
-      const target = agg.target ?? 0;
-      const achieved = Math.round((target * pct) / 100);
-      const band = pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN';
-      return {
-        name,
-        value: pct,
-        onTrack: band === 'GREEN',
-        format: 'X/Y' as const,
-        band: metric.isInverse
-          ? band === 'GREEN'
-            ? 'RED'
-            : band === 'RED'
-            ? 'GREEN'
-            : 'YELLOW'
-          : band,
-        label: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')} (${pct}%)`,
-      };
-    }
-    return {
-      name,
-      value: agg.achieved ?? 0,
-      onTrack: agg.band === 'GREEN',
-      format: agg.format,
-      band: agg.band,
-      label: agg.displayText,
-    };
-  });
-}
-
-function hash01(seed: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return ((h >>> 0) % 1000) / 1000;
-}
-
-function buildMapDataForMetricByCity(metric: Metric): MapDataPoint[] {
-  return Object.entries(CITY_STATE_MAP).map(([city, state]) => {
-    const agg = getMetricValueForArea(metric, { state, city }, city);
-    if (agg.format === 'X/Y') {
-      const noise = (hash01(`${city}|${metric.name}`) - 0.5) * 70;
-      const pct = Math.max(0, Math.min(100, Math.round(agg.pct + noise)));
-      const target = agg.target ?? 0;
-      const achieved = Math.round((target * pct) / 100);
-      const band = pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN';
-      return {
-        name: city,
-        value: pct,
-        onTrack: band === 'GREEN',
-        format: 'X/Y' as const,
-        band: metric.isInverse
-          ? band === 'GREEN'
-            ? 'RED'
-            : band === 'RED'
-            ? 'GREEN'
-            : 'YELLOW'
-          : band,
-        label: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')} (${pct}%)`,
-      };
-    }
-    return {
-      name: city,
-      value: agg.achieved ?? 0,
-      onTrack: agg.band === 'GREEN',
-      format: agg.format,
-      band: agg.band,
-      label: agg.displayText,
-    };
-  });
-}
-
-/**
- * RTO-level rows for the ranking panel. Uses the same deterministic
- * per-region noise pattern as the city builder so the numbers are
- * stable across renders. Honours area filters: state/city narrow the
- * RTO list, no filter returns every RTO across the NCR.
- */
-function buildMapDataForMetricByRto(
-  metric: Metric,
-  area: AreaFilterValue,
-): MapDataPoint[] {
-  const rows: { rto: string; city: string; state: string }[] = [];
-  for (const [city, list] of Object.entries(RTO_OPTIONS_BY_CITY)) {
-    const state = CITY_STATE_MAP[city];
-    if (!state) continue;
-    if (area.state && state !== area.state) continue;
-    if (area.city && city !== area.city) continue;
-    for (const rto of list) {
-      if (area.rto && rto !== area.rto) continue;
-      rows.push({ rto, city, state });
-    }
-  }
-
-  return rows.map(({ rto, city, state }) => {
-    const agg = getMetricValueForArea(metric, { state, city, rto }, rto);
-    if (agg.format === 'X/Y') {
-      const noise = (hash01(`${rto}|${metric.name}`) - 0.5) * 70;
-      const pct = Math.max(0, Math.min(100, Math.round(agg.pct + noise)));
-      const target = agg.target ?? 0;
-      const achieved = Math.round((target * pct) / 100);
-      const band = pct < 30 ? 'RED' : pct < 60 ? 'YELLOW' : 'GREEN';
-      return {
-        name: rto,
-        value: pct,
-        onTrack: band === 'GREEN',
-        format: 'X/Y' as const,
-        band: metric.isInverse
-          ? band === 'GREEN'
-            ? 'RED'
-            : band === 'RED'
-            ? 'GREEN'
-            : 'YELLOW'
-          : band,
-        label: `${achieved.toLocaleString('en-IN')} / ${target.toLocaleString('en-IN')} (${pct}%)`,
-      };
-    }
-    return {
-      name: rto,
-      value: agg.achieved ?? 0,
-      onTrack: agg.band === 'GREEN',
-      format: agg.format,
-      band: agg.band,
-      label: agg.displayText,
-    };
-  });
-}
-
-/**
- * Per-metric values scoped to the current area filter. Looks up the
- * same deterministically-noised row that the ranking panel would show
- * for this scope, so every tile reflects the user's selection — and
- * the same area always returns the same numbers.
- *
- * No area, central metric, or no matching row → fall back to the
- * initiative-level achieved / target on the metric itself.
- */
-function scopedMetricValues(
-  metric: Metric,
-  area: AreaFilterValue,
-): {
-  achieved: number | null;
-  target: number | null;
-  previousAchieved: number | null;
-} {
-  const fallback = {
-    achieved: metric.achieved,
-    target: metric.target,
-    previousAchieved: metric.previousAchieved ?? null,
-  };
-  if (metric.geographyLevel === 'central') return fallback;
-  if (!area.state && !area.city && !area.rto) return fallback;
-
-  let row: MapDataPoint | undefined;
-  if (area.rto) {
-    row = buildMapDataForMetricByRto(metric, area).find((r) => r.name === area.rto);
-  } else if (area.city) {
-    row = buildMapDataForMetricByCity(metric).find((r) => r.name === area.city);
-  } else if (area.state) {
-    row = buildMapDataForMetric(metric).find((r) => r.name === area.state);
-  }
-  if (!row) return fallback;
-
-  // For Xx-format metrics we keep previousAchieved area-weight-scaled
-  // so the month-on-month delta on the tile stays directionally
-  // correct (the noise pattern for Xx is itself weight-scaled).
-  const w = getAreaWeight(area);
-  const prev =
-    metric.previousAchieved != null
-      ? Math.round(metric.previousAchieved * w)
-      : null;
-
-  if (metric.format === 'X/Y') {
-    const match = row.label?.match(/^([\d,]+) \/ ([\d,]+)/);
-    if (match) {
-      const achieved = parseInt(match[1].replace(/,/g, ''), 10);
-      const target = parseInt(match[2].replace(/,/g, ''), 10);
-      return { achieved, target, previousAchieved: prev };
-    }
-  }
-  if (metric.format === 'Xx') {
-    return { achieved: row.value, target: null, previousAchieved: prev };
-  }
-  if (metric.format === 'Y/N') {
-    return { achieved: row.value === 1 ? 1 : 0, target: 1, previousAchieved: null };
-  }
-  return fallback;
-}
-
-export default function DetailPage() {
-  const {
+function aggregateForArea(metric: Metric, area: AreaScope) {
+  const splittable: Metric =
+    metric.geographyLevel === 'central'
+      ? { ...metric, geographyLevel: undefined }
+      : metric;
+  const agg = getMetricValueForArea(
+    splittable,
     area,
-    initiativeName,
-    extras,
-    setArea,
-    setInitiativeName,
-    setExtra,
-  } = useDetailFilters();
-
-  const [viewLevel, setViewLevel] = useState<ViewLevel>('state');
-  const [selectedMetricByInitiative, setSelectedMetricByInitiative] = useState<
-    Record<string, string>
-  >({});
-  // Right-hand drill drawer (ranking + trend) is collapsed by default
-  // and only opens when the user clicks the chevron handle. Selecting
-  // a metric tile updates which metric the drawer will show, but does
-  // not open the drawer itself — the user stays in control of the view.
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const role = getCurrentRole();
-
-  const currentInit =
-    INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
-
-  // Clone every metric with values scoped to the current area filter,
-  // so the tiles, the section tallies, and the cumulative card all
-  // reflect the selected state / city / RTO. Same area = same numbers.
-  const scopedMetrics = useMemo(
-    () =>
-      currentInit.metrics.map((m) => ({
-        ...m,
-        ...scopedMetricValues(m, area),
-      })),
-    [currentInit, area],
+    `${area.state ?? 'NCR'}|${area.city ?? ''}|${area.rto ?? ''}`,
   );
 
-  const visibleMetrics = useMemo(
-    () => scopedMetrics.filter((m) => passesVisibilityGate(m, area, extras)),
-    [scopedMetrics, area, extras],
-  );
+  // The aggregation helper splits parent totals evenly across child cities
+  // / RTOs, so every Noida-vs-Greater-Noida value would be identical. For
+  // the demo we apply a deterministic ±15% jitter at the deepest level so
+  // sibling columns visually differentiate without changing the parent
+  // total in a confusing way. Real data will replace this entirely.
+  const childKey = area.rto ?? (area.city && area.state ? area.city : null);
+  if (!childKey || agg.format === 'Y/N') return agg;
 
-  const tileItems = useMemo(() => buildTileItems(visibleMetrics), [visibleMetrics]);
+  const factor =
+    0.85 + ((hashStr(childKey + '::' + metric.name) % 31) / 30) * 0.3;
+  const achieved =
+    agg.achieved != null ? Math.round(agg.achieved * factor) : null;
+  const target =
+    agg.target != null ? Math.max(1, Math.round(agg.target * factor)) : null;
 
-  const {
-    featured: featuredItems,
-    progress: progressItems,
-    readiness: readinessItems,
-  } = useMemo(() => groupTileItemsForDetail(tileItems), [tileItems]);
-
-  const rightCount = progressItems.length + readinessItems.length;
-
-  // When an initiative has exactly one outcome + one progress tile
-  // (no readiness), the asymmetric 5fr/7fr split looks unbalanced and
-  // the progress tile gets demoted to size 'md'. Treat them as equal
-  // peers instead — 1fr/1fr layout, both at 'lg' — so the eye reads
-  // them as a matched pair (e.g. Green Contribution's two donuts).
-  const isPairLayout =
-    featuredItems.length === 1 &&
-    progressItems.length === 1 &&
-    readinessItems.length === 0;
-
-  // When all tiles fit in a 2×2 grid (2 outcome + 2 progress, no
-  // readiness), render them as four equal cells rather than the
-  // asymmetric feature-left / progress-right split (e.g. C&D - ICCC).
-  const isQuadLayout =
-    featuredItems.length === 2 &&
-    progressItems.length === 2 &&
-    readinessItems.length === 0;
-
-  const progressSize: 'lg' | 'md' = isPairLayout || isQuadLayout ? 'lg' : 'md';
-
-  // A small band stays a single readable row; a large band wraps into
-  // a balanced square-ish grid so tiles never get razor-thin.
-  const bandCols = (n: number) =>
-    n <= 3 ? Math.max(1, n) : Math.ceil(Math.sqrt(n));
-
-  const defaultSelectedMetricName =
-    (featuredItems[0] && tileItemFirstMetricName(featuredItems[0])) ??
-    scopedMetrics[0]?.name ??
-    '';
-  const selectedMetricName =
-    selectedMetricByInitiative[currentInit.slug] ?? defaultSelectedMetricName;
-  const selectedMetric =
-    currentInit.metrics.find((m) => m.name === selectedMetricName) ??
-    currentInit.metrics[0];
-
-  const isCentralLevelMetric = selectedMetric?.geographyLevel === 'central';
-
-  const initiativeConfig = getInitiativeConfig(currentInit.slug);
-  const initSupportsCity = initiativeConfig?.geographyLevels.includes('city') ?? true;
-  const initSupportsRto = initiativeConfig?.geographyLevels.includes('rto') ?? false;
-
-  // Per-metric drill restriction. The ranking toggles only expose the
-  // levels the *currently selected metric* actually drills to — so for
-  // Naya Safar trucks/buses (lowest = RTO) the user sees State/City/RTO,
-  // but for Naya Safar events (lowest = City) the RTO toggle is hidden.
-  // Initiative-level support is intersected so a metric can't claim a
-  // level the initiative doesn't have in its drill chain.
-  const metricLowest = selectedMetric?.lowestLevelLabel;
-  const metricSupportsCity = metricLowest === 'City' || metricLowest === 'RTO';
-  const metricSupportsRto = metricLowest === 'RTO';
-  const supportsCity = initSupportsCity && metricSupportsCity;
-  const supportsRto = initSupportsRto && metricSupportsRto;
-
-  const delhiOnlyRole = isDelhiOnlyRole(role);
-  const isAtIndividualRto = !!area.rto;
-
-  const availableViewLevels = useMemo<readonly ViewLabel[]>(() => {
-    if (isAtIndividualRto) return [] as readonly ViewLabel[];
-    if (delhiOnlyRole) {
-      const isDelhiArea = area.state === 'Delhi' || area.city === 'Delhi' || (!area.state && !area.city);
-      return supportsRto && isDelhiArea ? (['RTO'] as const) : ([] as readonly ViewLabel[]);
-    }
-    const cityTail = supportsCity ? ['City' as const] : [];
-    const rtoTail = supportsRto ? ['RTO' as const] : [];
-    if (area.city) return supportsRto ? ['RTO'] : ['City'];
-    if (area.state) return [...cityTail, ...rtoTail];
-    return ['State', ...cityTail, ...rtoTail];
-  }, [area, supportsCity, supportsRto, delhiOnlyRole, isAtIndividualRto]);
-
-  useEffect(() => {
-    if (availableViewLevels.length === 0) return;
-    const top = availableViewLevels[0].toLowerCase() as ViewLevel;
-    setViewLevel(top);
-  }, [availableViewLevels]);
-
-  const currentViewLabel: ViewLabel =
-    viewLevel === 'state' ? 'State' : viewLevel === 'city' ? 'City' : 'RTO';
-  const effectiveViewLabel: ViewLabel = availableViewLevels.includes(currentViewLabel)
-    ? currentViewLabel
-    : availableViewLevels[0] ?? 'State';
-  const effectiveViewLevel = effectiveViewLabel.toLowerCase() as ViewLevel;
-
-  const { rankingRows, emptyHint } = useMemo(() => {
-    if (isCentralLevelMetric || !selectedMetric) {
-      return { rankingRows: [] as MapDataPoint[], emptyHint: undefined };
-    }
-
-    if (effectiveViewLevel === 'state') {
-      const stateData = buildMapDataForMetric(selectedMetric);
-      const filtered = area.state
-        ? stateData.filter((d) => d.name === area.state)
-        : stateData;
-      return { rankingRows: filtered, emptyHint: undefined };
-    }
-
-    if (effectiveViewLevel === 'rto') {
-      const data = buildMapDataForMetricByRto(selectedMetric, area);
-      const hint =
-        data.length === 0
-          ? area.city
-            ? `No RTOs recorded for ${area.city}.`
-            : 'No RTO-level rows match the current filters.'
-          : undefined;
-      return { rankingRows: data, emptyHint: hint };
-    }
-
-    let data: MapDataPoint[] = buildMapDataForMetricByCity(selectedMetric);
-    if (area.state) {
-      data = data.filter((d) => CITY_STATE_MAP[d.name] === area.state);
-    }
-    if (area.city) {
-      data = data.filter((d) => d.name === area.city);
-    }
-    return { rankingRows: data, emptyHint: undefined };
-  }, [isCentralLevelMetric, effectiveViewLevel, area, selectedMetric]);
-
-  const ranking = useMemo(
-    () => [...rankingRows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)),
-    [rankingRows],
-  );
-
-  function handleSelectMetric(slug: string, name: string) {
-    setSelectedMetricByInitiative((prev) => ({ ...prev, [slug]: name }));
+  if (agg.format === 'X/Y') {
+    const pct = Math.max(
+      0,
+      Math.min(100, Math.round(((achieved ?? 0) / Math.max(1, target ?? 1)) * 100)),
+    );
+    return {
+      ...agg,
+      achieved,
+      target,
+      pct,
+      displayText: `${pct}%`,
+      subtitle: `${(achieved ?? 0).toLocaleString('en-IN')} / ${(target ?? 0).toLocaleString('en-IN')}`,
+    };
   }
+  // Xx
+  return {
+    ...agg,
+    achieved,
+    displayText: (achieved ?? 0).toLocaleString('en-IN'),
+  };
+}
 
-  function renderTile(
-    item: TileItem,
-    size: 'lg' | 'md' | 'sm',
-    extraClass: string,
-  ) {
-    const isSelected = selectedMetric
-      ? tileItemContainsMetric(item, selectedMetric.name)
-      : false;
-    const firstName = tileItemFirstMetricName(item);
-    if (item.kind === 'cluster') {
-      return (
-        <ClusterTile
-          key={`cluster:${item.id}`}
-          label={item.label}
-          metrics={item.metrics}
-          size={size}
-          selected={isSelected}
-          onSelect={() => handleSelectMetric(currentInit.slug, firstName)}
-          className={extraClass}
-        />
-      );
-    }
+interface ValueDisplay {
+  big: string;
+  denominator: string | null;
+  pct: number | null;
+}
+
+function metricValue(metric: Metric, area: AreaScope): ValueDisplay {
+  const agg = aggregateForArea(metric, area);
+  if (agg.format === 'Y/N') {
+    return { big: agg.displayText, denominator: null, pct: null };
+  }
+  if (agg.format === 'Xx') {
+    return {
+      big: formatNumber(agg.achieved ?? 0),
+      denominator: null,
+      pct: null,
+    };
+  }
+  return {
+    big: formatNumber(agg.achieved ?? 0),
+    denominator: `of ${formatNumber(agg.target ?? 0)}`,
+    pct: agg.pct,
+  };
+}
+
+// ─── Small leaf components ──────────────────────────────────────────────
+
+interface MetricRowProps {
+  group: MetricGroup;
+  area: AreaScope;
+  /** Compact mode used inside the aggregate top bar and city sub-columns. */
+  dense?: boolean;
+}
+
+function MetricRow({ group, area, dense }: MetricRowProps) {
+  if (group.kind === 'cluster' && group.metrics.length >= 2) {
     return (
-      <MetricTile
-        key={item.metric.name}
-        metric={item.metric}
-        size={size}
-        selected={isSelected}
-        onSelect={() => handleSelectMetric(currentInit.slug, item.metric.name)}
-        className={extraClass}
-      />
+      <div className={cn('flex flex-col gap-1.5', dense ? 'py-2' : 'py-2.5')}>
+        <div className="text-[11px] font-medium text-[var(--color-text-secondary)] leading-tight">
+          {group.label}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {group.metrics.map((m) => {
+            const v = metricValue(m, area);
+            return (
+              <ValueCell
+                key={m.name}
+                big={v.big}
+                denominator={v.denominator}
+                pct={v.pct}
+                subLabel={m.clusterSubLabel ?? null}
+              />
+            );
+          })}
+        </div>
+      </div>
     );
   }
 
-  const seeAllHref = `/dashboard/all-data?initiative=${encodeURIComponent(currentInit.name)}`;
-
-  const trendUnit: 'pct' | 'count' =
-    selectedMetric?.format === 'Xx' ? 'count' : 'pct';
-  const trendCurrentValue = useMemo(() => {
-    if (!selectedMetric) return 0;
-    if (selectedMetric.format === 'X/Y') {
-      const t = selectedMetric.target ?? 0;
-      const a = selectedMetric.achieved ?? 0;
-      return t > 0 ? Math.max(0, Math.min(100, (a / t) * 100)) : 0;
-    }
-    return selectedMetric.achieved ?? 0;
-  }, [selectedMetric]);
-
-  function handleLevelChange(lvl: ViewLabel) {
-    setViewLevel(lvl.toLowerCase() as ViewLevel);
-  }
-
-  const showRanking =
-    !isCentralLevelMetric &&
-    selectedMetric?.format === 'X/Y' &&
-    availableViewLevels.length > 0;
-
-  const showTrend =
-    !isCentralLevelMetric &&
-    !!selectedMetric &&
-    selectedMetric.format !== 'Y/N';
-
-  // Cumulative outcome roll-up — sums the initiative's *headline*
-  // outcome X/Y metrics (per INITIATIVE_CONFIGS.headlineMetricNames),
-  // filtered to non-inverse. So Naya Safar clubs only trucks + buses
-  // (events isn't a headline outcome and isn't commensurate),
-  // CEMS clubs CEMS + APCD installs (violations excluded as inverse),
-  // MRS clubs all three road widths, and single-outcome initiatives
-  // get no card at all. Uses scopedMetrics so the number tracks the
-  // active area filter.
-  const outcomeCumulative = useMemo(() => {
-    const headlineNames = new Set(initiativeConfig?.headlineMetricNames ?? []);
-    const relevant = scopedMetrics.filter(
-      (m) =>
-        m.type === 'outcome' &&
-        m.format === 'X/Y' &&
-        !m.isInverse &&
-        headlineNames.has(m.name),
-    );
-    if (relevant.length < 2) return null;
-    const achieved = relevant.reduce((s, m) => s + (m.achieved ?? 0), 0);
-    const target = relevant.reduce((s, m) => s + (m.target ?? 0), 0);
-    const pct = target > 0 ? Math.round((achieved / target) * 100) : 0;
-    return { achieved, target, pct, count: relevant.length };
-  }, [scopedMetrics, initiativeConfig]);
-
+  const m = group.metrics[0];
+  const v = metricValue(m, area);
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--color-surface-light)]">
-      <TopBar activePage="detail" />
-
-      <DetailFilterBar
-        area={area}
-        initiativeName={initiativeName}
-        extras={extras}
-        onAreaChange={setArea}
-        onInitiativeChange={setInitiativeName}
-        onExtraChange={setExtra}
-        seeAllHref={seeAllHref}
+    <div className={cn('flex flex-col gap-1', dense ? 'py-2' : 'py-2.5')}>
+      <div className="text-[11px] font-medium text-[var(--color-text-secondary)] leading-tight">
+        {group.label}
+      </div>
+      <ValueCell
+        big={v.big}
+        denominator={v.denominator}
+        pct={v.pct}
+        subLabel={null}
       />
-
-      <main
-        className="grid min-h-0 flex-1 transition-[grid-template-columns] duration-200 ease-out"
-        style={{
-          gridTemplateColumns: drawerOpen
-            ? 'minmax(0, 1fr) minmax(380px, 440px)'
-            : 'minmax(0, 1fr) 32px',
-        }}
-      >
-        {/* ── LEFT (primary): outcome featured · progress band over
-            readiness band on the right ──────────────────────────────── */}
-        <section
-          className="flex min-h-0 flex-col overflow-hidden bg-[var(--color-surface-light)]"
-          aria-label="Initiative metrics"
-        >
-          {isQuadLayout ? (
-            // 2×2 equal grid — all four tiles share the same cell size
-            <div
-              className="grid min-h-0 flex-1 gap-3 p-3"
-              style={{
-                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-                gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)',
-              }}
-              aria-label="Initiative metrics"
-            >
-              {[...featuredItems, ...progressItems].map((item) =>
-                renderTile(item, 'lg', 'min-h-0'),
-              )}
-            </div>
-          ) : (
-          <div
-            className="grid min-h-0 flex-1 gap-3 p-3"
-            style={{
-              gridTemplateColumns: isPairLayout
-                ? 'minmax(0, 1fr) minmax(0, 1fr)'
-                : featuredItems.length > 0 && rightCount > 0
-                ? 'minmax(0, 5fr) minmax(0, 7fr)'
-                : 'minmax(0, 1fr)',
-            }}
-          >
-            {featuredItems.length > 0 ? (
-              <div className="flex min-h-0 flex-col gap-3" aria-label="Outcome metrics">
-                {featuredItems.map((item) =>
-                  renderTile(item, 'lg', 'min-h-0 flex-1'),
-                )}
-              </div>
-            ) : null}
-
-            {rightCount > 0 ? (
-              <div
-                className="flex min-h-0 flex-col gap-3"
-                aria-label="Supporting metrics"
-              >
-                {progressItems.length > 0 ? (
-                  <div
-                    className="grid min-h-0 flex-[3] gap-3"
-                    style={{
-                      gridTemplateColumns: `repeat(${bandCols(
-                        progressItems.length,
-                      )}, minmax(0, 1fr))`,
-                      gridAutoRows: 'minmax(0, 1fr)',
-                    }}
-                    aria-label="Progress metrics"
-                  >
-                    {progressItems.map((item) =>
-                      renderTile(item, progressSize, 'min-h-0'),
-                    )}
-                  </div>
-                ) : null}
-
-                {readinessItems.length > 0 ? (
-                  <div
-                    className="grid min-h-0 flex-[2] gap-3"
-                    style={{
-                      gridTemplateColumns: `repeat(${bandCols(
-                        readinessItems.length,
-                      )}, minmax(0, 1fr))`,
-                      gridAutoRows: 'minmax(0, 1fr)',
-                    }}
-                    aria-label="Readiness metrics"
-                  >
-                    {readinessItems.map((item) =>
-                      renderTile(item, 'sm', 'min-h-0'),
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          )}
-        </section>
-
-        {/* ── RIGHT (drill drawer): selected-metric details ─────────── */}
-        <aside
-          className="relative flex min-h-0 overflow-hidden border-l border-[var(--color-border)] bg-white"
-          aria-label="Selected metric details"
-        >
-          {/* Toggle handle — vertical strip on the left edge with a
-              chevron centred top-to-bottom. Always visible so the
-              drawer can be opened from any state. */}
-          <div className="flex w-8 shrink-0 items-center justify-center border-r border-[var(--color-border-table)] bg-[var(--color-surface-light)]">
-            <button
-              type="button"
-              onClick={() => setDrawerOpen((o) => !o)}
-              aria-expanded={drawerOpen}
-              aria-controls="metric-drill-drawer"
-              aria-label={drawerOpen ? 'Hide ranking and trend' : 'Show ranking and trend'}
-              title={drawerOpen ? 'Hide ranking and trend' : 'Show ranking and trend'}
-              className="flex h-14 w-7 items-center justify-center rounded-r-md border border-l-0 border-[var(--color-border)] bg-white text-[var(--color-text-secondary)] shadow-sm transition-colors hover:bg-[var(--color-blue-pale)] hover:text-[var(--color-blue-link)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-blue-link)]"
-            >
-              {drawerOpen ? (
-                <ChevronRight className="h-5 w-5" aria-hidden />
-              ) : (
-                <ChevronLeft className="h-5 w-5" aria-hidden />
-              )}
-            </button>
-          </div>
-
-          {/* Drill content — rendered only when open so collapsed
-              state is a clean sliver. */}
-          {drawerOpen ? (
-            <div
-              id="metric-drill-drawer"
-              className="flex min-w-0 flex-1 flex-col overflow-hidden"
-            >
-              <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-navy)] px-4 py-2 text-white">
-                <p
-                  className="min-w-0 truncate text-[13px] font-bold"
-                  title={selectedMetric?.name}
-                >
-                  {selectedMetric?.name ?? 'Pick a metric on the left'}
-                </p>
-                {selectedMetric ? (
-                  <span
-                    className="shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                    title={
-                      selectedMetric.type === 'outcome'
-                        ? 'Outcome — a headline result the initiative is judged on.'
-                        : selectedMetric.type === 'progress'
-                        ? 'Progress — an activity or input driving the outcomes.'
-                        : 'Readiness — a prerequisite that must be in place.'
-                    }
-                  >
-                    {selectedMetric.type}
-                  </span>
-                ) : null}
-              </header>
-
-              <div className="flex-1 overflow-y-auto">
-                <div className="flex flex-col gap-3 p-3">
-              {outcomeCumulative ? (
-                <OutcomeCumulativeCard
-                  achieved={outcomeCumulative.achieved}
-                  target={outcomeCumulative.target}
-                  pct={outcomeCumulative.pct}
-                  count={outcomeCumulative.count}
-                />
-              ) : null}
-
-              {isCentralLevelMetric ? (
-                <CalloutBox
-                  title="No regional breakdown."
-                  body="This metric is reported as a single all-NCR figure, so there's no state/city/RTO split."
-                />
-              ) : null}
-
-              {showRanking ? (
-                <RankingPanel
-                  rows={ranking}
-                  level={effectiveViewLabel}
-                  availableLevels={availableViewLevels}
-                  onLevelChange={handleLevelChange}
-                  emptyHint={emptyHint}
-                />
-              ) : !isCentralLevelMetric && selectedMetric?.format !== 'X/Y' ? (
-                <p className="rounded-md border border-dashed border-[var(--color-border-table)] bg-white px-4 py-5 text-center text-[11px] text-[var(--color-text-muted)]">
-                  Ranking is only shown for metrics with a target.
-                </p>
-              ) : null}
-
-              {showTrend ? (
-                <TrendPanel
-                  metricName={selectedMetric.name}
-                  overallValue={trendCurrentValue}
-                  rows={ranking}
-                  unit={trendUnit}
-                  isInverse={selectedMetric.isInverse}
-                  level={effectiveViewLabel}
-                />
-              ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </aside>
-      </main>
-
-      <footer className="flex shrink-0 items-center justify-end border-t border-[#E2E2EA] bg-white px-8 py-3">
-        <CompletionThresholdsLegend />
-      </footer>
     </div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────────── */
+interface ValueCellProps {
+  big: string;
+  denominator: string | null;
+  pct: number | null;
+  subLabel: string | null;
+}
 
-function OutcomeCumulativeCard({
-  achieved,
-  target,
-  pct,
-  count,
-}: {
-  achieved: number;
-  target: number;
-  pct: number;
-  count: number;
-}) {
-  const band = getColorBand(pct, false);
-  const colors = getBandColors(band);
+function ValueCell({ big, denominator, pct, subLabel }: ValueCellProps) {
+  return (
+    <div className="flex flex-col">
+      <div className="text-[22px] font-bold leading-none text-[var(--color-navy)]">
+        {big}
+      </div>
+      {pct !== null ? (
+        <div
+          className="mt-1.5 h-[3px] w-full overflow-hidden rounded-sm"
+          style={{ backgroundColor: BAR_TRACK }}
+        >
+          <div
+            className="h-full"
+            style={{
+              width: `${Math.max(2, Math.min(100, pct))}%`,
+              backgroundColor: BAR_ACCENT,
+            }}
+          />
+        </div>
+      ) : (
+        <div className="mt-1.5 h-[3px]" />
+      )}
+      {subLabel || denominator ? (
+        <div className="mt-1 flex items-baseline gap-1 text-[10.5px] text-[var(--color-text-secondary)]">
+          {subLabel ? <span className="font-medium">{subLabel}</span> : null}
+          {denominator ? <span>· {denominator}</span> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ─── Column components ─────────────────────────────────────────────────
+
+interface StateColumnProps {
+  state: NcrState;
+  groups: MetricGroup[];
+  expanded: boolean;
+  expandable: boolean;
+  onToggle: () => void;
+  /** When another state is expanded, this column becomes a compact peer. */
+  compact: boolean;
+}
+
+function StateColumn({
+  state,
+  groups,
+  expanded,
+  expandable,
+  onToggle,
+  compact,
+}: StateColumnProps) {
+  const area: AreaScope = { state };
+
   return (
     <div
-      className="rounded-md border bg-white px-3 py-2 shadow-sm"
-      style={{
-        borderLeftWidth: 4,
-        borderLeftColor: colors.fg,
-        borderTopColor: 'var(--color-border-table)',
-        borderRightColor: 'var(--color-border-table)',
-        borderBottomColor: 'var(--color-border-table)',
-      }}
+      className={cn(
+        'flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white',
+        compact && 'opacity-95',
+      )}
     >
-      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--color-text-muted)]">
-        Outcome total across initiative
-      </p>
-      <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0">
-        <span className="text-base font-bold tabular-nums text-[var(--color-text-primary)]">
-          {formatNumber(achieved)} / {formatNumber(target)}
+      <button
+        type="button"
+        onClick={expandable ? onToggle : undefined}
+        className={cn(
+          'flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2.5 text-left',
+          expandable
+            ? 'cursor-pointer hover:bg-[var(--color-surface-grey)]'
+            : 'cursor-default',
+        )}
+        aria-expanded={expanded}
+        aria-label={
+          expandable ? `${expanded ? 'Collapse' : 'Expand'} ${state}` : state
+        }
+      >
+        <span className="text-[13px] font-semibold text-[var(--color-navy)]">
+          {state}
         </span>
-        <span
-          className="text-sm font-bold tabular-nums"
-          style={{ color: colors.text }}
-        >
-          {pct}%
-        </span>
+        {expandable ? (
+          expanded ? (
+            <ChevronLeft className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+          )
+        ) : null}
+      </button>
+
+      <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
+        {groups.map((g, i) => (
+          <MetricRow key={i} group={g} area={area} dense={compact} />
+        ))}
       </div>
-      <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
-        Sum across {count} outcome metrics with targets.
-      </p>
     </div>
   );
 }
 
-function CalloutBox({ title, body }: { title: string; body: string }) {
+interface ExpandedStateProps {
+  state: NcrState;
+  cities: string[];
+  groups: MetricGroup[];
+  supportsRto: boolean;
+  onClose: () => void;
+  onCityClick: (city: string) => void;
+}
+
+function ExpandedState({
+  state,
+  cities,
+  groups,
+  supportsRto,
+  onClose,
+  onCityClick,
+}: ExpandedStateProps) {
   return (
-    <div className="flex items-start gap-2 rounded-md border border-[var(--color-border-blue)] bg-[var(--color-blue-pale)] px-3 py-2.5 shadow-sm">
-      <Info className="h-4 w-4 shrink-0 text-[var(--color-blue-link)]" aria-hidden />
-      <div className="text-xs text-[var(--color-text-primary)]">
-        <p className="font-semibold">{title}</p>
-        <p className="text-[var(--color-text-secondary)]">{body}</p>
+    <div className="flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white">
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
+        <span className="text-[13px] font-semibold text-[var(--color-navy)]">
+          {state}
+        </span>
+        <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">
+          City wise
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded hover:bg-[var(--color-surface-grey)]"
+          aria-label={`Collapse ${state}`}
+        >
+          <ChevronLeft className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+        </button>
+      </div>
+
+      <div
+        className="grid flex-1 divide-x divide-[var(--color-border)]"
+        style={{ gridTemplateColumns: `repeat(${cities.length}, minmax(0, 1fr))` }}
+      >
+        {cities.map((city) => (
+          <div key={city} className="flex flex-col">
+            <button
+              type="button"
+              onClick={supportsRto ? () => onCityClick(city) : undefined}
+              className={cn(
+                'border-b border-[var(--color-border)] px-3 py-2 text-left text-[12px] font-semibold text-[var(--color-navy)]',
+                supportsRto
+                  ? 'cursor-pointer hover:bg-[var(--color-blue-pale)]'
+                  : 'cursor-default',
+              )}
+              title={supportsRto ? `View RTO breakdown for ${city}` : undefined}
+            >
+              {city}
+            </button>
+            <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
+              {groups.map((g, i) => (
+                <MetricRow
+                  key={i}
+                  group={g}
+                  area={{ state, city }}
+                  dense
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
+// ─── NCR aggregate top bar ──────────────────────────────────────────────
+
+function NcrAggregateBar({ groups }: { groups: MetricGroup[] }) {
+  return (
+    <div
+      className="rounded-md border border-[#D9CF22] px-4 py-4 shadow-sm"
+      style={{ backgroundColor: RAIL_YELLOW }}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-navy)]">
+          DELHI NCR
+        </span>
+        <span className="h-px flex-1 bg-[var(--color-navy)] opacity-20" />
+        <span className="text-[11px] font-medium text-[var(--color-navy)] opacity-70">
+          Overall status across all four states
+        </span>
+      </div>
+      <div
+        className="grid gap-x-5 gap-y-2"
+        style={{
+          gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))`,
+        }}
+      >
+        {groups.map((g, i) => (
+          <MetricRow key={i} group={g} area={{}} dense />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── RTO breakdown modal ────────────────────────────────────────────────
+
+interface RtoModalProps {
+  state: NcrState;
+  city: string;
+  groups: MetricGroup[];
+  onClose: () => void;
+}
+
+function RtoModal({ state, city, groups, onClose }: RtoModalProps) {
+  const rtos = RTO_OPTIONS_BY_CITY[city] ?? [];
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal
+      aria-label={`${city} RTO breakdown`}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-[15px] font-bold text-[var(--color-navy)]">
+              {city} — RTO breakdown
+            </h2>
+            <p className="text-[11px] text-[var(--color-text-secondary)]">
+              Click outside to close · View details for {city}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-[var(--color-surface-grey)]"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4 text-[var(--color-text-secondary)]" />
+          </button>
+        </div>
+
+        {rtos.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[12px] text-[var(--color-text-secondary)]">
+            No RTO-level breakdown available for {city}.
+          </div>
+        ) : (
+          <div
+            className="grid divide-x divide-[var(--color-border)]"
+            style={{
+              gridTemplateColumns: `repeat(${rtos.length}, minmax(0, 1fr))`,
+            }}
+          >
+            {rtos.map((rto) => (
+              <div key={rto} className="flex flex-col">
+                <div className="border-b border-[var(--color-border)] px-3 py-2 text-[12px] font-semibold text-[var(--color-navy)]">
+                  {rto}
+                </div>
+                <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
+                  {groups.map((g, i) => (
+                    <MetricRow
+                      key={i}
+                      group={g}
+                      area={{ state, city, rto }}
+                      dense
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ───────────────────────────────────────────────────────────────
+
+export default function DetailPage() {
+  const { initiativeName, setInitiativeName } = useDetailFilters();
+  const navigate = useNavigate();
+
+  const init =
+    INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
+  const config = getInitiativeConfig(init.slug);
+  const supportsCity = config?.geographyLevels.includes('city') ?? false;
+  const supportsRto = config?.geographyLevels.includes('rto') ?? false;
+
+  const groups = useMemo(() => groupMetrics(init.metrics), [init]);
+
+  const [expandedState, setExpandedState] = useState<NcrState | null>(null);
+  const [modalCity, setModalCity] = useState<{ state: NcrState; city: string } | null>(null);
+
+  // Reset transient UI when the initiative changes (e.g. via dropdown).
+  useEffect(() => {
+    setExpandedState(null);
+    setModalCity(null);
+  }, [init.slug]);
+
+  const handleInitiativeChange = (slug: string) => {
+    const next = INITIATIVES.find((i) => i.slug === slug);
+    if (next) setInitiativeName(next.name);
+  };
+
+  // Column widths: when a state is expanded it gets 3fr, others stay 1fr.
+  const gridTemplate = expandedState
+    ? NCR_STATES.map((s) => (s === expandedState ? '3fr' : '1fr')).join(' ')
+    : 'repeat(4, minmax(0, 1fr))';
+
+  return (
+    <div className="flex h-screen flex-col" style={{ backgroundColor: SURFACE }}>
+      <TopBar />
+
+      <main className="relative flex flex-1 overflow-hidden">
+        {/* ── Yellow rail (back nav + breadcrumb) ── */}
+        <aside
+          className="relative flex w-[68px] shrink-0 flex-col items-center justify-between border-r border-[#D9CF22] py-4"
+          style={{ backgroundColor: RAIL_YELLOW }}
+        >
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/summary')}
+            className="group flex flex-col items-center gap-1 text-[var(--color-navy)] hover:opacity-80"
+            aria-label="Back to all programmes"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span
+              className="text-[11px] font-bold uppercase tracking-wider"
+              style={{
+                writingMode: 'vertical-rl',
+                transform: 'rotate(180deg)',
+              }}
+            >
+              All programmes
+            </span>
+          </button>
+
+          <div
+            className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-navy)] opacity-80"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          >
+            {(init.slug === 'naya-safar-yojana' ? 'NSY · ' : '') + init.name}
+          </div>
+        </aside>
+
+        {/* ── Main content ── */}
+        <div className="flex-1 overflow-auto">
+          <div className="flex flex-col gap-4 p-5">
+            {/* Initiative dropdown */}
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="initiative-select"
+                className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]"
+              >
+                Initiative
+              </label>
+              <div className="relative">
+                <select
+                  id="initiative-select"
+                  value={init.slug}
+                  onChange={(e) => handleInitiativeChange(e.target.value)}
+                  className="appearance-none rounded-md border border-[var(--color-border)] bg-white py-1.5 pl-3 pr-9 text-[13px] font-semibold text-[var(--color-navy)] shadow-sm focus:border-[var(--color-blue-link)] focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-link)]/30"
+                >
+                  {INITIATIVES.map((i) => (
+                    <option key={i.slug} value={i.slug}>
+                      {i.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+              </div>
+            </div>
+
+            {/* DELHI NCR aggregate */}
+            <NcrAggregateBar groups={groups} />
+
+            {/* State columns */}
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: gridTemplate }}
+            >
+              {NCR_STATES.map((s) => {
+                const isExpanded = expandedState === s;
+                if (isExpanded && supportsCity) {
+                  return (
+                    <ExpandedState
+                      key={s}
+                      state={s}
+                      cities={STATE_CITIES[s]}
+                      groups={groups}
+                      supportsRto={supportsRto}
+                      onClose={() => setExpandedState(null)}
+                      onCityClick={(city) => setModalCity({ state: s, city })}
+                    />
+                  );
+                }
+                return (
+                  <StateColumn
+                    key={s}
+                    state={s}
+                    groups={groups}
+                    expanded={false}
+                    expandable={supportsCity}
+                    compact={expandedState !== null}
+                    onToggle={() =>
+                      setExpandedState((prev) => (prev === s ? null : s))
+                    }
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* RTO modal */}
+        {modalCity ? (
+          <RtoModal
+            state={modalCity.state}
+            city={modalCity.city}
+            groups={groups}
+            onClose={() => setModalCity(null)}
+          />
+        ) : null}
+      </main>
+    </div>
+  );
+}
