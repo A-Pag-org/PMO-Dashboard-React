@@ -157,7 +157,7 @@ export const INITIATIVES: Initiative[] = [
       { name: 'Recycling plant capacity available (tonnes)',           type: 'progress',  target: 1000, achieved: 650, unit: 'tonnes',                 format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'MoHUA Malba portal (TBD)' },
       { name: 'No. of SCC identified (land parcels earmarked)',        type: 'progress',  target: null, achieved: 320, previousAchieved: 305,          format: 'Xx',  trackingFrequency: 'monthly', lowestLevelLabel: 'City', dataSource: 'Manual (ULB C&D Dashboard)' },
       { name: 'No. of SCC required',                                   type: 'readiness', target: null, achieved: 500, previousAchieved: 500,          format: 'Xx',  trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual (ULB C&D Dashboard)' },
-      { name: 'Adequate recycling plant capacity in place',            type: 'readiness', target: 1,    achieved: 0,                                   format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual' },
+      { name: 'Adequate recycling plant capacity in place',            type: 'readiness', target: 1,    achieved: 0,                                   format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state' },
       { name: 'Digital tool to track intake via SCCs exists',          type: 'readiness', target: 1,    achieved: 1,                                   format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'City', dataSource: 'Manual', visibleWhen: 'state+city+agency' },
     ],
   },

@@ -114,17 +114,29 @@ function groupMetrics(metrics: Metric[]): MetricGroup[] {
  * will override this entirely.
  */
 /**
- * Spec §8 visibility gate. Some readiness Y/N metrics (e.g. Road Repair's
- * "Road asset baseline completed", MRS / C&D-SCC's digital-tool flags)
- * only carry meaning at the city level — they should disappear from the
- * NCR aggregate strip and the state columns, and re-appear inside the
- * city sub-columns and the RTO modal. The data model encodes this via
- * `Metric.visibleWhen`; anything tighter than 'state' requires a city.
+ * Spec §8 visibility gate. Metrics carry an optional `visibleWhen` that
+ * controls which scope they should appear at:
+ *   · undefined         — visible everywhere (NCR / state / city / RTO).
+ *   · 'state'           — visible only when one state is the focus —
+ *                         i.e. in the state-aggregate top bar after a
+ *                         state has been expanded. Hidden in the NCR
+ *                         aggregate, the default 4-state tile row, the
+ *                         dimmed peer columns, the city sub-columns, and
+ *                         the RTO modal.
+ *   · 'state+city'      — visible only inside a city sub-column or the
+ *   · 'state+city+agency' RTO modal (city scope).
+ *
+ * Render contexts ask "is this metric visible at scope X?" via
+ * visibleForScope, and the page builds three group lists accordingly.
  */
-function visibleForArea(metric: Metric, area: AreaScope): boolean {
+type RenderScope = 'ncr' | 'state' | 'city';
+
+function visibleForScope(metric: Metric, scope: RenderScope): boolean {
   const gate = metric.visibleWhen;
-  if (!gate || gate === 'state') return true;
-  return !!area.city;
+  if (!gate) return true;
+  if (gate === 'state') return scope === 'state';
+  // 'state+city' / 'state+city+agency' — city scope only.
+  return scope === 'city';
 }
 
 /** Small deterministic int hash for jitter seeding. */
@@ -643,20 +655,34 @@ export default function DetailPage() {
   const supportsCity = config?.geographyLevels.includes('city') ?? false;
   const supportsRto = config?.geographyLevels.includes('rto') ?? false;
 
-  // Two group lists per the spec's visibility gate (see visibleForArea):
-  //   · stateGroups — city-only readiness metrics are excluded. Used in
-  //     the NCR aggregate strip and the state-column stack.
-  //   · cityGroups  — full metric set. Used inside the expanded state's
-  //     city sub-columns and the RTO modal, where the city scope is set.
+  // Three group lists per the spec's visibility gate (see
+  // visibleForScope):
+  //   · ncrGroups   — only metrics with no `visibleWhen` restriction.
+  //                   Used for the NCR aggregate strip and the four
+  //                   default state tiles + dimmed peer columns. Neither
+  //                   state-only nor city-only readiness flags surface
+  //                   here.
+  //   · stateGroups — NCR-level + state-only metrics. Used for the top
+  //                   yellow bar after the user expands one state — the
+  //                   only place a `visibleWhen: 'state'` metric (e.g.
+  //                   MRS "Procurement of all additional MRS initiated")
+  //                   is meaningful.
+  //   · cityGroups  — NCR-level + city-only metrics. Used inside the
+  //                   expanded state's city sub-columns and the RTO
+  //                   modal, where the city scope is set.
+  const ncrGroups = useMemo(
+    () =>
+      groupMetrics(init.metrics.filter((m) => visibleForScope(m, 'ncr'))),
+    [init],
+  );
   const stateGroups = useMemo(
-    () => groupMetrics(init.metrics.filter((m) => visibleForArea(m, {}))),
+    () =>
+      groupMetrics(init.metrics.filter((m) => visibleForScope(m, 'state'))),
     [init],
   );
   const cityGroups = useMemo(
     () =>
-      groupMetrics(
-        init.metrics.filter((m) => visibleForArea(m, { city: '*' })),
-      ),
+      groupMetrics(init.metrics.filter((m) => visibleForScope(m, 'city'))),
     [init],
   );
 
@@ -728,12 +754,14 @@ export default function DetailPage() {
               </div>
             </div>
 
-            {/* Aggregate yellow bar (NCR or selected state) */}
+            {/* Aggregate yellow bar — NCR scope by default, state scope
+                when one is expanded. State-only metrics appear only in
+                the state-scope variant. */}
             <AggregateBar
               title={aggregate.title}
               subtitle={aggregate.subtitle}
               area={aggregate.area}
-              groups={stateGroups}
+              groups={expandedState ? stateGroups : ncrGroups}
             />
 
             {/* State columns */}
@@ -760,7 +788,7 @@ export default function DetailPage() {
                   <StateColumn
                     key={s}
                     state={s}
-                    groups={stateGroups}
+                    groups={ncrGroups}
                     expandable={supportsCity}
                     dimmed={expandedState !== null}
                     onToggle={() => setExpandedState(s)}
