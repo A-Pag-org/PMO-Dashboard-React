@@ -22,8 +22,7 @@
 //   the city's RTO breakdown.
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import { INITIATIVES, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
 import { getMetricValueForArea } from '@/lib/aggregation';
@@ -72,26 +71,32 @@ interface MetricGroup {
  * as separate single rows so events-conducted and events-planned still
  * read as distinct line items, mirroring the wireframe.
  */
+/**
+ * Collapses an initiative's metric list into the row groups rendered in
+ * each column. Metrics that share a `cluster` key whose leader carries a
+ * `clusterLabel` are merged into a single side-by-side row (e.g. Trucks
+ * + Buses under "Pre-BS VI converted", Conducted + Planned under
+ * "Events"). All other metrics render as standalone single rows.
+ */
 function groupMetrics(metrics: Metric[]): MetricGroup[] {
-  // Clusters whose leader (the metric carrying clusterLabel / clusterType)
-  // marks them as a side-by-side outcome pair.
-  const outcomeClusterIds = new Set<string>();
+  // A cluster is renderable as a side-by-side row only if some metric in
+  // it carries a clusterLabel — that's the leader text we show above the
+  // values. Clusters without a labelled leader fall back to individual
+  // rows so we never show ungrouped siblings under an empty header.
+  const labelledClusterIds = new Set<string>();
   for (const m of metrics) {
-    if (m.cluster && m.clusterType === 'outcome') {
-      outcomeClusterIds.add(m.cluster);
-    }
+    if (m.cluster && m.clusterLabel) labelledClusterIds.add(m.cluster);
   }
 
   const groups: MetricGroup[] = [];
   const renderedClusters = new Set<string>();
 
   for (const m of metrics) {
-    if (m.cluster && outcomeClusterIds.has(m.cluster)) {
+    if (m.cluster && labelledClusterIds.has(m.cluster)) {
       if (renderedClusters.has(m.cluster)) continue;
       renderedClusters.add(m.cluster);
       const siblings = metrics.filter((x) => x.cluster === m.cluster);
-      const leader =
-        siblings.find((s) => s.clusterLabel) ?? siblings[0];
+      const leader = siblings.find((s) => s.clusterLabel) ?? siblings[0];
       groups.push({
         kind: 'cluster',
         label: leader.clusterLabel ?? leader.name,
@@ -288,28 +293,26 @@ function ValueCell({ big, denominator, pct, subLabel }: ValueCellProps) {
 interface StateColumnProps {
   state: NcrState;
   groups: MetricGroup[];
-  expanded: boolean;
   expandable: boolean;
   onToggle: () => void;
-  /** When another state is expanded, this column becomes a compact peer. */
-  compact: boolean;
+  /** Some other state is expanded — this column dims out of focus. */
+  dimmed: boolean;
 }
 
 function StateColumn({
   state,
   groups,
-  expanded,
   expandable,
   onToggle,
-  compact,
+  dimmed,
 }: StateColumnProps) {
   const area: AreaScope = { state };
 
   return (
     <div
       className={cn(
-        'flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white',
-        compact && 'opacity-95',
+        'flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white transition-opacity',
+        dimmed && 'opacity-30 hover:opacity-60',
       )}
     >
       <button
@@ -321,26 +324,22 @@ function StateColumn({
             ? 'cursor-pointer hover:bg-[var(--color-surface-grey)]'
             : 'cursor-default',
         )}
-        aria-expanded={expanded}
+        aria-expanded={false}
         aria-label={
-          expandable ? `${expanded ? 'Collapse' : 'Expand'} ${state}` : state
+          expandable ? `Expand ${state}` : state
         }
       >
         <span className="text-[13px] font-semibold text-[var(--color-navy)]">
           {state}
         </span>
         {expandable ? (
-          expanded ? (
-            <ChevronLeft className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
-          )
+          <ChevronRight className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
         ) : null}
       </button>
 
       <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
         {groups.map((g, i) => (
-          <MetricRow key={i} group={g} area={area} dense={compact} />
+          <MetricRow key={i} group={g} area={area} dense={dimmed} />
         ))}
       </div>
     </div>
@@ -365,8 +364,10 @@ function ExpandedState({
   onCityClick,
 }: ExpandedStateProps) {
   return (
-    <div className="flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white">
-      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
+    <div
+      className="flex h-full flex-col rounded-md border-2 border-[var(--color-navy)] bg-white shadow-md ring-2 ring-[#F2EA00]/40"
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[#FFFCE6] px-3 py-2.5">
         <span className="text-[13px] font-semibold text-[var(--color-navy)]">
           {state}
         </span>
@@ -538,7 +539,6 @@ function RtoModal({ state, city, groups, onClose }: RtoModalProps) {
 
 export default function DetailPage() {
   const { initiativeName, setInitiativeName } = useDetailFilters();
-  const navigate = useNavigate();
 
   const init =
     INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
@@ -572,37 +572,6 @@ export default function DetailPage() {
       <TopBar />
 
       <main className="relative flex flex-1 overflow-hidden">
-        {/* ── Yellow rail (back nav + breadcrumb) ── */}
-        <aside
-          className="relative flex w-[68px] shrink-0 flex-col items-center justify-between border-r border-[#D9CF22] py-4"
-          style={{ backgroundColor: RAIL_YELLOW }}
-        >
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/summary')}
-            className="group flex flex-col items-center gap-1 text-[var(--color-navy)] hover:opacity-80"
-            aria-label="Back to all programmes"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span
-              className="text-[11px] font-bold uppercase tracking-wider"
-              style={{
-                writingMode: 'vertical-rl',
-                transform: 'rotate(180deg)',
-              }}
-            >
-              All programmes
-            </span>
-          </button>
-
-          <div
-            className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-navy)] opacity-80"
-            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-          >
-            {(init.slug === 'naya-safar-yojana' ? 'NSY · ' : '') + init.name}
-          </div>
-        </aside>
-
         {/* ── Main content ── */}
         <div className="flex-1 overflow-auto">
           <div className="flex flex-col gap-4 p-5">
@@ -659,12 +628,9 @@ export default function DetailPage() {
                     key={s}
                     state={s}
                     groups={groups}
-                    expanded={false}
                     expandable={supportsCity}
-                    compact={expandedState !== null}
-                    onToggle={() =>
-                      setExpandedState((prev) => (prev === s ? null : s))
-                    }
+                    dimmed={expandedState !== null}
+                    onToggle={() => setExpandedState(s)}
                   />
                 );
               })}
