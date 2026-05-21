@@ -241,9 +241,13 @@ function metricValue(metric: Metric, area: PageAreaScope): ValueDisplay {
       isInverse,
     };
   }
+  // X/Y — render the achieved and target inline as a single "x / y"
+  // string so every tile (yellow aggregate bar, state column, city
+  // sub-column, RTO/agency modal) shows both numerator and denominator
+  // on one line at one font size.
   return {
-    big: formatNumber(agg.achieved ?? 0),
-    denominator: `of ${formatNumber(agg.target ?? 0)}`,
+    big: `${formatNumber(agg.achieved ?? 0)} / ${formatNumber(agg.target ?? 0)}`,
+    denominator: null,
     pct: agg.pct,
     isInverse,
   };
@@ -263,7 +267,7 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
   if (group.kind === 'cluster' && group.metrics.length >= 2) {
     return (
       <div className={cn('flex flex-col gap-1', dense ? 'py-1.5' : 'py-2')}>
-        <RowLabel text={group.label} />
+        <RowLabel text={group.label} dense={dense} />
         <div className="grid grid-cols-2 gap-3">
           {group.metrics.map((m) => {
             const v = metricValue(m, area);
@@ -301,7 +305,7 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
     const ratioSubLabel = `${leader.clusterSubLabel ?? leader.name} / ${denominatorMetric.clusterSubLabel ?? denominatorMetric.name}`;
     return (
       <div className={cn('flex flex-col gap-1', dense ? 'py-1.5' : 'py-2')}>
-        <RowLabel text={group.label} />
+        <RowLabel text={group.label} dense={dense} />
         <ValueCell
           big={`${formatNumber(num)} / ${formatNumber(den)}`}
           denominator={null}
@@ -318,7 +322,7 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
   const v = metricValue(m, area);
   return (
     <div className={cn('flex flex-col gap-1', dense ? 'py-1.5' : 'py-2')}>
-      <RowLabel text={group.label} />
+      <RowLabel text={group.label} dense={dense} />
       <ValueCell
         big={v.big}
         denominator={v.denominator}
@@ -331,10 +335,13 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
   );
 }
 
-function RowLabel({ text }: { text: string }) {
+function RowLabel({ text, dense }: { text: string; dense?: boolean }) {
   return (
     <div
-      className="truncate text-[10.5px] font-medium leading-tight text-[var(--color-text-secondary)]"
+      className={cn(
+        'truncate font-medium leading-tight text-[var(--color-text-secondary)]',
+        dense ? 'text-[11px]' : 'text-[10.5px]',
+      )}
       title={text}
     >
       {text}
@@ -365,12 +372,19 @@ function ValueCell({
   const band = pct !== null ? getColorBand(pct, isInverse) : null;
   const bandColors = band ? getBandColors(band) : null;
 
+  // In dense mode (the yellow aggregate bar) every text element — row
+  // label, value, sub-label, % overlay — uses the same 11px size so the
+  // "x / y" values share a single baseline across every tile in the
+  // bar, and the x/y pair stays on a single line even with Indian-
+  // grouped numbers.
   return (
     <div className="flex flex-col gap-1">
       <div
         className={cn(
-          'truncate font-bold leading-none text-[var(--color-navy)]',
-          dense ? 'text-[16px]' : 'text-[20px]',
+          'font-bold leading-none text-[var(--color-navy)]',
+          dense
+            ? 'whitespace-nowrap text-[11px]'
+            : 'truncate whitespace-nowrap text-[20px]',
         )}
         title={big}
       >
@@ -392,7 +406,10 @@ function ValueCell({
             // mix-blend-difference keeps the % readable on both the
             // saturated fill and the light remainder — white text inverts
             // to a dark, contrasty colour over any band tint.
-            className="absolute inset-0 flex items-center justify-end pr-1.5 text-[9px] font-bold leading-none text-white"
+            className={cn(
+              'absolute inset-0 flex items-center justify-end pr-1.5 font-bold leading-none text-white',
+              dense ? 'text-[11px]' : 'text-[9px]',
+            )}
             style={{ mixBlendMode: 'difference' }}
           >
             {pct}%
@@ -400,7 +417,12 @@ function ValueCell({
         </div>
       ) : null}
       {subLabel || denominator ? (
-        <div className="flex items-baseline gap-1 truncate text-[9.5px] leading-tight text-[var(--color-text-secondary)]">
+        <div
+          className={cn(
+            'flex items-baseline gap-1 truncate leading-tight text-[var(--color-text-secondary)]',
+            dense ? 'text-[11px]' : 'text-[9.5px]',
+          )}
+        >
           {subLabel ? (
             <span className="truncate font-medium">{subLabel}</span>
           ) : null}
@@ -822,8 +844,13 @@ export default function DetailPage() {
       <main className="relative flex flex-1 flex-col overflow-hidden">
         {/* ── Scrollable content ── */}
         <div className="flex-1 overflow-auto">
-          <div className="flex flex-col gap-4 p-5 pb-3">
-            {/* Initiative dropdown */}
+          {/* Sticky initiative selection bar — pins to the top of the
+              scroll area so the user can switch initiatives at any
+              point while reviewing the state / city detail rows. */}
+          <div
+            className="sticky top-0 z-20 border-b border-[var(--color-border)] px-5 py-3 shadow-sm"
+            style={{ backgroundColor: SURFACE }}
+          >
             <div className="flex items-center gap-3">
               <label
                 htmlFor="initiative-select"
@@ -847,7 +874,9 @@ export default function DetailPage() {
                 <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-secondary)]" />
               </div>
             </div>
+          </div>
 
+          <div className="flex flex-col gap-4 px-5 pb-3 pt-4">
             {/* Aggregate yellow bar — NCR scope by default, state scope
                 when one is expanded. State-only metrics appear only in
                 the state-scope variant. */}
