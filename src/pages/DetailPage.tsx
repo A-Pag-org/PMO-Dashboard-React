@@ -479,7 +479,7 @@ function StateColumn({
         type="button"
         onClick={clickable ? onClick : undefined}
         className={cn(
-          'flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2 text-left',
+          'sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-md border-b border-[var(--color-border)] bg-white px-3 py-2 text-left',
           clickable
             ? 'cursor-pointer hover:bg-[var(--color-surface-grey)]'
             : 'cursor-default',
@@ -538,7 +538,7 @@ function ExpandedState({
     <div
       className="flex h-full flex-col rounded-md border-2 border-[var(--color-navy)] bg-white shadow-md ring-2 ring-[#F2EA00]/40"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[#FFFCE6] px-3 py-2.5">
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 rounded-t-[4px] border-b border-[var(--color-border)] bg-[#FFFCE6] px-3 py-2.5">
         <GeoPill label={state} />
         <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">
           City wise
@@ -565,7 +565,10 @@ function ExpandedState({
                 type="button"
                 onClick={drillable ? () => onCityClick(city) : undefined}
                 className={cn(
-                  'flex flex-col items-start gap-1 border-b border-[var(--color-border)] px-3 py-1.5 text-left',
+                  // Sticks below the expanded-state outer header (z-20
+                  // / ~44px tall) so the city pill stays visible while
+                  // a column's metric rows scroll past underneath.
+                  'sticky top-11 z-10 flex flex-col items-start gap-1 border-b border-[var(--color-border)] bg-white px-3 py-1.5 text-left',
                   drillable
                     ? 'cursor-pointer hover:bg-[var(--color-blue-pale)]'
                     : 'cursor-default',
@@ -714,7 +717,7 @@ function DrillModal({
                   : { state, city, agency: item };
               return (
                 <div key={item} className="flex flex-col">
-                  <div className="border-b border-[var(--color-border)] px-3 py-2">
+                  <div className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-white px-3 py-2">
                     <GeoPill label={item} size="sm" />
                   </div>
                   <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
@@ -854,20 +857,27 @@ export default function DetailPage() {
               >
                 Initiative
               </label>
+              {/* The trigger renders the selected initiative name in the
+                  same navy-pill design used for every geographic
+                  hierarchy chip (DELHI NCR, Delhi, Noida, ...). Native
+                  <option> chrome is browser-controlled and can't be
+                  pill-styled, so the open list reverts to native
+                  rendering. */}
               <div className="relative">
                 <select
                   id="initiative-select"
                   value={init.slug}
                   onChange={(e) => handleInitiativeChange(e.target.value)}
-                  className="appearance-none rounded-md border border-[var(--color-border)] bg-white py-1.5 pl-3 pr-9 text-[13px] font-semibold text-[var(--color-navy)] shadow-sm focus:border-[var(--color-blue-link)] focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-link)]/30"
+                  className="appearance-none rounded-lg border border-transparent py-1 pl-3 pr-9 text-[12px] font-bold leading-tight text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-white/60 focus:ring-offset-2 focus:ring-offset-[#F6F1E8]"
+                  style={{ backgroundColor: NAVY_PILL }}
                 >
                   {INITIATIVES.map((i) => (
-                    <option key={i.slug} value={i.slug}>
+                    <option key={i.slug} value={i.slug} className="text-[var(--color-navy)]">
                       {i.name}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white" />
               </div>
             </div>
 
