@@ -209,8 +209,8 @@ export const INITIATIVES: Initiative[] = [
       { name: 'No. of trees planted',                                     type: 'progress',  target: 250000, achieved: 162000,        format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual', cluster: 'trees-shrubs', clusterLabel: 'Trees & shrubs planted', clusterType: 'progress', clusterSubLabel: 'Trees' },
       { name: 'No. of shrubs planted',                                    type: 'progress',  target: 180000, achieved: 78000,         format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual', cluster: 'trees-shrubs', clusterSubLabel: 'Shrubs' },
       { name: 'No. of bamboos planted',                                   type: 'progress',  target: 60000,  achieved: 12000,         format: 'X/Y', trackingFrequency: 'monthly', lowestLevelLabel: 'State', dataSource: 'Manual' },
-      { name: 'Annual city-level greening action plan finalized',         type: 'progress',  target: 1, achieved: 1,                  format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual (Forest/Horticulture dept)' },
-      { name: 'Phase 1 implementation of greening action plan initiated', type: 'progress',  target: 1, achieved: 0,                  format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual (Forest/Horticulture dept)' },
+      { name: 'Annual city-level greening action plan finalized',         type: 'progress',  target: 1, achieved: 1,                  format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual (Forest/Horticulture dept)', visibleWhen: 'state' },
+      { name: 'Phase 1 implementation of greening action plan initiated', type: 'progress',  target: 1, achieved: 0,                  format: 'Y/N', trackingFrequency: 'overall', lowestLevelLabel: 'State', dataSource: 'Manual (Forest/Horticulture dept)', visibleWhen: 'state' },
     ],
   },
 ];
