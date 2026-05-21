@@ -82,6 +82,18 @@ export interface Metric {
   /** Sub-row label inside the cluster tile (e.g. "Trucks", "Buses"). */
   clusterSubLabel?: string;
   /**
+   * How the cluster's two metrics should be combined on the new
+   * DetailPage:
+   *   · 'side-by-side' (default) — each metric keeps its own target and
+   *     renders as its own number + bar + sub-label. Use this when the
+   *     two metrics are parallel counts (Trucks vs Buses, Trees vs
+   *     Shrubs).
+   *   · 'ratio' — the leader's `achieved` is rendered over the other
+   *     metric's `achieved` as a single A/B value with one bar (e.g.
+   *     Events Conducted / Planned).
+   */
+  clusterRender?: 'side-by-side' | 'ratio';
+  /**
    * Optional visibility gate for the Detail-page tile. When set, the
    * tile only appears once the user has narrowed the filters enough:
    *   · 'state'             — a specific state is selected
