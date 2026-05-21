@@ -152,23 +152,43 @@ function hashStr(s: string): number {
   return Math.abs(h);
 }
 
-function aggregateForArea(metric: Metric, area: AreaScope) {
+/**
+ * Page-local extension of AreaScope that carries an optional `agency`
+ * leaf. The underlying aggregation helper doesn't model agency as a
+ * weighting level, so we strip it before delegating and apply the same
+ * deterministic jitter we already use for RTOs to keep sibling agency
+ * columns visually distinct.
+ */
+type PageAreaScope = AreaScope & { agency?: string };
+
+function aggregateForArea(metric: Metric, area: PageAreaScope) {
+  const baseArea: AreaScope = {
+    state: area.state,
+    city: area.city,
+    rto: area.rto,
+    toll: area.toll,
+    ulb: area.ulb,
+  };
   const splittable: Metric =
     metric.geographyLevel === 'central'
       ? { ...metric, geographyLevel: undefined }
       : metric;
   const agg = getMetricValueForArea(
     splittable,
-    area,
-    `${area.state ?? 'NCR'}|${area.city ?? ''}|${area.rto ?? ''}`,
+    baseArea,
+    `${area.state ?? 'NCR'}|${area.city ?? ''}|${area.rto ?? ''}|${area.agency ?? ''}`,
   );
 
   // The aggregation helper splits parent totals evenly across child cities
-  // / RTOs, so every Noida-vs-Greater-Noida value would be identical. For
-  // the demo we apply a deterministic ±15% jitter at the deepest level so
-  // sibling columns visually differentiate without changing the parent
-  // total in a confusing way. Real data will replace this entirely.
-  const childKey = area.rto ?? (area.city && area.state ? area.city : null);
+  // / RTOs / agencies, so every Noida-vs-Greater-Noida value would be
+  // identical. For the demo we apply a deterministic ±15% jitter at the
+  // deepest level so sibling columns visually differentiate without
+  // changing the parent total in a confusing way. Real data will replace
+  // this entirely.
+  const childKey =
+    area.agency ??
+    area.rto ??
+    (area.city && area.state ? area.city : null);
   if (!childKey || agg.format === 'Y/N') return agg;
 
   const factor =
@@ -207,7 +227,7 @@ interface ValueDisplay {
   isInverse: boolean;
 }
 
-function metricValue(metric: Metric, area: AreaScope): ValueDisplay {
+function metricValue(metric: Metric, area: PageAreaScope): ValueDisplay {
   const agg = aggregateForArea(metric, area);
   const isInverse = metric.isInverse ?? false;
   if (agg.format === 'Y/N') {
@@ -233,7 +253,7 @@ function metricValue(metric: Metric, area: AreaScope): ValueDisplay {
 
 interface MetricRowProps {
   group: MetricGroup;
-  area: AreaScope;
+  area: PageAreaScope;
   /** Compact mode used inside the aggregate top bar and city sub-columns. */
   dense?: boolean;
 }
@@ -396,8 +416,12 @@ function ValueCell({
 interface StateColumnProps {
   state: NcrState;
   groups: MetricGroup[];
-  expandable: boolean;
-  onToggle: () => void;
+  /** Whether clicking the header does anything (drilldown or expand). */
+  clickable: boolean;
+  /** Small hint shown under the state name, e.g. "Click to enter city
+   *  level" or "Click to enter agency level". */
+  helpText?: string;
+  onClick: () => void;
   /** Some other state is expanded — this column dims out of focus. */
   dimmed: boolean;
 }
@@ -405,11 +429,12 @@ interface StateColumnProps {
 function StateColumn({
   state,
   groups,
-  expandable,
-  onToggle,
+  clickable,
+  helpText,
+  onClick,
   dimmed,
 }: StateColumnProps) {
-  const area: AreaScope = { state };
+  const area: PageAreaScope = { state };
 
   return (
     <div
@@ -420,23 +445,29 @@ function StateColumn({
     >
       <button
         type="button"
-        onClick={expandable ? onToggle : undefined}
+        onClick={clickable ? onClick : undefined}
         className={cn(
-          'flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2.5 text-left',
-          expandable
+          'flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2 text-left',
+          clickable
             ? 'cursor-pointer hover:bg-[var(--color-surface-grey)]'
             : 'cursor-default',
         )}
-        aria-expanded={false}
         aria-label={
-          expandable ? `Expand ${state}` : state
+          clickable ? `${helpText ?? `Open ${state}`}` : state
         }
       >
-        <span className="text-[13px] font-semibold text-[var(--color-navy)]">
-          {state}
-        </span>
-        {expandable ? (
-          <ChevronRight className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-[13px] font-semibold text-[var(--color-navy)]">
+            {state}
+          </span>
+          {clickable && helpText ? (
+            <span className="truncate text-[9.5px] font-medium uppercase tracking-wide text-[var(--color-blue-link)]">
+              {helpText}
+            </span>
+          ) : null}
+        </div>
+        {clickable ? (
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--color-text-secondary)]" />
         ) : null}
       </button>
 
@@ -453,7 +484,12 @@ interface ExpandedStateProps {
   state: NcrState;
   cities: string[];
   groups: MetricGroup[];
-  supportsRto: boolean;
+  /** Leaf level that lives below a city for this initiative ('rto' for
+   *  NSY, 'agency' for Road Repair / MRS / C&D-SCC), or null if there's
+   *  no drill below city. */
+  leafKind: LeafKind | null;
+  /** Predicate: does this city have any leaf-level items configured? */
+  cityHasLeafItems: (city: string) => boolean;
   onClose: () => void;
   onCityClick: (city: string) => void;
 }
@@ -462,10 +498,12 @@ function ExpandedState({
   state,
   cities,
   groups,
-  supportsRto,
+  leafKind,
+  cityHasLeafItems,
   onClose,
   onCityClick,
 }: ExpandedStateProps) {
+  const leafLabel = leafKind === 'rto' ? 'RTO' : 'agency';
   return (
     <div
       className="flex h-full flex-col rounded-md border-2 border-[var(--color-navy)] bg-white shadow-md ring-2 ring-[#F2EA00]/40"
@@ -491,33 +529,45 @@ function ExpandedState({
         className="grid flex-1 divide-x divide-[var(--color-border)]"
         style={{ gridTemplateColumns: `repeat(${cities.length}, minmax(0, 1fr))` }}
       >
-        {cities.map((city) => (
-          <div key={city} className="flex flex-col">
-            <button
-              type="button"
-              onClick={supportsRto ? () => onCityClick(city) : undefined}
-              className={cn(
-                'border-b border-[var(--color-border)] px-3 py-2 text-left text-[12px] font-semibold text-[var(--color-navy)]',
-                supportsRto
-                  ? 'cursor-pointer hover:bg-[var(--color-blue-pale)]'
-                  : 'cursor-default',
-              )}
-              title={supportsRto ? `View RTO breakdown for ${city}` : undefined}
-            >
-              {city}
-            </button>
-            <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
-              {groups.map((g, i) => (
-                <MetricRow
-                  key={i}
-                  group={g}
-                  area={{ state, city }}
-                  dense
-                />
-              ))}
+        {cities.map((city) => {
+          const drillable = leafKind !== null && cityHasLeafItems(city);
+          return (
+            <div key={city} className="flex flex-col">
+              <button
+                type="button"
+                onClick={drillable ? () => onCityClick(city) : undefined}
+                className={cn(
+                  'flex flex-col gap-0.5 border-b border-[var(--color-border)] px-3 py-1.5 text-left',
+                  drillable
+                    ? 'cursor-pointer hover:bg-[var(--color-blue-pale)]'
+                    : 'cursor-default',
+                )}
+                title={
+                  drillable ? `View ${leafLabel} breakdown for ${city}` : undefined
+                }
+              >
+                <span className="truncate text-[12px] font-semibold text-[var(--color-navy)]">
+                  {city}
+                </span>
+                {drillable ? (
+                  <span className="truncate text-[9.5px] font-medium uppercase tracking-wide text-[var(--color-blue-link)]">
+                    Click to enter {leafLabel} level
+                  </span>
+                ) : null}
+              </button>
+              <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
+                {groups.map((g, i) => (
+                  <MetricRow
+                    key={i}
+                    group={g}
+                    area={{ state, city }}
+                    dense
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -528,7 +578,7 @@ function ExpandedState({
 interface AggregateBarProps {
   title: string;
   subtitle: string;
-  area: AreaScope;
+  area: PageAreaScope;
   groups: MetricGroup[];
 }
 
@@ -566,23 +616,35 @@ function AggregateBar({ title, subtitle, area, groups }: AggregateBarProps) {
   );
 }
 
-// ─── RTO breakdown modal ────────────────────────────────────────────────
+// ─── Leaf-level breakdown modal (RTO or Agency) ─────────────────────────
 
-interface RtoModalProps {
+type LeafKind = 'rto' | 'agency';
+
+interface DrillModalProps {
   state: NcrState;
   city: string;
+  items: string[];
+  /** Which leaf is being drilled — drives the title and area-building. */
+  leaf: LeafKind;
   groups: MetricGroup[];
   onClose: () => void;
 }
 
-function RtoModal({ state, city, groups, onClose }: RtoModalProps) {
-  const rtos = RTO_OPTIONS_BY_CITY[city] ?? [];
-
+function DrillModal({
+  state,
+  city,
+  items,
+  leaf,
+  groups,
+  onClose,
+}: DrillModalProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  const leafLabel = leaf === 'rto' ? 'RTO' : 'Agency';
 
   return (
     <div
@@ -590,7 +652,7 @@ function RtoModal({ state, city, groups, onClose }: RtoModalProps) {
       onClick={onClose}
       role="dialog"
       aria-modal
-      aria-label={`${city} RTO breakdown`}
+      aria-label={`${city} ${leafLabel} breakdown`}
     >
       <div
         className="max-h-[85vh] w-full max-w-4xl overflow-auto rounded-lg bg-white shadow-2xl"
@@ -599,7 +661,7 @@ function RtoModal({ state, city, groups, onClose }: RtoModalProps) {
         <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
           <div className="flex flex-col gap-0.5">
             <h2 className="text-[15px] font-bold text-[var(--color-navy)]">
-              {city} — RTO breakdown
+              {city} — {leafLabel} breakdown
             </h2>
             <p className="text-[11px] text-[var(--color-text-secondary)]">
               Click outside to close · View details for {city}
@@ -615,34 +677,35 @@ function RtoModal({ state, city, groups, onClose }: RtoModalProps) {
           </button>
         </div>
 
-        {rtos.length === 0 ? (
+        {items.length === 0 ? (
           <div className="px-5 py-8 text-center text-[12px] text-[var(--color-text-secondary)]">
-            No RTO-level breakdown available for {city}.
+            No {leafLabel}-level breakdown available for {city}.
           </div>
         ) : (
           <div
             className="grid divide-x divide-[var(--color-border)]"
             style={{
-              gridTemplateColumns: `repeat(${rtos.length}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
             }}
           >
-            {rtos.map((rto) => (
-              <div key={rto} className="flex flex-col">
-                <div className="border-b border-[var(--color-border)] px-3 py-2 text-[12px] font-semibold text-[var(--color-navy)]">
-                  {rto}
+            {items.map((item) => {
+              const area: PageAreaScope =
+                leaf === 'rto'
+                  ? { state, city, rto: item }
+                  : { state, city, agency: item };
+              return (
+                <div key={item} className="flex flex-col">
+                  <div className="border-b border-[var(--color-border)] px-3 py-2 text-[12px] font-semibold text-[var(--color-navy)]">
+                    {item}
+                  </div>
+                  <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
+                    {groups.map((g, i) => (
+                      <MetricRow key={i} group={g} area={area} dense />
+                    ))}
+                  </div>
                 </div>
-                <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
-                  {groups.map((g, i) => (
-                    <MetricRow
-                      key={i}
-                      group={g}
-                      area={{ state, city, rto }}
-                      dense
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -660,6 +723,31 @@ export default function DetailPage() {
   const config = getInitiativeConfig(init.slug);
   const supportsCity = config?.geographyLevels.includes('city') ?? false;
   const supportsRto = config?.geographyLevels.includes('rto') ?? false;
+
+  // Some initiatives carry a per-city Agency list (Road Repair, MRS,
+  // C&D-SCC) as an extraFilter. Surface it as a leaf level so users can
+  // drill state → city → agency. RTOs and Agencies are mutually
+  // exclusive in the data model; we pick whichever this initiative
+  // provides.
+  const agencyOptionsByCity = useMemo<Record<string, string[]> | null>(() => {
+    const f = config?.extraFilters.find((x) => x.key === 'agency');
+    return f?.optionsByCity ?? null;
+  }, [config]);
+  const supportsAgency = agencyOptionsByCity !== null;
+  const leafKind: LeafKind | null = supportsRto
+    ? 'rto'
+    : supportsAgency
+      ? 'agency'
+      : null;
+
+  function leafItemsForCity(city: string): string[] {
+    if (leafKind === 'rto') return RTO_OPTIONS_BY_CITY[city] ?? [];
+    if (leafKind === 'agency') return agencyOptionsByCity?.[city] ?? [];
+    return [];
+  }
+  function cityHasLeafItems(city: string): boolean {
+    return leafItemsForCity(city).length > 0;
+  }
 
   // Three group lists per the spec's visibility gate (see
   // visibleForScope):
@@ -719,12 +807,12 @@ export default function DetailPage() {
     ? {
         title: expandedState.toUpperCase(),
         subtitle: `Overall status across all cities in ${expandedState}`,
-        area: { state: expandedState } as AreaScope,
+        area: { state: expandedState } as PageAreaScope,
       }
     : {
         title: 'DELHI NCR',
         subtitle: 'Overall status across all four states',
-        area: {} as AreaScope,
+        area: {} as PageAreaScope,
       };
 
   return (
@@ -784,20 +872,46 @@ export default function DetailPage() {
                       state={s}
                       cities={STATE_CITIES[s]}
                       groups={cityGroups}
-                      supportsRto={supportsRto}
+                      leafKind={leafKind}
+                      cityHasLeafItems={cityHasLeafItems}
                       onClose={() => setExpandedState(null)}
                       onCityClick={(city) => setModalCity({ state: s, city })}
                     />
                   );
                 }
+                // Delhi is both a state and its own city. For agency-mode
+                // initiatives (Road Repair / MRS / C&D-SCC) we skip the
+                // pointless 1-city expand step and drill straight into
+                // the Agency modal with city = 'Delhi'. Other states
+                // take the standard city-list expansion path.
+                const cities = STATE_CITIES[s];
+                const isDelhiAgencyShortcut =
+                  s === 'Delhi' &&
+                  leafKind === 'agency' &&
+                  cities.length === 1 &&
+                  cityHasLeafItems(cities[0]);
+                const clickable = supportsCity || isDelhiAgencyShortcut;
+                const helpText = !clickable
+                  ? undefined
+                  : isDelhiAgencyShortcut
+                    ? 'Click to enter agency level'
+                    : leafKind === 'agency'
+                      ? 'Click to enter city level'
+                      : leafKind === 'rto'
+                        ? 'Click to enter city level'
+                        : 'Click to enter city level';
+                const onClick = isDelhiAgencyShortcut
+                  ? () => setModalCity({ state: s, city: cities[0] })
+                  : () => setExpandedState(s);
                 return (
                   <StateColumn
                     key={s}
                     state={s}
                     groups={ncrGroups}
-                    expandable={supportsCity}
+                    clickable={clickable}
+                    helpText={helpText}
                     dimmed={expandedState !== null}
-                    onToggle={() => setExpandedState(s)}
+                    onClick={onClick}
                   />
                 );
               })}
@@ -815,11 +929,15 @@ export default function DetailPage() {
           </div>
         </footer>
 
-        {/* RTO modal */}
-        {modalCity ? (
-          <RtoModal
+        {/* Leaf-level drill modal (RTO for NSY · Agency for RR / MRS /
+            C&D-SCC). Falls back to nothing if the initiative has no
+            leaf level configured. */}
+        {modalCity && leafKind ? (
+          <DrillModal
             state={modalCity.state}
             city={modalCity.city}
+            items={leafItemsForCity(modalCity.city)}
+            leaf={leafKind}
             groups={cityGroups}
             onClose={() => setModalCity(null)}
           />
