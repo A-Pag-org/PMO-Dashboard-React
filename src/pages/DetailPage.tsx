@@ -22,8 +22,7 @@
 //   the city's RTO breakdown.
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import TopBar from '@/components/layout/TopBar';
 import { INITIATIVES, RTO_OPTIONS_BY_CITY } from '@/lib/constants';
 import { getMetricValueForArea } from '@/lib/aggregation';
@@ -56,9 +55,15 @@ const BAR_TRACK = '#E8DACD';
 // ─── Metric grouping ────────────────────────────────────────────────────
 
 interface MetricGroup {
-  /** Either a clustered pair (e.g. Trucks + Buses under "Pre-BS VI converted")
-   *  or a single metric row. */
-  kind: 'cluster' | 'single';
+  /**
+   * 'cluster' — two outcome siblings rendered side-by-side, each with its
+   *             own number + bar (e.g. Trucks | Buses under Pre-BS VI).
+   * 'ratio'   — two progress siblings rendered as a single A/B ratio with
+   *             one bar showing A/B % (e.g. Conducted / Planned under
+   *             Events).
+   * 'single'  — one metric, one number, one bar.
+   */
+  kind: 'cluster' | 'ratio' | 'single';
   /** Display label rendered above the value(s). */
   label: string;
   metrics: Metric[];
@@ -66,34 +71,30 @@ interface MetricGroup {
 
 /**
  * Collapses an initiative's metric list into the row groups rendered in
- * each column. Outcome metrics that share a `cluster` key are merged
- * into a single side-by-side "Trucks | Buses" row (matching the design's
- * "Pre-BS VI converted" headline). Progress / readiness clusters stay
- * as separate single rows so events-conducted and events-planned still
- * read as distinct line items, mirroring the wireframe.
+ * each column. Metrics that share a `cluster` key whose leader carries a
+ * `clusterLabel` are merged: outcome clusters render side-by-side (Trucks
+ * | Buses); progress clusters render as a single A/B ratio (Conducted /
+ * Planned under Events). All other metrics render as standalone rows.
  */
 function groupMetrics(metrics: Metric[]): MetricGroup[] {
-  // Clusters whose leader (the metric carrying clusterLabel / clusterType)
-  // marks them as a side-by-side outcome pair.
-  const outcomeClusterIds = new Set<string>();
+  const labelledClusterIds = new Set<string>();
   for (const m of metrics) {
-    if (m.cluster && m.clusterType === 'outcome') {
-      outcomeClusterIds.add(m.cluster);
-    }
+    if (m.cluster && m.clusterLabel) labelledClusterIds.add(m.cluster);
   }
 
   const groups: MetricGroup[] = [];
   const renderedClusters = new Set<string>();
 
   for (const m of metrics) {
-    if (m.cluster && outcomeClusterIds.has(m.cluster)) {
+    if (m.cluster && labelledClusterIds.has(m.cluster)) {
       if (renderedClusters.has(m.cluster)) continue;
       renderedClusters.add(m.cluster);
       const siblings = metrics.filter((x) => x.cluster === m.cluster);
-      const leader =
-        siblings.find((s) => s.clusterLabel) ?? siblings[0];
+      const leader = siblings.find((s) => s.clusterLabel) ?? siblings[0];
+      const kind: MetricGroup['kind'] =
+        leader.clusterType === 'progress' ? 'ratio' : 'cluster';
       groups.push({
-        kind: 'cluster',
+        kind,
         label: leader.clusterLabel ?? leader.name,
         metrics: siblings,
       });
@@ -203,12 +204,11 @@ interface MetricRowProps {
 }
 
 function MetricRow({ group, area, dense }: MetricRowProps) {
+  // Side-by-side outcome cluster (e.g. Trucks | Buses).
   if (group.kind === 'cluster' && group.metrics.length >= 2) {
     return (
-      <div className={cn('flex flex-col gap-1.5', dense ? 'py-2' : 'py-2.5')}>
-        <div className="text-[11px] font-medium text-[var(--color-text-secondary)] leading-tight">
-          {group.label}
-        </div>
+      <div className={cn('flex flex-col gap-1', dense ? 'py-1.5' : 'py-2')}>
+        <RowLabel text={group.label} />
         <div className="grid grid-cols-2 gap-3">
           {group.metrics.map((m) => {
             const v = metricValue(m, area);
@@ -219,6 +219,7 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
                 denominator={v.denominator}
                 pct={v.pct}
                 subLabel={m.clusterSubLabel ?? null}
+                dense={dense}
               />
             );
           })}
@@ -227,19 +228,58 @@ function MetricRow({ group, area, dense }: MetricRowProps) {
     );
   }
 
+  // Progress ratio cluster (Events → Conducted / Planned).
+  if (group.kind === 'ratio' && group.metrics.length >= 2) {
+    const leader =
+      group.metrics.find((m) => m.clusterLabel) ?? group.metrics[0];
+    const denominatorMetric =
+      group.metrics.find((m) => m !== leader) ?? group.metrics[1];
+    const aL = aggregateForArea(leader, area);
+    const aD = aggregateForArea(denominatorMetric, area);
+    const num = aL.achieved ?? 0;
+    const den = aD.achieved ?? 0;
+    const pct =
+      den > 0
+        ? Math.max(0, Math.min(100, Math.round((num / den) * 100)))
+        : 0;
+    const ratioSubLabel = `${leader.clusterSubLabel ?? leader.name} / ${denominatorMetric.clusterSubLabel ?? denominatorMetric.name}`;
+    return (
+      <div className={cn('flex flex-col gap-1', dense ? 'py-1.5' : 'py-2')}>
+        <RowLabel text={group.label} />
+        <ValueCell
+          big={`${formatNumber(num)} / ${formatNumber(den)}`}
+          denominator={null}
+          pct={pct}
+          subLabel={ratioSubLabel}
+          dense={dense}
+        />
+      </div>
+    );
+  }
+
   const m = group.metrics[0];
   const v = metricValue(m, area);
   return (
-    <div className={cn('flex flex-col gap-1', dense ? 'py-2' : 'py-2.5')}>
-      <div className="text-[11px] font-medium text-[var(--color-text-secondary)] leading-tight">
-        {group.label}
-      </div>
+    <div className={cn('flex flex-col gap-1', dense ? 'py-1.5' : 'py-2')}>
+      <RowLabel text={group.label} />
       <ValueCell
         big={v.big}
         denominator={v.denominator}
         pct={v.pct}
         subLabel={null}
+        dense={dense}
       />
+    </div>
+  );
+}
+
+function RowLabel({ text }: { text: string }) {
+  return (
+    <div
+      className="truncate text-[10.5px] font-medium leading-tight text-[var(--color-text-secondary)]"
+      title={text}
+    >
+      {text}
     </div>
   );
 }
@@ -249,34 +289,53 @@ interface ValueCellProps {
   denominator: string | null;
   pct: number | null;
   subLabel: string | null;
+  dense?: boolean;
 }
 
-function ValueCell({ big, denominator, pct, subLabel }: ValueCellProps) {
+function ValueCell({
+  big,
+  denominator,
+  pct,
+  subLabel,
+  dense,
+}: ValueCellProps) {
   return (
-    <div className="flex flex-col">
-      <div className="text-[22px] font-bold leading-none text-[var(--color-navy)]">
+    <div className="flex flex-col gap-1">
+      <div
+        className={cn(
+          'truncate font-bold leading-none text-[var(--color-navy)]',
+          dense ? 'text-[16px]' : 'text-[20px]',
+        )}
+        title={big}
+      >
         {big}
       </div>
       {pct !== null ? (
         <div
-          className="mt-1.5 h-[3px] w-full overflow-hidden rounded-sm"
+          className="relative h-[12px] w-full overflow-hidden rounded-[2px]"
           style={{ backgroundColor: BAR_TRACK }}
         >
           <div
-            className="h-full"
+            className="absolute inset-y-0 left-0"
             style={{
-              width: `${Math.max(2, Math.min(100, pct))}%`,
+              width: `${Math.max(0, Math.min(100, pct))}%`,
               backgroundColor: BAR_ACCENT,
             }}
           />
+          <span
+            className="absolute inset-0 flex items-center justify-end pr-1.5 text-[9px] font-bold leading-none text-white"
+            style={{ textShadow: '0 0 1.5px rgba(0,0,0,0.45)' }}
+          >
+            {pct}%
+          </span>
         </div>
-      ) : (
-        <div className="mt-1.5 h-[3px]" />
-      )}
+      ) : null}
       {subLabel || denominator ? (
-        <div className="mt-1 flex items-baseline gap-1 text-[10.5px] text-[var(--color-text-secondary)]">
-          {subLabel ? <span className="font-medium">{subLabel}</span> : null}
-          {denominator ? <span>· {denominator}</span> : null}
+        <div className="flex items-baseline gap-1 truncate text-[9.5px] leading-tight text-[var(--color-text-secondary)]">
+          {subLabel ? (
+            <span className="truncate font-medium">{subLabel}</span>
+          ) : null}
+          {denominator ? <span className="truncate">· {denominator}</span> : null}
         </div>
       ) : null}
     </div>
@@ -288,28 +347,26 @@ function ValueCell({ big, denominator, pct, subLabel }: ValueCellProps) {
 interface StateColumnProps {
   state: NcrState;
   groups: MetricGroup[];
-  expanded: boolean;
   expandable: boolean;
   onToggle: () => void;
-  /** When another state is expanded, this column becomes a compact peer. */
-  compact: boolean;
+  /** Some other state is expanded — this column dims out of focus. */
+  dimmed: boolean;
 }
 
 function StateColumn({
   state,
   groups,
-  expanded,
   expandable,
   onToggle,
-  compact,
+  dimmed,
 }: StateColumnProps) {
   const area: AreaScope = { state };
 
   return (
     <div
       className={cn(
-        'flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white',
-        compact && 'opacity-95',
+        'flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white transition-opacity',
+        dimmed && 'opacity-30 hover:opacity-60',
       )}
     >
       <button
@@ -321,26 +378,22 @@ function StateColumn({
             ? 'cursor-pointer hover:bg-[var(--color-surface-grey)]'
             : 'cursor-default',
         )}
-        aria-expanded={expanded}
+        aria-expanded={false}
         aria-label={
-          expandable ? `${expanded ? 'Collapse' : 'Expand'} ${state}` : state
+          expandable ? `Expand ${state}` : state
         }
       >
         <span className="text-[13px] font-semibold text-[var(--color-navy)]">
           {state}
         </span>
         {expandable ? (
-          expanded ? (
-            <ChevronLeft className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
-          ) : (
-            <ChevronRight className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
-          )
+          <ChevronRight className="h-3.5 w-3.5 text-[var(--color-text-secondary)]" />
         ) : null}
       </button>
 
       <div className="flex-1 divide-y divide-[var(--color-border)] px-3">
         {groups.map((g, i) => (
-          <MetricRow key={i} group={g} area={area} dense={compact} />
+          <MetricRow key={i} group={g} area={area} dense={dimmed} />
         ))}
       </div>
     </div>
@@ -365,8 +418,10 @@ function ExpandedState({
   onCityClick,
 }: ExpandedStateProps) {
   return (
-    <div className="flex h-full flex-col rounded-md border border-[var(--color-border)] bg-white">
-      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
+    <div
+      className="flex h-full flex-col rounded-md border-2 border-[var(--color-navy)] bg-white shadow-md ring-2 ring-[#F2EA00]/40"
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[#FFFCE6] px-3 py-2.5">
         <span className="text-[13px] font-semibold text-[var(--color-navy)]">
           {state}
         </span>
@@ -538,7 +593,6 @@ function RtoModal({ state, city, groups, onClose }: RtoModalProps) {
 
 export default function DetailPage() {
   const { initiativeName, setInitiativeName } = useDetailFilters();
-  const navigate = useNavigate();
 
   const init =
     INITIATIVES.find((i) => i.name === initiativeName) ?? INITIATIVES[0];
@@ -572,37 +626,6 @@ export default function DetailPage() {
       <TopBar />
 
       <main className="relative flex flex-1 overflow-hidden">
-        {/* ── Yellow rail (back nav + breadcrumb) ── */}
-        <aside
-          className="relative flex w-[68px] shrink-0 flex-col items-center justify-between border-r border-[#D9CF22] py-4"
-          style={{ backgroundColor: RAIL_YELLOW }}
-        >
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/summary')}
-            className="group flex flex-col items-center gap-1 text-[var(--color-navy)] hover:opacity-80"
-            aria-label="Back to all programmes"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span
-              className="text-[11px] font-bold uppercase tracking-wider"
-              style={{
-                writingMode: 'vertical-rl',
-                transform: 'rotate(180deg)',
-              }}
-            >
-              All programmes
-            </span>
-          </button>
-
-          <div
-            className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-navy)] opacity-80"
-            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-          >
-            {(init.slug === 'naya-safar-yojana' ? 'NSY · ' : '') + init.name}
-          </div>
-        </aside>
-
         {/* ── Main content ── */}
         <div className="flex-1 overflow-auto">
           <div className="flex flex-col gap-4 p-5">
@@ -659,12 +682,9 @@ export default function DetailPage() {
                     key={s}
                     state={s}
                     groups={groups}
-                    expanded={false}
                     expandable={supportsCity}
-                    compact={expandedState !== null}
-                    onToggle={() =>
-                      setExpandedState((prev) => (prev === s ? null : s))
-                    }
+                    dimmed={expandedState !== null}
+                    onToggle={() => setExpandedState(s)}
                   />
                 );
               })}
