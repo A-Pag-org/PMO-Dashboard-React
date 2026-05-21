@@ -491,9 +491,16 @@ function ExpandedState({
   );
 }
 
-// ─── NCR aggregate top bar ──────────────────────────────────────────────
+// ─── Top aggregate bar (NCR or selected state) ──────────────────────────
 
-function NcrAggregateBar({ groups }: { groups: MetricGroup[] }) {
+interface AggregateBarProps {
+  title: string;
+  subtitle: string;
+  area: AreaScope;
+  groups: MetricGroup[];
+}
+
+function AggregateBar({ title, subtitle, area, groups }: AggregateBarProps) {
   return (
     <div
       className="rounded-md border border-[#D9CF22] px-4 py-4 shadow-sm"
@@ -501,21 +508,26 @@ function NcrAggregateBar({ groups }: { groups: MetricGroup[] }) {
     >
       <div className="mb-3 flex items-center gap-3">
         <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--color-navy)]">
-          DELHI NCR
+          {title}
         </span>
         <span className="h-px flex-1 bg-[var(--color-navy)] opacity-20" />
         <span className="text-[11px] font-medium text-[var(--color-navy)] opacity-70">
-          Overall status across all four states
+          {subtitle}
         </span>
       </div>
       <div
-        className="grid gap-x-5 gap-y-2"
+        // Thin vertical dividers between metric groups so the eye can
+        // count the columns at a glance, especially when one of the
+        // labels is long enough to wrap into the adjacent cell's space.
+        className="grid divide-x divide-[var(--color-navy)]/15"
         style={{
           gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))`,
         }}
       >
         {groups.map((g, i) => (
-          <MetricRow key={i} group={g} area={{}} dense />
+          <div key={i} className={cn('px-3', i === 0 && 'pl-0')}>
+            <MetricRow group={g} area={area} dense />
+          </div>
         ))}
       </div>
     </div>
@@ -633,19 +645,35 @@ export default function DetailPage() {
     if (next) setInitiativeName(next.name);
   };
 
-  // Column widths: when a state is expanded it gets 3fr, others stay 1fr.
+  // Column widths: when a state is expanded, peer states drop to a
+  // narrow fixed width so the selected column gets the rest of the row
+  // and can fit all labels on a single line. Default view = 4 equal cols.
   const gridTemplate = expandedState
-    ? NCR_STATES.map((s) => (s === expandedState ? '3fr' : '1fr')).join(' ')
+    ? NCR_STATES.map((s) => (s === expandedState ? '1fr' : '112px')).join(' ')
     : 'repeat(4, minmax(0, 1fr))';
+
+  // The top yellow bar mirrors the selected state's aggregate when one
+  // is expanded, otherwise it shows the NCR-wide totals.
+  const aggregate = expandedState
+    ? {
+        title: expandedState.toUpperCase(),
+        subtitle: `Overall status across all cities in ${expandedState}`,
+        area: { state: expandedState } as AreaScope,
+      }
+    : {
+        title: 'DELHI NCR',
+        subtitle: 'Overall status across all four states',
+        area: {} as AreaScope,
+      };
 
   return (
     <div className="flex h-screen flex-col" style={{ backgroundColor: SURFACE }}>
       <TopBar />
 
-      <main className="relative flex flex-1 overflow-hidden">
-        {/* ── Main content ── */}
+      <main className="relative flex flex-1 flex-col overflow-hidden">
+        {/* ── Scrollable content ── */}
         <div className="flex-1 overflow-auto">
-          <div className="flex flex-col gap-4 p-5">
+          <div className="flex flex-col gap-4 p-5 pb-3">
             {/* Initiative dropdown */}
             <div className="flex items-center gap-3">
               <label
@@ -671,8 +699,13 @@ export default function DetailPage() {
               </div>
             </div>
 
-            {/* DELHI NCR aggregate */}
-            <NcrAggregateBar groups={groups} />
+            {/* Aggregate yellow bar (NCR or selected state) */}
+            <AggregateBar
+              title={aggregate.title}
+              subtitle={aggregate.subtitle}
+              area={aggregate.area}
+              groups={groups}
+            />
 
             {/* State columns */}
             <div
@@ -706,13 +739,18 @@ export default function DetailPage() {
                 );
               })}
             </div>
-
-            {/* Completion-threshold legend (spec §8 colour bands). */}
-            <div className="flex justify-end pt-1">
-              <CompletionThresholdsLegend />
-            </div>
           </div>
         </div>
+
+        {/* Sticky completion-threshold legend (spec §8 colour bands). */}
+        <footer className="shrink-0 border-t border-[var(--color-border)] bg-white px-5 py-2.5">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[10.5px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+              Completion bands
+            </span>
+            <CompletionThresholdsLegend />
+          </div>
+        </footer>
 
         {/* RTO modal */}
         {modalCity ? (
