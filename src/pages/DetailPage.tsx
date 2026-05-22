@@ -872,7 +872,17 @@ export default function DetailPage() {
                   style={{ backgroundColor: NAVY_PILL }}
                 >
                   {INITIATIVES.map((i) => (
-                    <option key={i.slug} value={i.slug} className="text-[var(--color-navy)]">
+                    // Force a white background + navy text on every
+                    // <option> so the open list reverts to the
+                    // pre-pill appearance. Native <option> chrome
+                    // inherits its bg from the parent <select> in
+                    // most browsers (Chrome/Edge especially), which
+                    // would otherwise paint the whole list navy.
+                    <option
+                      key={i.slug}
+                      value={i.slug}
+                      style={{ backgroundColor: '#FFFFFF', color: '#1A2B4A' }}
+                    >
                       {i.name}
                     </option>
                   ))}
@@ -926,28 +936,27 @@ export default function DetailPage() {
                     />
                   );
                 }
-                // Delhi is both a state and its own city. For agency-mode
-                // initiatives (Road Repair / MRS / C&D-SCC) we skip the
+                // Delhi is both a state and its own city. Whenever an
+                // initiative has a leaf level below city (RTO for NSY,
+                // Agency for Road Repair / MRS / C&D-SCC) we skip the
                 // pointless 1-city expand step and drill straight into
-                // the Agency modal with city = 'Delhi'. Other states
-                // take the standard city-list expansion path.
+                // the leaf-level modal with city = 'Delhi'. Other
+                // states take the standard city-list expansion path.
                 const cities = STATE_CITIES[s];
-                const isDelhiAgencyShortcut =
+                const isDelhiLeafShortcut =
                   s === 'Delhi' &&
-                  leafKind === 'agency' &&
+                  leafKind !== null &&
                   cities.length === 1 &&
                   cityHasLeafItems(cities[0]);
-                const clickable = supportsCity || isDelhiAgencyShortcut;
+                const clickable = supportsCity || isDelhiLeafShortcut;
                 const helpText = !clickable
                   ? undefined
-                  : isDelhiAgencyShortcut
-                    ? 'Click to enter agency level'
-                    : leafKind === 'agency'
-                      ? 'Click to enter city level'
-                      : leafKind === 'rto'
-                        ? 'Click to enter city level'
-                        : 'Click to enter city level';
-                const onClick = isDelhiAgencyShortcut
+                  : isDelhiLeafShortcut
+                    ? leafKind === 'rto'
+                      ? 'Click to enter RTO level'
+                      : 'Click to enter agency level'
+                    : 'Click to enter city level';
+                const onClick = isDelhiLeafShortcut
                   ? () => setModalCity({ state: s, city: cities[0] })
                   : () => setExpandedState(s);
                 return (

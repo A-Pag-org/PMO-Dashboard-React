@@ -88,21 +88,12 @@ function buildAggregateCells(state: StateName | null): AggregateCell[] {
   ).filter((c): c is number => c !== null);
 
   const total = completions.length;
-  const avg = total > 0
-    ? Math.round(completions.reduce((s, c) => s + c, 0) / total)
-    : 0;
   const onTrack = completions.filter((c) => c >= 60).length;
   const atRisk = completions.filter((c) => c < 30).length;
   const onTrackPct = total > 0 ? Math.round((onTrack / total) * 100) : 0;
   const atRiskPct = total > 0 ? Math.round((atRisk / total) * 100) : 0;
 
   return [
-    {
-      label: 'Average completion',
-      big: `${avg}%`,
-      caption: `Across ${total} initiative${total === 1 ? '' : 's'}`,
-      pct: avg,
-    },
     {
       label: 'Initiatives on track',
       big: `${onTrack} / ${total}`,
