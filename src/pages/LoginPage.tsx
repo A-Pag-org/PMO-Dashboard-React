@@ -47,6 +47,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen">
       {/* ── LEFT HALF — Brand panel ── */}
       <div className="relative hidden flex-1 flex-col items-center justify-center bg-[var(--color-ink)] lg:flex">
+        {/* A-PAG yellow accent stripe */}
+        <div className="absolute left-0 top-0 h-full w-2 bg-[var(--color-accent)]" />
         <div className="px-12 text-center">
           {/* Logo placeholder — swap for the real A-PAG / NCR logo
               asset when one is provided. Dashed border + LOGO label
